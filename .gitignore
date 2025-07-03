@@ -1,2 +1,7 @@
 calibration_graph/sync_hook.py
 /.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
