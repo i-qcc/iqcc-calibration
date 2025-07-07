@@ -9,7 +9,7 @@ import plotly.graph_objects as go
 from matplotlib import pyplot as plt
 import matplotlib
 from qm import QmJob
-from iqcc_research.quam_config.lib.wiring_utils import create_controller_to_qubit_mapping
+from configuration.state_utils.wiring_utils import create_controller_to_qubit_mapping
 import xarray as xr
 
 

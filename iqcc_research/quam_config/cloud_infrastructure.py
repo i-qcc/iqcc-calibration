@@ -39,6 +39,13 @@ class CloudJob:
     def __init__(self, run_data: dict):
         self._run_data = run_data
         self.result_handles = CloudResultHandles(self._run_data['result'])
+    
+    def execution_report(self):
+        """
+        This is a placeholder for the execution_report method to not break api of qualibration_libs (which does not assumes cloud results object).
+        It is used to display the execution report.
+        """
+        return None
 
 
 class CloudResultHandles:
@@ -72,3 +79,10 @@ class CloudResult:
 
     def wait_for_values(self, *args):
         pass
+    
+    def count_so_far(self):
+        """
+        This is a placeholder for the count_so_far method to not break api of qualibration_libs (which does not assumes cloud results object).
+        It is used to check if the job is processing.
+        """
+        return None
