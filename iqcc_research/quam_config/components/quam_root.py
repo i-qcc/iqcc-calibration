@@ -1,7 +1,7 @@
 import os
 import warnings
 from pathlib import Path
-from quam.core import QuamRoot, quam_dataclass
+from quam.core import quam_dataclass
 from quam.components.octave import Octave
 from quam.components.ports import (
     LFFEMAnalogOutputPort,
@@ -25,36 +25,17 @@ from dataclasses import field
 from typing import List, Dict, ClassVar, Any, Optional, Sequence, Union
 from ..cloud_infrastructure import CloudQuantumMachinesManager
 
+from quam_builder.architecture.superconducting.qpu import FluxTunableQuam
+
 __all__ = ["Quam", "FEMQuAM", "OPXPlusQuAM"]
 
 
 @quam_dataclass
-class Quam(QuamRoot):
-    """Example Quam root component."""
-
-    octaves: Dict[str, Octave] = field(default_factory=dict)
-
-    qubits: Dict[str, Transmon] = field(default_factory=dict)
-    qubit_pairs: Dict[str, TransmonPair] = field(default_factory=dict)
-    wiring: dict = field(default_factory=dict)
-    network: dict = field(default_factory=dict)
-
-    active_qubit_names: List[str] = field(default_factory=list)
-    active_qubit_pair_names: List[str] = field(default_factory=list)
+class Quam(FluxTunableQuam):
+    """Example Quam root component with enhanced functionality."""
 
     _data_handler: ClassVar[DataHandler | None] = None
-    qmm: ClassVar[QuantumMachinesManager | None] = None
 
-    @classmethod
-    def get_serialiser(cls) -> JSONSerialiser:
-        """Get the serialiser for the QuamRoot class, which is the JSONSerialiser.
-
-        This method can be overridden by subclasses to provide a custom serialiser.
-        """
-        return JSONSerialiser(
-            content_mapping={"wiring": "wiring.json", "network": "wiring.json"}
-        )
-    
     @classmethod
     def load(cls, *args, **kwargs) -> "Quam":
         if not args:
@@ -87,96 +68,6 @@ class Quam(QuamRoot):
             self._data_handler = DataHandler(root_data_folder=self.network["data_folder"])
             DataHandler.node_data = {"quam": "./state.json"}
         return self._data_handler
-
-    @property
-    def active_qubits(self) -> List[Transmon]:
-        """Return the list of active qubits."""
-        return [self.qubits[q] for q in self.active_qubit_names]
-
-    @property
-    def active_qubit_pairs(self) -> List[TransmonPair]:
-        """Return the list of active qubits."""
-        return [self.qubit_pairs[q] for q in self.active_qubit_pair_names]
-
-    @property
-    def depletion_time(self) -> int:
-        """Return the longest depletion time amongst the active qubits."""
-        return max(q.resonator.depletion_time for q in self.active_qubits)
-
-    @property
-    def thermalization_time(self) -> int:
-        """Return the longest thermalization time amongst the active qubits."""
-        return max(q.thermalization_time for q in self.active_qubits)
-
-    def apply_all_couplers_to_min(self) -> None:
-        """Apply the offsets that bring all the active qubit pairs to a decoupled point."""
-        for qp in self.active_qubit_pairs:
-            if qp.coupler is not None:
-                qp.coupler.to_decouple_idle()
-
-    def apply_all_flux_to_joint_idle(self) -> None:
-        """Apply the offsets that bring all the active qubits to the joint sweet spot."""
-        for q in self.active_qubits:
-            if q.z is not None:
-                q.z.to_joint_idle()
-            else:
-                warnings.warn(f"Didn't find z-element on qubit {q.name}, didn't set to joint-idle")
-        for q in self.qubits:
-            if self.qubits[q] not in self.active_qubits:
-                if self.qubits[q].z is not None:
-                    self.qubits[q].z.to_min()
-                else:
-                    warnings.warn(f"Didn't find z-element on qubit {q}, didn't set to min")
-        self.apply_all_couplers_to_min()
-
-    def apply_all_flux_to_min(self) -> None:
-        """Apply the offsets that bring all the active qubits to the minimum frequency point."""
-        for q in self.qubits:
-            if self.qubits[q].z is not None:
-                self.qubits[q].z.to_min()
-            else:
-                warnings.warn(f"Didn't find z-element on qubit {q}, didn't set to min")
-        self.apply_all_couplers_to_min()
-
-    def apply_all_flux_to_zero(self) -> None:
-        """Apply the offsets that bring all the active qubits to the zero bias point."""
-        for q in self.active_qubits:
-            q.z.to_zero()
-        
-        
-    def set_all_fluxes(self, flux_point : str, target : Union[Transmon, TransmonPair], do_align: bool = True) -> float:
-        if flux_point == "independent":
-            assert isinstance(target, Transmon), "Independent flux point is only supported for individual transmons"
-        elif flux_point == "pairwise":
-            assert isinstance(target, TransmonPair), "Pairwise flux point is only supported for transmon pairs"
-        
-        if flux_point == "joint":
-            self.apply_all_flux_to_joint_idle()
-            if isinstance(target, TransmonPair):
-                target_bias =target.mutual_flux_bias
-            else:
-                target_bias = target.z.joint_offset
-        else:
-            self.apply_all_flux_to_min()
-        
-        if flux_point == "independent":
-            target.z.to_independent_idle()
-            target_bias = target.z.independent_offset
-            
-        elif flux_point == "pairwise":
-            target.to_mutual_idle()
-            target_bias = target.mutual_flux_bias
-        
-        if isinstance(target, Transmon):
-            target.z.settle()
-        elif isinstance(target, TransmonPair):
-            target.qubit_control.z.settle()
-            target.qubit_target.z.settle()
-        
-        if do_align:
-            target.align()
-            
-        return target_bias      
 
     def connect(self) -> QuantumMachinesManager:
         """Open a Quantum Machine Manager with the credentials ("host" and "cluster_name") as defined in the network file.

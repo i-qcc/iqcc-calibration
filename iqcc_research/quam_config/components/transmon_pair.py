@@ -1,28 +1,22 @@
-from typing import Dict, Any, Optional, Union, List, Tuple
+from typing import Dict
 from dataclasses import field
 
-from quam.core import QuamComponent, quam_dataclass
-from quam.components.quantum_components.qubit_pair import QubitPair
-from .transmon import Transmon
-from .tunable_coupler import TunableCoupler
-from .gates.two_qubit_gates import TwoQubitGate
+from quam.core import  quam_dataclass
+from quam_builder.architecture.superconducting.qubit_pair.flux_tunable_transmon_pair import FluxTunableTransmonPair
+from iqcc_research.quam_config.components.gates.two_qubit_gates import TwoQubitGate
 from qm.qua import align
 
 __all__ = ["TransmonPair"]
 
 
 @quam_dataclass
-class TransmonPair(QubitPair):
-    id: Union[int, str]
-    qubit_control: Transmon = None
-    qubit_target: Transmon = None
-    coupler: Optional[TunableCoupler] = None
+class TransmonPair(FluxTunableTransmonPair):
+    """
+    Optimized QuAM component for a transmon pair, inheriting from FluxTunableTransmonPair.
+    Only custom methods/fields not present in the base class are defined here.
+    """
     gates: Dict[str, TwoQubitGate] = field(default_factory=dict)
     J2: float = 0
-    detuning: Optional[float] = None # flux amplitude required to bring the qubits to the same energy in V
-    confusion: Optional[List[List[float]]] = None
-    mutual_flux_bias: List[float] = field(default_factory=lambda: [0, 0])
-    extras: Dict[str, Any] = field(default_factory=dict)
 
     @property
     def name(self):
@@ -30,6 +24,7 @@ class TransmonPair(QubitPair):
         return self.id if isinstance(self.id, str) else f"q{self.id}"
     
     def align(self):
+        """Custom align method with Cz gate compensations"""
         channels = [self.qubit_control.xy.name, self.qubit_control.z.name, self.qubit_control.resonator.name, self.qubit_target.xy.name, 
                   self.qubit_target.z.name, self.qubit_target.resonator.name]
         
@@ -42,10 +37,4 @@ class TransmonPair(QubitPair):
                     channels += [compensation["qubit"].xy.name, compensation["qubit"].z.name, compensation["qubit"].resonator.name]
 
         align(*channels)
-
-            
-    def to_mutual_idle(self):
-        """Set the flux bias to the mutual idle offset"""
-        self.qubit_control.z.set_dc_offset(self.mutual_flux_bias[0])
-        self.qubit_target.z.set_dc_offset(self.mutual_flux_bias[1])
             
