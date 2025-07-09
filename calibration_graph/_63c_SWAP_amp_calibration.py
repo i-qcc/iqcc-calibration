@@ -52,7 +52,7 @@ from iqcc_research.quam_config.lib.plot_utils import QubitPairGrid, grid_iter, g
 from scipy.optimize import curve_fit
 from scipy.fft import fft
 import xarray as xr
-from iqcc_research.quam_config.lib.fit import oscillation, fit_oscillation
+from qualibration_libs.analysis.fitting import oscillation, fit_oscillation
 
 # %% {Node_parameters}
 class Parameters(NodeParameters):

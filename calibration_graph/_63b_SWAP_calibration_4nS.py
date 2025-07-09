@@ -57,7 +57,7 @@ from iqcc_research.quam_config.lib.pulses import FluxPulse
 from scipy.fft import fft
 import xarray as xr
 from iqcc_research.quam_config.components.gates.two_qubit_gates import SWAP_Coupler_Gate
-from iqcc_research.quam_config.lib.fit import oscillation_decay_exp, fit_oscillation_decay_exp
+from qualibration_libs.analysis.fitting import oscillation_decay_exp, fit_oscillation_decay_exp
 
 # %% {Node_parameters}
 class Parameters(NodeParameters):

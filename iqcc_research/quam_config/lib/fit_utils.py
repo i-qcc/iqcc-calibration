@@ -51,6 +51,7 @@ def _guess_2_resonators(transmission):
     # frequencies are converted to the bare frequencies using the coupling strength 'J'. Furthermore,
     # a linear fit is done to the upper envelope to account for the possible linear transmission profile.
 
+    from qualibration_libs.analysis.feature_detection import peaks_dips
     first = peaks_dips(transmission.IQ_abs, dim="freq", number=1)
     second = peaks_dips(transmission.IQ_abs, dim="freq", number=2)
     if first.width > second.width:

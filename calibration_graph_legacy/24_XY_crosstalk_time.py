@@ -19,9 +19,9 @@ import numpy as np
 import matplotlib
 from iqcc_research.quam_config.lib.plot_utils import QubitGrid, grid_iter
 from iqcc_research.quam_config.lib.save_utils import fetch_results_as_xarray, load_dataset, save_node
-from iqcc_research.quam_config.lib.fit import fit_oscillation, oscillation
+from qualibration_libs.analysis.fitting import fit_oscillation, oscillation
 from iqcc_research.quam_config.trackable_object import tracked_updates
-from iqcc_research.quam_config.lib.fit import fit_oscillation_decay_exp, oscillation_decay_exp
+from qualibration_libs.analysis.fitting import fit_oscillation_decay_exp, oscillation_decay_exp
 from qualibrate import QualibrationNode, NodeParameters
 from typing import Optional, Literal, List
 from qualang_tools.multi_user import qm_session

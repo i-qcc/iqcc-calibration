@@ -23,51 +23,10 @@ def extract_dict(ds: xr.Dataset, data_var) -> dict:
     return ds[[data_var]].to_dataframe().to_dict()[data_var]
 
 
-def convert_IQ_to_V(da: xr.DataArray, qubits: list[Transmon], IQ_list: list[str] = ("I", "Q")) -> xr.DataArray:
-    """
-    return data array with the 'I' and 'Q' quadratures converted to Volts.
-
-    :param da: the array on which to calculate angle. Assumed to have complex data
-    :type da: xr.DataArray
-    :param qubits: the list of qubits components.
-    :type qubits: list[Transmon]
-    :param IQ_list: the list of data to convert to V e.g. ["I", "Q"].
-    :type IQ_list: list[str]
-    :return: a data array with the same dimensions and coordinates, with a 'I' and 'Q' in Volts
-    :type: xr.DataArray
-    """
-    # Create a xarray with a coordinate 'qubit' and the value is q.resonator.operations["readout"].length
-    readout_lengths = xr.DataArray(
-        [q.resonator.operations["readout"].length for q in qubits], coords=[("qubit", [q.name for q in qubits])]
-    )
-    return da.assign({key: da[key] * 2**12 / readout_lengths for key in IQ_list})
 
 
-def apply_angle(da: xr.DataArray, dim: str, unwrap=True) -> xr.DataArray:
-    """
-    return data array with the angle of complex data calculated along dimension `dim`.
-    Useful when we have IQ data and we want to get the phase of it, usually together with `subtract_slope`.
 
-    :param da: the array on which to calculate angle. Assumed to have complex data
-    :type da: xr.DataArray
-    :param dim: the dimesnsion along which to subtract
-    :type dim: str
-    :param unwrap: whether to unwrap the phase
-    :type unwrap: bool, optional
-    :return: a dataarray with the same dimensions and coordinates, with a linear slope subtrcated along dim
-    :type: xr.DataArray
-    """
-    if unwrap:
 
-        def f(x):
-            return np.unwrap(np.angle(x))
-
-    else:
-
-        def f(x):
-            return np.angle(x)
-
-    return xr.apply_ufunc(f, da, input_core_dims=[[dim]], output_core_dims=[[dim]])
 
 
 def subtract_slope(da: xr.DataArray, dim: str) -> xr.DataArray:
@@ -113,6 +72,7 @@ def unrotate_phase(da: xr.DataArray, dim: str) -> xr.DataArray:
     :rtype: xr.DataArray
     """
     x = da[dim]
+    from qualibration_libs.data.processing import apply_angle
     angle = apply_angle(da, dim).values
 
     def unrotate(arr):

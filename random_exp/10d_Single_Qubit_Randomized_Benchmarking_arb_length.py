@@ -25,7 +25,7 @@ from iqcc_research.quam_config.components import Quam, Transmon
 from iqcc_research.quam_config.macros import qua_declaration, active_reset, readout_state
 from iqcc_research.quam_config.lib.plot_utils import QubitGrid, grid_iter
 from iqcc_research.quam_config.lib.save_utils import fetch_results_as_xarray, load_dataset
-from iqcc_research.quam_config.lib.fit import fit_decay_exp, decay_exp
+from qualibration_libs.analysis.fitting import fit_decay_exp, decay_exp
 from qualang_tools.results import progress_counter, fetching_tool
 from qualang_tools.bakery.randomized_benchmark_c1 import c1_table
 from qualang_tools.multi_user import qm_session

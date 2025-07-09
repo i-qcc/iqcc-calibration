@@ -93,6 +93,7 @@ def cryoscope_frequency(da, stable_time_indices, quad_term=-1, sg_range=3, sg_or
         plt.ylabel("<Y>")
         plt.show()
 
+    from qualibration_libs.data.processing import apply_angle
     angle = apply_angle(da.sel(axis="x") + 1j * da.sel(axis="y"), "time").rename("angle")
     if plot:
         angle.plot()

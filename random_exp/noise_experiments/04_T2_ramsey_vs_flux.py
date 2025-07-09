@@ -33,7 +33,7 @@ import xarray as xr
 import matplotlib
 from iqcc_research.quam_config.lib.plot_utils import QubitGrid, grid_iter
 from iqcc_research.quam_config.lib.save_utils import fetch_results_as_xarray
-from iqcc_research.quam_config.lib.fit import fit_oscillation_decay_exp, oscillation_decay_exp
+from qualibration_libs.analysis.fitting import fit_oscillation_decay_exp, oscillation_decay_exp
 from qualang_tools.multi_user import qm_session
 
 class Parameters(NodeParameters):

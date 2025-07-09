@@ -22,7 +22,7 @@ from qualibrate import QualibrationNode, NodeParameters
 from iqcc_research.quam_config.components import Quam
 from iqcc_research.quam_config.macros import qua_declaration
 from iqcc_research.quam_config.lib.fit_utils import fit_resonator
-from iqcc_research.quam_config.lib.qua_datasets import apply_angle, subtract_slope, convert_IQ_to_V
+from qualibration_libs.data.processing import apply_angle, subtract_slope, convert_IQ_to_V
 from iqcc_research.quam_config.lib.plot_utils import QubitGrid, grid_iter
 from iqcc_research.quam_config.lib.save_utils import fetch_results_as_xarray, load_dataset, get_node_id, save_node
 from qualang_tools.results import progress_counter, fetching_tool

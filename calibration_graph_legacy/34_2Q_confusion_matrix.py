@@ -50,7 +50,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import warnings
 from qualang_tools.bakery import baking
-from iqcc_research.quam_config.lib.fit import fit_oscillation, oscillation, fix_oscillation_phi_2pi
+from qualibration_libs.analysis.fitting import fit_oscillation, oscillation, fix_oscillation_phi_2pi
 from iqcc_research.quam_config.lib.plot_utils import QubitPairGrid, grid_iter, grid_pair_names
 from scipy.optimize import curve_fit
 from iqcc_research.quam_config.components.gates.two_qubit_gates import CZGate

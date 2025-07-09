@@ -40,7 +40,7 @@ import numpy as np
 import matplotlib
 from iqcc_research.quam_config.lib.plot_utils import QubitGrid, grid_iter
 from iqcc_research.quam_config.lib.save_utils import fetch_results_as_xarray
-from iqcc_research.quam_config.lib.fit import fit_oscillation, oscillation
+from qualibration_libs.analysis.fitting import fit_oscillation, oscillation
 
 
 # Class containing tools to help handle units and conversions.

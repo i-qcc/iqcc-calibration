@@ -25,7 +25,7 @@ from datetime import datetime, timezone, timedelta
 from qualibrate import QualibrationNode, NodeParameters
 from iqcc_research.quam_config.components import Quam
 from iqcc_research.quam_config.macros import qua_declaration, active_reset
-from iqcc_research.quam_config.lib.qua_datasets import convert_IQ_to_V
+from qualibration_libs.data.processing import convert_IQ_to_V
 from iqcc_research.quam_config.lib.plot_utils import QubitGrid, grid_iter
 from iqcc_research.quam_config.lib.save_utils import fetch_results_as_xarray, get_node_id, save_node
 from iqcc_research.quam_config.trackable_object import tracked_updates
