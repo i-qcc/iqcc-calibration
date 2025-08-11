@@ -7,12 +7,12 @@
 from datetime import datetime, timezone, timedelta
 from qualibrate import QualibrationNode, NodeParameters
 
-from iqcc_research.quam_config.components import Quam
+from iqcc_calibration_tools.quam_config.components import Quam
 
-from iqcc_research.quam_config.macros import qua_declaration
+from iqcc_calibration_tools.quam_config.macros import qua_declaration
 
-from iqcc_research.quam_config.lib.plot_utils import plot_samples
-from iqcc_research.quam_config.lib.save_utils import fetch_results_as_xarray, get_node_id
+from iqcc_calibration_tools.analysis.plot_utils import plot_samples
+from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, get_node_id
 
 from qualang_tools.results import progress_counter, fetching_tool
 

@@ -1,6 +1,6 @@
 from typing import Dict
 
-from iqcc_research.quam_config.components import FluxLine, Transmon
+from iqcc_calibration_tools.quam_config.components import FluxLine, Transmon
 
 
 def add_transmon_flux_component(transmon: Transmon, wiring_path: str, ports: Dict[str, str]):

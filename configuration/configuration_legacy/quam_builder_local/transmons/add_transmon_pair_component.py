@@ -1,6 +1,6 @@
 from typing import Dict
 
-from iqcc_research.quam_config.components import TransmonPair, TunableCoupler, Quam
+from iqcc_calibration_tools.quam_config.components import TransmonPair, TunableCoupler, Quam
 
 
 def add_transmon_pair_component(machine: Quam, wiring_path: str, ports: Dict[str, str]) -> TransmonPair:

@@ -1,4 +1,4 @@
-from iqcc_research.quam_config.components import Quam
+from iqcc_calibration_tools.quam_config.components import Quam
 
 
 def create_controller_to_qubit_mapping(wiring : dict[dict] = None) -> dict:

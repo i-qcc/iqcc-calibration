@@ -5,14 +5,14 @@ from typing import Union, Dict
 from quam.components import Octave
 
 from qualang_tools.wirer import Connectivity
-from iqcc_research.quam_config.quam_builder.pulses import add_default_transmon_pulses, add_default_transmon_pair_pulses
-from iqcc_research.quam_config.quam_builder.transmons.add_transmon_drive_component import add_transmon_drive_component
-from iqcc_research.quam_config.quam_builder.transmons.add_transmon_flux_component import add_transmon_flux_component
-from iqcc_research.quam_config.quam_builder.transmons.add_transmon_pair_component import add_transmon_pair_component
-from iqcc_research.quam_config.quam_builder.transmons.add_transmon_resonator_component import add_transmon_resonator_component
+from iqcc_calibration_tools.quam_config.quam_builder.pulses import add_default_transmon_pulses, add_default_transmon_pair_pulses
+from iqcc_calibration_tools.quam_config.quam_builder.transmons.add_transmon_drive_component import add_transmon_drive_component
+from iqcc_calibration_tools.quam_config.quam_builder.transmons.add_transmon_flux_component import add_transmon_flux_component
+from iqcc_calibration_tools.quam_config.quam_builder.transmons.add_transmon_pair_component import add_transmon_pair_component
+from iqcc_calibration_tools.quam_config.quam_builder.transmons.add_transmon_resonator_component import add_transmon_resonator_component
 from qualang_tools.wirer.connectivity.wiring_spec import WiringLineType
-from iqcc_research.quam_config.components import OPXPlusQuAM, FEMQuAM, Quam, Transmon
-from iqcc_research.quam_config.quam_builder.wiring.create_wiring import create_wiring
+from iqcc_calibration_tools.quam_config.components import OPXPlusQuAM, FEMQuAM, Quam, Transmon
+from iqcc_calibration_tools.quam_config.quam_builder.wiring.create_wiring import create_wiring
 
 
 def build_quam(machine: Quam, quam_state_path: Union[Path, str], octaves_settings: Dict = {}) -> Quam:

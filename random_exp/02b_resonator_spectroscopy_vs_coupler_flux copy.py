@@ -20,11 +20,11 @@ Before proceeding to the next node:
 
 # %% {Imports}
 from qualibrate import QualibrationNode, NodeParameters
-from iqcc_research.quam_config.components import Quam
-from iqcc_research.quam_config.macros import qua_declaration
+from iqcc_calibration_tools.quam_config.components import Quam
+from iqcc_calibration_tools.quam_config.macros import qua_declaration
 from qualibration_libs.data.processing import convert_IQ_to_V
-from iqcc_research.quam_config.lib.plot_utils import QubitGrid, grid_iter
-from iqcc_research.quam_config.lib.save_utils import fetch_results_as_xarray, load_dataset
+from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
+from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset
 from qualibration_libs.analysis.fitting import fit_oscillation
 from qualang_tools.results import progress_counter, fetching_tool
 from qualang_tools.loops import from_array
@@ -201,7 +201,7 @@ if not node.parameters.simulate:
     # %% {Data_analysis}
 
     # %% {Plotting}
-    from iqcc_research.quam_config.lib.plot_utils import QubitPairGrid, grid_pair_names
+    from iqcc_calibration_tools.analysis.plot_utils import QubitPairGrid, grid_pair_names
     
     grid_names, qubit_pair_names = grid_pair_names(qubit_pairs)
     grid = QubitPairGrid(grid_names, qubit_pair_names)    

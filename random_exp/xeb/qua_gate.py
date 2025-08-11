@@ -7,7 +7,7 @@ import numpy as np
 from typing import Callable, Union, Optional, Tuple, Any, List
 import warnings
 from quam.components import Channel
-from iqcc_research.quam_config.components import Transmon, TransmonPair
+from iqcc_calibration_tools.quam_config.components import Transmon, TransmonPair
 
 
 def _validate_amp_matrix(amp_matrix: Optional[List] = None):

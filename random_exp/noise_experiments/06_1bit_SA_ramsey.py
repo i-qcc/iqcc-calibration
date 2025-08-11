@@ -40,8 +40,8 @@ simulate = node.parameters.simulate
 # from qualang_tools.plot import interrupt_on_close
 # from qualang_tools.loops import from_array
 # from qualang_tools.units import unit
-# from iqcc_research.quam_config.components import QuAM
-# from iqcc_research.quam_config.macros import qua_declaration, active_reset
+# from iqcc_calibration_tools.quam_config.components import QuAM
+# from iqcc_calibration_tools.quam_config.macros import qua_declaration, active_reset
 import xarray as xr
 import xrft
 # import matplotlib.pyplot as plt
@@ -49,16 +49,16 @@ import xrft
 from scipy import signal
 
 # import matplotlib
-# from iqcc_research.quam_config.lib.plot_utils import QubitGrid, grid_iter
-# from iqcc_research.quam_config.lib.save_utils import fetch_results_as_xarray
+# from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
+# from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray
 # from qualibration_libs.analysis.feature_detection import peaks_dips
 
 from qualibrate import QualibrationNode, NodeParameters
-from iqcc_research.quam_config.components import Quam
-from iqcc_research.quam_config.macros import qua_declaration, readout_state, active_reset
+from iqcc_calibration_tools.quam_config.components import Quam
+from iqcc_calibration_tools.quam_config.macros import qua_declaration, readout_state, active_reset
 from qualibration_libs.data.processing import convert_IQ_to_V
-from iqcc_research.quam_config.lib.plot_utils import QubitGrid, grid_iter
-from iqcc_research.quam_config.lib.save_utils import fetch_results_as_xarray, load_dataset
+from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
+from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset
 from qualibration_libs.analysis.fitting import fit_oscillation_decay_exp, oscillation_decay_exp
 from qualang_tools.results import progress_counter, fetching_tool
 from qualang_tools.loops import from_array

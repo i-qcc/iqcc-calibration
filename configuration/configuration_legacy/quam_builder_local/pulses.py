@@ -1,6 +1,6 @@
 from quam.components import pulses
 from qualang_tools.units import unit
-from iqcc_research.quam_config.components import Transmon
+from iqcc_calibration_tools.quam_config.components import Transmon
 import numpy as np
 
 # Class containing tools to help handling units and conversions.

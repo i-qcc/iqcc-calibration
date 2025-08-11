@@ -20,11 +20,11 @@ Next steps before going to the next node:
 
 # %% {Imports}
 from qualibrate import QualibrationNode, NodeParameters
-from iqcc_research.quam_config.components import Quam
-from iqcc_research.quam_config.macros import qua_declaration, readout_state
+from iqcc_calibration_tools.quam_config.components import Quam
+from iqcc_calibration_tools.quam_config.macros import qua_declaration, readout_state
 from qualibration_libs.data.processing import convert_IQ_to_V
-from iqcc_research.quam_config.lib.plot_utils import QubitGrid, grid_iter
-from iqcc_research.quam_config.lib.save_utils import fetch_results_as_xarray, load_dataset
+from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
+from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset
 from qualibration_libs.analysis.fitting import fit_oscillation_decay_exp, oscillation_decay_exp
 from qualang_tools.results import progress_counter, fetching_tool
 from qualang_tools.loops import from_array

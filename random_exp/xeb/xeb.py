@@ -27,7 +27,7 @@ from qiskit.transpiler import CouplingMap
 from qiskit.quantum_info import Statevector
 from qualang_tools.results import DataHandler
 
-from iqcc_research.quam_config.components import Quam, Transmon
+from iqcc_calibration_tools.quam_config.components import Quam, Transmon
 from qm import SimulationConfig, QuantumMachinesManager, generate_qua_script
 from qm.jobs.running_qm_job import RunningQmJob
 from qm.jobs.simulated_job import SimulatedJob

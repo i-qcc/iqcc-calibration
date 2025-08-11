@@ -1,5 +1,5 @@
 [project]
-name = "iqcc_research"
+name = "iqcc_calibration_tools"
 version = "0.1.0"
 description = "calibration, research and integration tools for IQCC"
 readme = "README.md"
@@ -7,7 +7,9 @@ authors = [
     {name = "Tom Dvir", email = "tom.dvir@quantum-machines.co"},
     {name = "Shlomi Matityahu", email = "Shlomi.Matityahu@quantum-machines.co"},
     {name = "Akiva Feintuch", email = "akiva@quantum-machines.co"},    
+    {name = "Arthur Strauss", email = "Arthur.Strauss@quantum-machines.co"},
     {name = "Omrie Ovdat", email = "omrie.ovdat@quantum-machines.co"}
+    
 ]
 license = {text = "BSD-3-Clause"}
 keywords = []
@@ -43,4 +45,4 @@ build-backend = "hatchling.build"
 allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["iqcc_research"]
+packages = ["iqcc_calibration_tools"]

@@ -7,7 +7,7 @@ import xarray as xr
 from qualibrate import QualibrationNode
 from qualibration_libs.data import add_amplitude_and_phase, convert_IQ_to_V
 from qualibration_libs.analysis import peaks_dips
-from iqcc_research.quam_config.instrument_limits import instrument_limits
+from quam_config.instrument_limits import instrument_limits
 
 
 @dataclass

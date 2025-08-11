@@ -1,5 +1,5 @@
 # %%
-from iqcc_research.quam_config.components import Quam
+from iqcc_calibration_tools.quam_config.components import Quam
 from quam_builder_local.machine import build_quam
 
 path = "./quam_state"

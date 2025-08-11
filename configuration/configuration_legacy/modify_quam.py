@@ -1,7 +1,7 @@
 # %%
 import json
 from qualang_tools.units import unit
-from iqcc_research.quam_config.components import Quam
+from iqcc_calibration_tools.quam_config.components import Quam
 from quam_builder_local.machine import save_machine
 import numpy as np
 

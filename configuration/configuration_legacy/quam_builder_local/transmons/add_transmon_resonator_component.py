@@ -1,9 +1,9 @@
 from typing import Dict
 
-from iqcc_research.quam_config.quam_builder.transmons.channel_ports import iq_in_out_channel_ports, mw_in_out_channel_ports
-from iqcc_research.quam_config.quam_builder.transmons.get_digital_outputs import get_digital_outputs
+from iqcc_calibration_tools.quam_config.quam_builder.transmons.channel_ports import iq_in_out_channel_ports, mw_in_out_channel_ports
+from iqcc_calibration_tools.quam_config.quam_builder.transmons.get_digital_outputs import get_digital_outputs
 from qualang_tools.addons.calibration.calibrations import unit
-from iqcc_research.quam_config.components import Transmon, ReadoutResonatorIQ, ReadoutResonatorMW, Quam
+from iqcc_calibration_tools.quam_config.components import Transmon, ReadoutResonatorIQ, ReadoutResonatorMW, Quam
 
 u = unit(coerce_to_integer=True)
 

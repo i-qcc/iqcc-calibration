@@ -1,12 +1,12 @@
-# Refactoring Plan: Remove Duplicate Functions from iqcc_research.quam_config.lib
+# Refactoring Plan: Remove Duplicate Functions from iqcc_calibration_tools.quam_config.lib
 
 ## Overview
 
-This document outlines the plan to remove duplicate functions from `iqcc_research.quam_config.lib` that have identical implementations in the `qualibration_libs` package. This refactoring will eliminate code duplication and ensure consistency across the codebase.
+This document outlines the plan to remove duplicate functions from `iqcc_calibration_tools.quam_config.lib` that have identical implementations in the `qualibration_libs` package. This refactoring will eliminate code duplication and ensure consistency across the codebase.
 
 ## Background
 
-The `iqcc_research.quam_config.lib` module contains several functions that are duplicates of functions available in the `qualibration_libs` package. The `qualibration_libs` implementations are more mature, have better type hints, and are actively maintained. By removing the duplicates and using `qualibration_libs` consistently, we can:
+The `iqcc_calibration_tools.quam_config.lib` module contains several functions that are duplicates of functions available in the `qualibration_libs` package. The `qualibration_libs` implementations are more mature, have better type hints, and are actively maintained. By removing the duplicates and using `qualibration_libs` consistently, we can:
 
 - Reduce code duplication
 - Improve maintainability
@@ -15,12 +15,12 @@ The `iqcc_research.quam_config.lib` module contains several functions that are d
 
 ## Functions to be Removed
 
-### 1. Data Processing Functions (`iqcc_research.quam_config.lib.qua_datasets`)
+### 1. Data Processing Functions (`iqcc_calibration_tools.quam_config.lib.qua_datasets`)
 
 #### `convert_IQ_to_V` ✅ **REMOVED**
 - **Current Usage**: Used in 50+ files across `calibration_graph/`, `calibration_graph_legacy/`, and `random_exp/`
 - **Replacement**: `qualibration_libs.data.processing.convert_IQ_to_V`
-- **Files to Update**: All files importing from `iqcc_research.quam_config.lib.qua_datasets`
+- **Files to Update**: All files importing from `iqcc_calibration_tools.quam_config.lib.qua_datasets`
 - **Benefits**: The qualibration_libs version has better type hints and additional `single_demod` parameter
 
 #### `add_amplitude_and_phase` ✅ **REMOVED**
@@ -35,48 +35,48 @@ The `iqcc_research.quam_config.lib` module contains several functions that are d
 - **Files to Update**: 2+ files
 - **Benefits**: Identical functionality, better maintained
 
-### 2. Analysis Functions (`iqcc_research.quam_config.lib.fit`)
+### 2. Analysis Functions (`iqcc_calibration_tools.analysis.fit`)
 
 #### `fit_decay_exp` ✅ **REMOVED**
 - **Current Usage**: Used in 20+ files across `calibration_graph/` and `calibration_graph_legacy/`
 - **Replacement**: `qualibration_libs.analysis.fitting.fit_decay_exp`
-- **Files to Update**: All files importing from `iqcc_research.quam_config.lib.fit`
+- **Files to Update**: All files importing from `iqcc_calibration_tools.analysis.fit`
 - **Benefits**: Identical functionality, better maintained
 
 #### `fit_oscillation` ✅ **REMOVED**
 - **Current Usage**: Used in 40+ files across `calibration_graph/` and `calibration_graph_legacy/`
 - **Replacement**: `qualibration_libs.analysis.fitting.fit_oscillation`
-- **Files to Update**: All files importing from `iqcc_research.quam_config.lib.fit`
+- **Files to Update**: All files importing from `iqcc_calibration_tools.analysis.fit`
 - **Benefits**: Identical functionality, better maintained
 
 #### `fit_oscillation_decay_exp` ✅ **REMOVED**
 - **Current Usage**: Used in 20+ files across `calibration_graph/` and `calibration_graph_legacy/`
 - **Replacement**: `qualibration_libs.analysis.fitting.fit_oscillation_decay_exp`
-- **Files to Update**: All files importing from `iqcc_research.quam_config.lib.fit`
+- **Files to Update**: All files importing from `iqcc_calibration_tools.analysis.fit`
 - **Benefits**: Identical functionality, better maintained
 
 #### `peaks_dips` ✅ **REMOVED**
 - **Current Usage**: Used in 10+ files across `calibration_graph/` and `calibration_graph_legacy/`
 - **Replacement**: `qualibration_libs.analysis.feature_detection.peaks_dips`
-- **Files to Update**: All files importing from `iqcc_research.quam_config.lib.fit`
+- **Files to Update**: All files importing from `iqcc_calibration_tools.analysis.fit`
 - **Benefits**: Identical functionality, better maintained
 
 #### `decay_exp` ✅ **REMOVED**
 - **Current Usage**: Used in `calibration_graph/` and `calibration_graph_legacy/`
 - **Replacement**: `qualibration_libs.analysis.fitting.decay_exp`
-- **Files to Update**: All files importing from `iqcc_research.quam_config.lib.fit`
+- **Files to Update**: All files importing from `iqcc_calibration_tools.analysis.fit`
 - **Benefits**: Identical functionality, better maintained
 
 #### `oscillation` ✅ **REMOVED**
 - **Current Usage**: Used in `calibration_graph/` and `calibration_graph_legacy/`
 - **Replacement**: `qualibration_libs.analysis.fitting.oscillation`
-- **Files to Update**: All files importing from `iqcc_research.quam_config.lib.fit`
+- **Files to Update**: All files importing from `iqcc_calibration_tools.analysis.fit`
 - **Benefits**: Identical functionality, better maintained
 
 #### `oscillation_decay_exp` ✅ **REMOVED**
 - **Current Usage**: Used in `calibration_graph/` and `calibration_graph_legacy/`
 - **Replacement**: `qualibration_libs.analysis.fitting.oscillation_decay_exp`
-- **Files to Update**: All files importing from `iqcc_research.quam_config.lib.fit`
+- **Files to Update**: All files importing from `iqcc_calibration_tools.analysis.fit`
 - **Benefits**: Identical functionality, better maintained
 
 ## Implementation Plan
@@ -88,8 +88,8 @@ The `iqcc_research.quam_config.lib` module contains several functions that are d
 
 ### Phase 2: Update Import Statements ✅ **COMPLETED**
 1. **Update calibration_graph/ files**:
-   - Replace `from iqcc_research.quam_config.lib.qua_datasets import convert_IQ_to_V` with `from qualibration_libs.data.processing import convert_IQ_to_V`
-   - Replace `from iqcc_research.quam_config.lib.fit import ...` with appropriate `qualibration_libs.analysis` imports
+   - Replace `from iqcc_calibration_tools.quam_config.lib.qua_datasets import convert_IQ_to_V` with `from qualibration_libs.data.processing import convert_IQ_to_V`
+   - Replace `from iqcc_calibration_tools.analysis.fit import ...` with appropriate `qualibration_libs.analysis` imports
 
 2. **Update calibration_graph_legacy/ files**:
    - Same changes as above
@@ -100,12 +100,12 @@ The `iqcc_research.quam_config.lib` module contains several functions that are d
 **Results**: 117 files updated successfully
 
 ### Phase 3: Remove Duplicate Functions ✅ **COMPLETED**
-1. **Remove functions from `iqcc_research/quam_config/lib/qua_datasets.py`**:
+1. **Remove functions from `iqcc_calibration_tools/quam_config/lib/qua_datasets.py`**:
    - `convert_IQ_to_V` ✅
    - `add_amplitude_and_phase` ✅
    - `apply_angle` ✅
 
-2. **Remove functions from `iqcc_research/quam_config/lib/fit.py`**:
+2. **Remove functions from `iqcc_calibration_tools/quam_config/lib/fit.py`**:
    - `fit_decay_exp` ✅
    - `fit_oscillation` ✅
    - `fit_oscillation_decay_exp` ✅
@@ -149,12 +149,12 @@ The `iqcc_research.quam_config.lib` module contains several functions that are d
 
 ### Files Modified (Remove Functions) ✅ **COMPLETED**
 
-#### `iqcc_research/quam_config/lib/qua_datasets.py` ✅
+#### `iqcc_calibration_tools/quam_config/lib/qua_datasets.py` ✅
 - Remove `convert_IQ_to_V` function ✅
 - Remove `add_amplitude_and_phase` function ✅
 - Remove `apply_angle` function ✅
 
-#### `iqcc_research/quam_config/lib/fit.py` ✅
+#### `iqcc_calibration_tools/quam_config/lib/fit.py` ✅
 - Remove `fit_decay_exp` function ✅
 - Remove `fit_oscillation` function ✅
 - Remove `fit_oscillation_decay_exp` function ✅
@@ -168,9 +168,9 @@ The `iqcc_research.quam_config.lib` module contains several functions that are d
 ### Data Processing Functions
 ```python
 # OLD
-from iqcc_research.quam_config.lib.qua_datasets import convert_IQ_to_V
-from iqcc_research.quam_config.lib.qua_datasets import add_amplitude_and_phase
-from iqcc_research.quam_config.lib.qua_datasets import apply_angle
+from iqcc_calibration_tools.quam_config.lib.qua_datasets import convert_IQ_to_V
+from iqcc_calibration_tools.quam_config.lib.qua_datasets import add_amplitude_and_phase
+from iqcc_calibration_tools.quam_config.lib.qua_datasets import apply_angle
 
 # NEW
 from qualibration_libs.data.processing import convert_IQ_to_V
@@ -181,10 +181,10 @@ from qualibration_libs.data.processing import apply_angle
 ### Analysis Functions
 ```python
 # OLD
-from iqcc_research.quam_config.lib.fit import fit_decay_exp, decay_exp
-from iqcc_research.quam_config.lib.fit import fit_oscillation, oscillation
-from iqcc_research.quam_config.lib.fit import fit_oscillation_decay_exp, oscillation_decay_exp
-from iqcc_research.quam_config.lib.fit import peaks_dips
+from iqcc_calibration_tools.analysis.fit import fit_decay_exp, decay_exp
+from iqcc_calibration_tools.analysis.fit import fit_oscillation, oscillation
+from iqcc_calibration_tools.analysis.fit import fit_oscillation_decay_exp, oscillation_decay_exp
+from iqcc_calibration_tools.analysis.fit import peaks_dips
 
 # NEW
 from qualibration_libs.analysis.fitting import fit_decay_exp, decay_exp
@@ -255,7 +255,7 @@ from qualibration_libs.analysis.feature_detection import peaks_dips
 ## Notes
 
 - This refactoring only affects functions that are **exact duplicates** ✅
-- Functions unique to `iqcc_research.quam_config.lib` will remain unchanged ✅
+- Functions unique to `iqcc_calibration_tools.quam_config.lib` will remain unchanged ✅
 - The refactoring maintains backward compatibility in terms of function behavior ✅
 - All existing functionality will be preserved, just using different import paths ✅
 

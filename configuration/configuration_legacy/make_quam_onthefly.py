@@ -5,7 +5,7 @@ from quam import QuamDict
 from quam.components.ports import MWFEMAnalogOutputPort, MWFEMAnalogInputPort
 from quam.components.channels import InOutMWChannel, MWChannel
 from quam.components.pulses import SquarePulse, SquareReadoutPulse
-from iqcc_research.quam_config.components import Quam
+from iqcc_calibration_tools.quam_config.components import Quam
 
 machine = Quam()  # or, QuAM.load() if the state already exists
 

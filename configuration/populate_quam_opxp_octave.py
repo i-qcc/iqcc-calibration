@@ -13,7 +13,7 @@ readout and saturation pulses.
 ########################################################################################################################
 import json
 from qualang_tools.units import unit
-from iqcc_research.quam_config.components.quam_root import Quam
+from iqcc_calibration_tools.quam_config.components.quam_root import Quam
 from quam_builder.builder.superconducting.pulses import add_DragCosine_pulses
 from quam.components.pulses import GaussianPulse
 import numpy as np

@@ -5,11 +5,11 @@ from iqcc_cloud_client import IQCC_Cloud
 import h5py
 from datetime import datetime
 from qualibrate import QualibrationNode, NodeParameters
-from iqcc_research.quam_config.components import Quam
-from iqcc_research.quam_config.macros import qua_declaration, active_reset
-from iqcc_research.quam_config.lib.plot_utils import QubitGrid, grid_iter
-from iqcc_research.quam_config.lib.save_utils import fetch_results_as_xarray, load_dataset, get_node_id
-from iqcc_research.quam_config.trackable_object import tracked_updates
+from iqcc_calibration_tools.quam_config.components import Quam
+from iqcc_calibration_tools.quam_config.macros import qua_declaration, active_reset
+from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
+from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset, get_node_id
+from iqcc_calibration_tools.quam_config.trackable_object import tracked_updates
 from qualang_tools.results import progress_counter, fetching_tool
 from qualang_tools.loops import from_array
 from qualang_tools.multi_user import qm_session
@@ -19,7 +19,7 @@ from qm.qua import *
 from typing import Literal, Optional, List
 import matplotlib.pyplot as plt
 import numpy as np
-from iqcc_research.quam_config.macros import active_reset
+from iqcc_calibration_tools.quam_config.macros import active_reset
 #%%
 quantum_computer_backend = "arbel"  # for example qc_qwfix
 qc = IQCC_Cloud(quantum_computer_backend=quantum_computer_backend)

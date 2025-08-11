@@ -65,7 +65,7 @@ We first provide a class `XEBConfig` that defines the parameters of the experime
     ```python
     from qua_gate import QUAGate
     from qm.qua import play
-    from iqcc_research.quam_config.components import Transmon
+    from iqcc_calibration_tools.quam_config.components import Transmon
     def sx_macro(qubit: Transmon):
         # Insert your macro for implementing your SX gate here, this macro should depend on the qubit provided (here depicted as a Transmon QuAM component).
         qubit.xy.play("sx")
@@ -83,7 +83,7 @@ We first provide a class `XEBConfig` that defines the parameters of the experime
     ```
 - `two_qb_gate`: this is the gate that will be used as the entangling gate in the circuit. The user should specify this gate as a `QUAGate` object, which collects the macro for implementing the two-qubit gate, as well as its logical definition in the circuit for computing its effect in a statevector simulation. All standard gates (CZ, CNOT/CX, iSWAP, SWAP, ECR) are supported through the simple specification of a string depicting the name of the gate (in lowercase). See the example below:
 ```python
-from iqcc_research.quam_config.components import TransmonPair
+from iqcc_calibration_tools.quam_config.components import TransmonPair
 from qua_gate import QUAGate
 def two_qubit_gate_macro(qubit_pair: TransmonPair):
     # Insert your macro for implementing your two qubit gate here, this macro should depend on the input TransmonPair

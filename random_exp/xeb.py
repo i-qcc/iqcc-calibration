@@ -1,7 +1,7 @@
 #%%
 import numpy as np
-from iqcc_research.quam_config.components import Quam, TransmonPair
-from iqcc_research.quam_config.experiments.xeb import (
+from iqcc_calibration_tools.quam_config.components import Quam, TransmonPair
+from iqcc_calibration_tools.quam_config.experiments.xeb import (
     XEBConfig,
     XEB,
     backend as fake_backend,

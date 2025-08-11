@@ -4,7 +4,7 @@ from typing import List, Tuple, Dict, Union
 
 from qiskit.circuit import QuantumCircuit
 from qiskit.converters import circuit_to_dag, dag_to_circuit
-from iqcc_research.quam_config.experiments.rb.rb_utils import EPS
+from iqcc_calibration_tools.quam_config.experiments.rb.rb_utils import EPS
 
 # Gate to integer mapping for single qubit gates
 SINGLE_QUBIT_GATE_MAP = {
