@@ -29,7 +29,7 @@ from iqcc_calibration_tools.qualibrate_config.qualibrate.node import Qualibratio
 from iqcc_calibration_tools.quam_config.components import Quam
 from iqcc_calibration_tools.quam_config.macros import qua_declaration, active_reset
 from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
-from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset, get_node_id, save_node
+from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset
 from qualang_tools.analysis import two_state_discriminator
 from qualang_tools.results import progress_counter, fetching_tool
 from qualang_tools.loops import from_array
@@ -64,7 +64,6 @@ class Parameters(NodeParameters):
 
 
 node = QualibrationNode(name="08d_Readout_Power_And_Depletion_Time_Optimization", parameters=Parameters())
-node_id = get_node_id()
 
 # %% {Initialize_QuAM_and_QOP}
 # Class containing tools to help handling units and conversions
@@ -310,7 +309,7 @@ for ax, qubit in grid_iter(grid):
     ax.set_title(f"{qubit['qubit']}\nBest fidelity: {fidelities.max().values:.3f}")
     plt.colorbar(im, ax=ax)
 
-grid.fig.suptitle(f"Measurement Fidelity vs Readout Amplitude and Depletion Time\n{date_time} GMT+3 #{node_id}")
+grid.fig.suptitle(f"Measurement Fidelity vs Readout Amplitude and Depletion Time\n{date_time} GMT+3 #{node.node_id}")
 plt.tight_layout()
 node.results["figure_fidelity_heatmap"] = grid.fig
 
@@ -364,7 +363,7 @@ for ax, qubit in grid_iter(grid):
     ax.set_title(f"{qn}\nFidelity: {node.results['results'][qn]['fidelity']:.3f}")
 
 ax.legend(loc="center left", bbox_to_anchor=(1, 0.5))
-grid.fig.suptitle(f"IQ Blobs at Optimal Parameters\n{date_time} GMT+3 #{node_id}")
+grid.fig.suptitle(f"IQ Blobs at Optimal Parameters\n{date_time} GMT+3 #{node.node_id}")
 plt.tight_layout()
 node.results["figure_optimal_blobs"] = grid.fig
 

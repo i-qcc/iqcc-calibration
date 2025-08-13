@@ -28,7 +28,7 @@ from iqcc_calibration_tools.quam_config.lib.instrument_limits import instrument_
 from iqcc_calibration_tools.quam_config.macros import qua_declaration
 from iqcc_calibration_tools.quam_config.lib.qua_datasets import convert_IQ_to_V
 from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
-from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset, get_node_id, save_node
+from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset
 from iqcc_calibration_tools.analysis.fit import peaks_dips
 from qualang_tools.results import progress_counter, fetching_tool
 from qualang_tools.loops import from_array
@@ -66,7 +66,6 @@ class Parameters(NodeParameters):
 
 
 node = QualibrationNode(name="03f_Qubit_Spectroscopy_vs_power", parameters=Parameters())
-node_id = get_node_id()
 
 # %% {Initialize_QuAM_and_QOP}
 u = unit(coerce_to_integer=True)
@@ -321,7 +320,7 @@ if not node.parameters.simulate:
         ax.set_ylim(0.98*node.parameters.min_amp, 1.02*node.parameters.max_amp)
         ax.set_title(f'{qubit["qubit"]}')
     
-    grid_2d.fig.suptitle(f"Qubit Spectroscopy vs Power Optimization \n {date_time} GMT+3 #{node_id} \n multiplexed = {node.parameters.multiplexed}")
+    grid_2d.fig.suptitle(f"Qubit Spectroscopy vs Power Optimization \n {date_time} GMT+3 #{node.node_id} \n multiplexed = {node.parameters.multiplexed}")
     plt.tight_layout()
     plt.show()
     
@@ -357,7 +356,7 @@ if not node.parameters.simulate:
             ax.set_xlim(freq_ghz[max(0, peak_idx - width_pts)], 
                         freq_ghz[min(len(freq_ghz)-1, peak_idx + width_pts)])
     
-    grid_slice.fig.suptitle(f"Qubit Spectroscopy vs Power Optimization \n {date_time} GMT+3 #{node_id} \n multiplexed = {node.parameters.multiplexed}")
+    grid_slice.fig.suptitle(f"Qubit Spectroscopy vs Power Optimization \n {date_time} GMT+3 #{node.node_id} \n multiplexed = {node.parameters.multiplexed}")
     plt.tight_layout()
     plt.show()
     

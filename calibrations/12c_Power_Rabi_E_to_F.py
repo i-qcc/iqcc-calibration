@@ -25,7 +25,7 @@ from quam.components import pulses
 from iqcc_calibration_tools.quam_config.components import Quam
 from iqcc_calibration_tools.quam_config.macros import qua_declaration
 from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
-from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, get_node_id, save_node
+from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray
 from iqcc_calibration_tools.analysis.fit import fit_oscillation, oscillation
 from qualang_tools.results import progress_counter, fetching_tool
 from qualang_tools.loops import from_array
@@ -53,7 +53,6 @@ class Parameters(NodeParameters):
     timeout: int = 100
 
 node = QualibrationNode(name="12c_Power_Rabi_E_to_F", parameters=Parameters())
-node_id = get_node_id()
 
 # %% {Initialize_QuAM_and_QOP}
 # Class containing tools to help handling units and conversions.
@@ -244,7 +243,7 @@ if not node.parameters.simulate:
         ax.set_ylabel("Trans. amp. I [mV]")
         ax.set_xlabel("Amplitude [mV]")
         ax.set_title(qubit["qubit"])
-    grid.fig.suptitle(f"EF Rabi : sqrt(I^2 + Q^2) vs. amplitude \n {date_time} GMT+3 #{node_id}")
+    grid.fig.suptitle(f"EF Rabi : sqrt(I^2 + Q^2) vs. amplitude \n {date_time} GMT+3 #{node.node_id}")
     plt.tight_layout()
     plt.show()
     node.results["figure"] = grid.fig

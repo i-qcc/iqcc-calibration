@@ -23,7 +23,7 @@ from iqcc_calibration_tools.qualibrate_config.qualibrate.node import Qualibratio
 from iqcc_calibration_tools.quam_config.components import Quam
 from iqcc_calibration_tools.quam_config.macros import qua_declaration, active_reset
 from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
-from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset, get_node_id, save_node
+from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset
 from qualang_tools.results import progress_counter, fetching_tool
 from qualang_tools.loops import from_array
 from qualang_tools.multi_user import qm_session
@@ -55,7 +55,6 @@ class Parameters(NodeParameters):
 
 
 node = QualibrationNode(name="10e_axis_angle_optimization", parameters=Parameters())
-node_id = get_node_id()
 
 # %% {Initialize_QuAM_and_QOP}
 # Class containing tools to help handling units and conversions.
@@ -264,7 +263,7 @@ if not node.parameters.simulate:
         ax.set_title(f"{qubit['qubit']} @ opt relative angle={min_angle_val:.2f} rad")
 
     grid.fig.suptitle(
-        f"Axis angle calibration - 2D map \n {date_time} GMT+3 #{node_id} \n multiplexed = {node.parameters.multiplexed} reset Type = {node.parameters.reset_type_thermal_or_active}"
+        f"Axis angle calibration - 2D map \n {date_time} GMT+3 #{node.node_id} \n multiplexed = {node.parameters.multiplexed} reset Type = {node.parameters.reset_type_thermal_or_active}"
     )
     
     plt.tight_layout()
@@ -288,10 +287,10 @@ if not node.parameters.simulate:
         ax.legend(loc="upper right", fontsize=6)
 
     grid_1d.fig.suptitle(
-        f"Axis angle calibration - 1D average \n {date_time} GMT+3 #{node_id} \n multiplexed = {node.parameters.multiplexed} reset Type = {node.parameters.reset_type_thermal_or_active}"
+        f"Axis angle calibration - 1D average \n {date_time} GMT+3 #{node.node_id} \n multiplexed = {node.parameters.multiplexed} reset Type = {node.parameters.reset_type_thermal_or_active}"
     )
     grid_opt_meas.fig.suptitle(
-        f"Measurement vs amp len @ optimal angle \n {date_time} GMT+3 #{node_id} \n multiplexed = {node.parameters.multiplexed} reset Type = {node.parameters.reset_type_thermal_or_active}"
+        f"Measurement vs amp len @ optimal angle \n {date_time} GMT+3 #{node.node_id} \n multiplexed = {node.parameters.multiplexed} reset Type = {node.parameters.reset_type_thermal_or_active}"
     )
     plt.tight_layout()
     plt.show()

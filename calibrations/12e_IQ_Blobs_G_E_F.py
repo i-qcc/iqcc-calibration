@@ -26,7 +26,7 @@ from iqcc_calibration_tools.qualibrate_config.qualibrate.node import Qualibratio
 from iqcc_calibration_tools.quam_config.components import Quam
 from iqcc_calibration_tools.quam_config.macros import qua_declaration, active_reset_gef
 from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
-from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, get_node_id, save_node
+from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset
 from qualang_tools.results import progress_counter, fetching_tool
 from qualang_tools.multi_user import qm_session
 from qualang_tools.units import unit
@@ -53,7 +53,6 @@ class Parameters(NodeParameters):
 
 
 node = QualibrationNode(name="12e_IQ_Blobs_G_E_F", parameters=Parameters())
-node_id = get_node_id()
 
 
 # %% {Initialize_QuAM_and_QOP}
@@ -344,7 +343,7 @@ if not node.parameters.simulate:
         ax.set_title(qubit["qubit"])
 
     ax.legend(loc="center left", bbox_to_anchor=(1, 0.5))
-    grid.fig.suptitle(f"g.s. and e.s. discriminators (rotated) \n {date_time} GMT+3 #{node_id} \n multiplexed = {node.parameters.multiplexed}")
+    grid.fig.suptitle(f"g.s. and e.s. discriminators (rotated) \n {date_time} GMT+3 #{node.node_id} \n multiplexed = {node.parameters.multiplexed}")
     plt.tight_layout()
     node.results["figure_IQ_blobs"] = grid.fig
     plt.show()
@@ -370,7 +369,7 @@ if not node.parameters.simulate:
                 )
         ax.set_title(qubit["qubit"])
 
-    grid.fig.suptitle(f"g.s. and e.s. fidelity \n {date_time} GMT+3 #{node_id} \n multiplexed = {node.parameters.multiplexed}")
+    grid.fig.suptitle(f"g.s. and e.s. fidelity \n {date_time} GMT+3 #{node.node_id} \n multiplexed = {node.parameters.multiplexed}")
     plt.tight_layout()
     plt.show()
     node.results["figure_fidelity"] = grid.fig

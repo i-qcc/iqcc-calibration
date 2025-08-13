@@ -33,7 +33,7 @@ from iqcc_calibration_tools.qualibrate_config.qualibrate.node import Qualibratio
 from iqcc_calibration_tools.quam_config.components import Quam
 from iqcc_calibration_tools.quam_config.macros import qua_declaration
 from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
-from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset, get_node_id, save_node
+from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset
 from iqcc_calibration_tools.analysis.fit import peaks_dips
 from qualang_tools.results import progress_counter, fetching_tool
 from qualang_tools.loops import from_array
@@ -65,7 +65,6 @@ class Parameters(NodeParameters):
 
 
 node = QualibrationNode(name="12a_Qubit_Spectroscopy_E_to_F", parameters=Parameters())
-node_id = get_node_id()
 
 
 # %% {Initialize_QuAM_and_QOP}
@@ -259,7 +258,7 @@ if not node.parameters.simulate:
         ax.set_xlabel("Detuning [MHz]")
         ax.set_ylabel("Trans. amp. [mV]")
         ax.set_title(qubit["qubit"])
-    grid.fig.suptitle(f"Qubit spectroscopy (E-F) \n {date_time} GMT+3 #{node_id} \n multiplexed = {node.parameters.multiplexed}")
+    grid.fig.suptitle(f"Qubit spectroscopy (E-F) \n {date_time} GMT+3 #{node.node_id} \n multiplexed = {node.parameters.multiplexed}")
     plt.tight_layout()
     plt.show()
     node.results["figure"] = grid.fig

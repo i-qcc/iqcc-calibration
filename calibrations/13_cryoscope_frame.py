@@ -21,7 +21,7 @@ from qualang_tools.loops import from_array
 
 import matplotlib
 from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
-from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, get_node_id, save_node
+from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray
 import xarray as xr
 from scipy.optimize import curve_fit, minimize
 from scipy.signal import deconvolve, lfilter, convolve
@@ -49,7 +49,6 @@ node = QualibrationNode(
     name="13_cryoscope_frame",
     parameters=Parameters()
 )
-node_id = get_node_id()
 
 # %% {Initialize_QuAM_and_QOP}
 # Class containing tools to help handling units and conversions.
@@ -327,24 +326,24 @@ ds = extract_flux(ds)
 print('\033[1m\033[32m PLOT STATE, PHASE, FREQUENCY, AND FLUX \033[0m')
 ds.state.sel(frame = 0).plot()
 node.results['figure1'] = plt.gcf()
-plt.title(f'state vs time \n {date_time} GMT+3 #{node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
+plt.title(f'state vs time \n {date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
 plt.show()
 
 ds.phase.plot()
 node.results['figure2'] = plt.gcf()
-plt.title(f'phase vs time \n {date_time} GMT+3 #{node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
+plt.title(f'phase vs time \n {date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
 plt.show()
 
 # d phase / dt = frequency
 ds.frequencies.plot()
 node.results['figure3'] = plt.gcf()
-plt.title(f'frequency vs time \n {date_time} GMT+3 #{node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
+plt.title(f'frequency vs time \n {date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
 plt.show()
 
 # flux obtain from quad parameter fitting from parabolic qubit spec vs flux
 ds.flux.plot()
 node.results['figure4'] = plt.gcf()
-plt.title(f'flux vs time \n {date_time} GMT+3 #{node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
+plt.title(f'flux vs time \n {date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
 plt.show()
 
 # %% {data analysis - setting rise and drop indices}
@@ -364,7 +363,7 @@ if not node.parameters.simulate:
 
     f,axs = plt.subplots(2)
     flux_cryoscope_q.plot(ax = axs[0])
-    axs[0].set_title(f'flux vs time - {qubit.name} \n {date_time} GMT+3 #{node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
+    axs[0].set_title(f'flux vs time - {qubit.name} \n {date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
     axs[0].axvline(rise_index, color='r', lw = 0.5, ls = '--')
     axs[0].axvline(drop_index, color='r', lw = 0.5, ls = '--')
     axs[0].set_xlabel('')
@@ -427,7 +426,7 @@ if not node.parameters.simulate and not node.parameters.only_FIR: # exponential 
         
         plt.axvline(x=exponential_fit_time_interval[0], color='red', linestyle='--', label='Exponential Fit Time Interval')
         plt.axvline(x=exponential_fit_time_interval[1], color='red', linestyle='--')
-        plt.title(f'Exponential Fit - {qubit.name} \n {date_time} GMT+3 #{node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
+        plt.title(f'Exponential Fit - {qubit.name} \n {date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
         plt.legend()
         plt.show()
 
@@ -457,7 +456,7 @@ if not node.parameters.simulate and not node.parameters.only_FIR: # exponential 
         ax.legend()
         ax.set_xlabel('time (ns)')
         ax.set_ylabel('flux')
-        ax.set_title(f'Filtered Response - {qubit.name} \n {date_time} GMT+3 #{node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
+        ax.set_title(f'Filtered Response - {qubit.name} \n {date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
         plt.show()
         node.results['figure6'] = plt.gcf()
 
@@ -500,7 +499,7 @@ if not node.parameters.simulate:
         plt.axhline(final_vals*1.001, color = 'k')
         plt.axhline(final_vals*0.999, color = 'k')
         plt.ylim([final_vals*0.95,final_vals*1.05])
-        plt.title(f'Filtered Response - {qubit.name} \n {date_time} GMT+3 #{node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
+        plt.title(f'Filtered Response - {qubit.name} \n {date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
         plt.legend()
         plt.show()
 
@@ -556,7 +555,7 @@ if not node.parameters.simulate:
     ax.legend()
     ax.set_xlabel('time (ns)')
     ax.set_ylabel('normalized amplitude')
-    ax.set_title(f'Final Results - {qubit.name} \n {date_time} GMT+3 #{node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
+    ax.set_title(f'Final Results - {qubit.name} \n {date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
     node.results['figure6'] = fig
 # elif not node.parameters.simulate:
 #     fig,ax = plt.subplots()

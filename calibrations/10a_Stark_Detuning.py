@@ -27,7 +27,7 @@ from iqcc_calibration_tools.quam_config.components import Quam
 from iqcc_calibration_tools.quam_config.macros import qua_declaration, active_reset
 from iqcc_calibration_tools.quam_config.lib.qua_datasets import convert_IQ_to_V
 from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
-from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, get_node_id, load_dataset, save_node
+from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset
 from iqcc_calibration_tools.quam_config.trackable_object import tracked_updates
 from qualang_tools.results import progress_counter, fetching_tool
 from qualang_tools.loops import from_array
@@ -49,7 +49,7 @@ class Parameters(NodeParameters):
     frequency_step_in_mhz: float = 0.05
     max_number_pulses_per_sweep: int = 20
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
-    reset_type_thermal_or_active: Literal["thermal", "active"] = "active"
+    reset_type_thermal_or_active: Literal["thermal", "active"] = "thermal"
     DRAG_setpoint: Optional[float] = None
     simulate: bool = False
     simulation_duration_ns: int = 2500
@@ -58,7 +58,6 @@ class Parameters(NodeParameters):
     multiplexed: bool = True
 
 node = QualibrationNode(name="10a_Stark_Detuning", parameters=Parameters())
-node_id = get_node_id()
 
 # %% {Initialize_QuAM_and_QOP}
 # Class containing tools to help handling units and conversions.
@@ -225,7 +224,7 @@ if not node.parameters.simulate:
         ax.set_ylabel("num. of pulses")
         ax.set_xlabel("detuning [MHz]")
         ax.set_title(qubit["qubit"])
-    grid.fig.suptitle(f"Stark detuning \n {date_time} GMT+3 #{node_id} \n multiplexed = {node.parameters.multiplexed} reset type = {node.parameters.reset_type_thermal_or_active}")
+    grid.fig.suptitle(f"Stark detuning \n {date_time} GMT+3 #{node.node_id} \n multiplexed = {node.parameters.multiplexed} reset type = {node.parameters.reset_type_thermal_or_active}")
     plt.tight_layout()
     plt.show()
     node.results["figure"] = grid.fig

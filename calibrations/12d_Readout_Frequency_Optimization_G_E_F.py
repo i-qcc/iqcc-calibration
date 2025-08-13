@@ -22,7 +22,7 @@ Next steps before going to the next node:
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
 from iqcc_calibration_tools.quam_config.components import Quam
 from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
-from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, get_node_id, save_node
+from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset
 from qualang_tools.results import progress_counter, fetching_tool
 from qualang_tools.loops import from_array
 from qualang_tools.multi_user import qm_session
@@ -50,7 +50,6 @@ class Parameters(NodeParameters):
 node = QualibrationNode(
     name="12d_Readout_Frequency_Optimization_G_E_F", parameters=Parameters()
 )
-node_id = get_node_id()
 
 
 # %% {Initialize_QuAM_and_QOP}
@@ -273,7 +272,7 @@ if not node.parameters.simulate:
         ax.set_xlabel("Frequency [MHz]")
         ax.set_ylabel("Distance between IQ blobs [m.v.]")
         ax.legend()
-    grid.fig.suptitle(f"Maximal difference between g.e.f. resonance \n {date_time} GMT+3 #{node_id}")
+    grid.fig.suptitle(f"Maximal difference between g.e.f. resonance \n {date_time} GMT+3 #{node.node_id}")
     plt.tight_layout()
     plt.show()
     node.results["figure"] = grid.fig
@@ -292,7 +291,7 @@ if not node.parameters.simulate:
         ax.set_xlabel("Frequency [MHz]")
         ax.set_ylabel("Resonator response [mV]")
         ax.legend()
-    grid.fig.suptitle(f"{date_time} #{node_id}")
+    grid.fig.suptitle(f"{date_time} #{node.node_id}")
     plt.tight_layout()
     plt.show()
     node.results["figure2"] = grid.fig

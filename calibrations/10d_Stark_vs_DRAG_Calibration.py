@@ -27,7 +27,7 @@ from iqcc_calibration_tools.quam_config.components import Quam
 from iqcc_calibration_tools.quam_config.macros import qua_declaration, active_reset
 from iqcc_calibration_tools.quam_config.lib.qua_datasets import convert_IQ_to_V
 from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
-from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, get_node_id, save_node
+from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset
 from iqcc_calibration_tools.quam_config.trackable_object import tracked_updates
 from qualang_tools.results import progress_counter, fetching_tool
 from qualang_tools.loops import from_array
@@ -68,7 +68,6 @@ class Parameters(NodeParameters):
     use_state_discrimination: bool = True
 
 node = QualibrationNode(name="10d_Stark_DRAG_2D_Calibration", parameters=Parameters())
-node_id = get_node_id()
 
 # %% {Initialize_QuAM_and_QOP}
 # Class containing tools to help handling units and conversions.
@@ -329,7 +328,7 @@ if not node.parameters.simulate:
         # Add colorbar
         plt.colorbar(im, ax=ax, label=plot_label)
     
-    grid.fig.suptitle(f"2D Stark-DRAG Calibration\n{date_time} GMT+3 #{node_id}\nmultiplexed = {node.parameters.multiplexed} reset Type = {node.parameters.reset_type_thermal_or_active}\nState Discrimination = {node.parameters.use_state_discrimination}")
+    grid.fig.suptitle(f"2D Stark-DRAG Calibration\n{date_time} GMT+3 #{node.node_id}\nmultiplexed = {node.parameters.multiplexed} reset Type = {node.parameters.reset_type_thermal_or_active}\nState Discrimination = {node.parameters.use_state_discrimination}")
     plt.tight_layout()
     plt.show()
     node.results["figure"] = grid.fig

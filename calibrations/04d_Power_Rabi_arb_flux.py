@@ -25,7 +25,7 @@ from iqcc_calibration_tools.quam_config.macros import qua_declaration, active_re
 from iqcc_calibration_tools.quam_config.lib.instrument_limits import instrument_limits
 from iqcc_calibration_tools.quam_config.lib.qua_datasets import convert_IQ_to_V
 from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
-from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset, get_node_id
+from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset
 from iqcc_calibration_tools.analysis.fit import fit_oscillation, oscillation
 from qualang_tools.results import progress_counter, fetching_tool
 from qualang_tools.loops import from_array
@@ -59,8 +59,7 @@ class Parameters(NodeParameters):
     load_data_id: Optional[int] = None
     multiplexed: bool = True
 
-node = QualibrationNode(name="04d_Power_Rabi_arb_flux", parameters=Parameters())
-node_id = get_node_id()
+node = QualibrationNode(name="04d_Power_Rabi_arb_flux", parameters=Parameters())    
 
 # %% {Initialize_QuAM_and_QOP}
 # Class containing tools to help handling units and conversions.
