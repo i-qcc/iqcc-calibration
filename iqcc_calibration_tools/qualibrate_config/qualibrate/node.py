@@ -257,6 +257,7 @@ class QualibrationNode(QualibrationNodeBase, Generic[ParametersType, MachineType
         
         # Add the subtitle to the figure
         fig.suptitle(combined_text, fontsize=10, y=0.98)
+        fig.tight_layout(rect=[0, 0, 1, 0.97])  # Adjust layout to prevent overlap with less spacing
         
         return node_info_text
 

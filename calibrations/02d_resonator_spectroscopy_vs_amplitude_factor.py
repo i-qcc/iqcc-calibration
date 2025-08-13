@@ -29,7 +29,7 @@ from iqcc_calibration_tools.analysis.fit_utils import fit_resonator
 from iqcc_calibration_tools.quam_config.macros import qua_declaration
 from iqcc_calibration_tools.quam_config.lib.qua_datasets import convert_IQ_to_V, subtract_slope, apply_angle
 from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
-from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset, get_node_id, save_node
+from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray
 from iqcc_calibration_tools.quam_config.trackable_object import tracked_updates
 from qualang_tools.results import progress_counter, fetching_tool
 from qualang_tools.loops import from_array
@@ -64,7 +64,6 @@ class Parameters(NodeParameters):
     load_data_id: Optional[int] = None
 
 node = QualibrationNode(name="02d_Resonator_Spectroscopy_vs_Amplitude_Factor", parameters=Parameters())
-node_id = get_node_id()
 
 # %% {Initialize_QuAM_and_QOP}
 u = unit(coerce_to_integer=True)
@@ -299,7 +298,7 @@ if not node.parameters.simulate:
             optimal_amp_str = f" (Opt: {rr_optimal_amps_absolute[qubit['qubit']]:.3f})"
             ax.set_title(current_title + optimal_amp_str)
     
-    grid.fig.suptitle(f"Resonator spectroscopy VS. amplitude factor at base \n {date_time} GMT+3 #{node_id} \n multiplexed = {node.parameters.multiplexed}")
+    grid.fig.suptitle(f"Resonator spectroscopy VS. amplitude factor at base \n {date_time} GMT+3 #{node.node_id} \n multiplexed = {node.parameters.multiplexed}")
     plt.tight_layout()
     plt.show()
     node.results["figure"] = grid.fig
@@ -320,7 +319,7 @@ if not node.parameters.simulate:
                 if not np.isnan(rr_optimal_amps_absolute[q.name]):
                     q.resonator.operations.readout.amplitude = rr_optimal_amps_absolute[q.name]
                 if not np.isnan(rr_optimal_frequencies[q.name]):
-                    q.resonator.intermediate_frequency += rr_optimal_frequencies[q.name]
+                    q.resonator.RF_frequency += rr_optimal_frequencies[q.name]
                     
         fit_results[q.name]["RO_frequency"] = q.resonator.RF_frequency
         fit_results[q.name]["optimal_amplitude_factor"] = rr_optimal_amps[q.name]
