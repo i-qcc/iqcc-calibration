@@ -25,7 +25,7 @@ from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, g
 import xarray as xr
 from scipy.optimize import curve_fit, minimize
 from scipy.signal import deconvolve, lfilter, convolve
-from qualibrate import QualibrationNode, NodeParameters
+from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
 from typing import Optional, Literal, List
 from iqcc_calibration_tools.analysis.cryoscope_tools import cryoscope_frequency, estimate_fir_coefficients, two_expdecay, expdecay, savgol
 import time

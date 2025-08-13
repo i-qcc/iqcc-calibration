@@ -19,7 +19,7 @@ Next steps before going to the next node:
 """
 from turtledemo.penrose import start
 
-from qualibrate import QualibrationNode, NodeParameters
+from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
 from typing import Optional, Literal
 from qualang_tools.multi_user import qm_session
 

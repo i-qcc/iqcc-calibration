@@ -29,7 +29,7 @@ Before proceeding to the next node:
 
 
 # %% {Imports}
-from qualibrate import QualibrationNode, NodeParameters
+from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
 from iqcc_calibration_tools.quam_config.components import Quam
 from iqcc_calibration_tools.quam_config.macros import qua_declaration
 from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter

@@ -18,7 +18,7 @@ Next steps before going to the next node:
     - Save the current state by calling machine.save("quam")
 """
 # %% {Imports}
-from qualibrate import QualibrationNode, NodeParameters
+from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
 from typing import Optional, Literal, List
 from qm.qua import *
 from qm import SimulationConfig

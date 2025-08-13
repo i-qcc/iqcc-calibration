@@ -10,7 +10,7 @@ from qualang_tools.loops import from_array
 from qualang_tools.multi_user import qm_session
 from qualang_tools.results import progress_counter
 from qualang_tools.units import unit
-from qualibrate import QualibrationNode
+from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode
 from iqcc_calibration_tools.quam_config.components.quam_root import Quam
 from calibration_utils.qubit_spectroscopy_vs_flux import (
     Parameters,

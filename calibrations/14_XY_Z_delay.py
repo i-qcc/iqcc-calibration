@@ -7,7 +7,7 @@ import warnings
 
 from qualang_tools.multi_user import qm_session
 from qualang_tools.results import fetching_tool, progress_counter
-from qualibrate import QualibrationNode, NodeParameters
+from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
 from typing import Optional, Literal
 
 from scipy.optimize import curve_fit

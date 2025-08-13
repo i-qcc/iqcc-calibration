@@ -19,7 +19,7 @@ Next steps before going to the next node:
 
 # %% {Imports}
 from datetime import datetime
-from qualibrate import QualibrationNode, NodeParameters
+from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
 from iqcc_calibration_tools.quam_config.components import Quam
 from iqcc_calibration_tools.quam_config.macros import qua_declaration, active_reset
 from iqcc_calibration_tools.quam_config.lib.instrument_limits import instrument_limits

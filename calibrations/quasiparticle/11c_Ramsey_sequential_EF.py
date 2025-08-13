@@ -17,7 +17,7 @@ Next steps before going to the next node:
     - Update the qubits frequency (f_01) in the state.
     - Save the current state by calling machine.save("quam")
 """
-from qualibrate import QualibrationNode, NodeParameters
+from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
 from typing import Optional, Literal
 from qualang_tools.multi_user import qm_session
 

@@ -8,6 +8,7 @@ qm-qua==1.2.2
 ipykernel>=6.29.3,<7.0.0
 more-itertools
 qiskit==2.0.0
+qiskit-experiments==0.11.0 # to be integrated into qualibration-libs
 pylatexenc
 qualibrate-lab-notebook @ git+https://github.com/i-qcc/qualibrate-lab-notebook.git@main
 cloud-qualibrate-link @ git+https://github.com/i-qcc/cloud_qualibrate_link.git@main 
