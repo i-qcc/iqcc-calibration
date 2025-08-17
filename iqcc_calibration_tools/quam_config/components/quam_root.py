@@ -13,7 +13,7 @@ from qualang_tools.results.data_handler import DataHandler
 
 from dataclasses import field
 from typing import Dict, ClassVar, Sequence, Union
-from ..cloud_infrastructure import CloudQuantumMachinesManager
+from iqcc_cloud_client import CloudQuantumMachinesManager # from ..cloud_infrastructure import CloudQuantumMachinesManager
 
 from quam_builder.architecture.superconducting.qpu import FluxTunableQuam
 
