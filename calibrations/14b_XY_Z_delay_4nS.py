@@ -10,9 +10,6 @@ from qualang_tools.results import fetching_tool, progress_counter
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
 from typing import Optional, Literal
 
-from scipy.optimize import curve_fit
-from iqcc_calibration_tools.storage.save_utils import get_node_id, save_node
-
 class Parameters(NodeParameters):
     qubits: Optional[str] = None
     num_averages: int = 100
@@ -28,7 +25,6 @@ node = QualibrationNode(
     name="14b_XY_Z_delay_4nS",
     parameters=Parameters()
 )
-node_id = get_node_id()
 
 from qm.qua import *
 from qm import SimulationConfig
@@ -197,7 +193,7 @@ for ax, qubit in grid_iter(grid):
 
     ax.legend()
 
-grid.fig.suptitle(f'XY Z Delay Fitting \n {date_time} GMT+3 #{node_id} \n reset type = {node.parameters.reset_type_thermal_or_active}')
+grid.fig.suptitle(f'XY Z Delay Fitting \n {date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type_thermal_or_active}')
 plt.tight_layout()
 plt.show()
 
