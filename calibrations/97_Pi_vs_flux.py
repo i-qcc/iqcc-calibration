@@ -24,7 +24,7 @@ from iqcc_calibration_tools.quam_config.macros import qua_declaration, active_re
 from iqcc_calibration_tools.quam_config.lib.qua_datasets import convert_IQ_to_V
 from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
 from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset, get_node_id, save_node
-from iqcc_calibration_tools.analysis.fit import peaks_dips
+from qualibration_libs.analysis import peaks_dips
 from qualang_tools.results import progress_counter, fetching_tool
 from qualang_tools.loops import from_array
 from qualang_tools.multi_user import qm_session
