@@ -79,7 +79,7 @@ for q in qubits:
     with tracked_updates(q, auto_revert=False) as q:
         if node.parameters.DRAG_setpoint is not None:
             q.xy.operations["x180"].alpha = node.parameters.DRAG_setpoint
-        q.xy.operations[operation].detuning = 0
+        # q.xy.operations[operation].detuning = 0
         tracked_qubits.append(q)
 
 # Generate the OPX and Octave configurations
