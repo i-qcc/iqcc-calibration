@@ -6,51 +6,48 @@ from dataclasses import asdict
 
 from qm.qua import *
 
-from qualang_tools.loops import from_array
 from qualang_tools.multi_user import qm_session
 from qualang_tools.results import progress_counter
 from qualang_tools.units import unit
 
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode
 from iqcc_calibration_tools.quam_config.components.quam_root import Quam
-from calibration_utils.power_rabi import (
+from calibration_utils.time_of_flight_mw import (
     Parameters,
-    get_number_of_pulses,
     process_raw_dataset,
     fit_raw_data,
     log_fitted_results,
-    plot_raw_data_with_fit,
+    plot_single_run_with_fit,
+    plot_averaged_run_with_fit,
 )
 from qualibration_libs.parameters import get_qubits
 from qualibration_libs.runtime import simulate_and_plot
 from qualibration_libs.data import XarrayDataFetcher
+from qualibration_libs.core import tracked_updates
 
-
-# %% {Description}
 description = """
-        POWER RABI WITH ERROR AMPLIFICATION
-This sequence involves repeatedly executing the qubit pulse (such as x180) 'N' times and
-measuring the state of the resonator across different qubit pulse amplitudes and number of pulses.
-By doing so, the effect of amplitude inaccuracies is amplified, enabling a more precise measurement of the pi pulse
-amplitude. The results are then analyzed to determine the qubit pulse amplitude suitable for the selected duration.
+        TIME OF FLIGHT - MW FEM
+This sequence involves sending a readout pulse and capturing the raw ADC traces.
+The data undergoes post-processing to calibrate three distinct parameters:
+    - Time of Flight: This represents the internal processing time and the propagation
+      delay of the readout pulse. Its value can be adjusted in the configuration under
+      "time_of_flight". This value is utilized to offset the acquisition window relative
+      to when the readout pulse is dispatched.
 
+    - Analog Inputs Gain: If a signal is constrained by digitization or if it saturates
+      the ADC, the variable gain of the OPX analog input, ranging from -12 dB to 20 dB,
+      can be modified to fit the signal within the ADC range of +/-0.5V.
+      
 Prerequisites:
-    - Having calibrated the mixer or the Octave (nodes 01a or 01b).
-    - Having calibrated the qubit frequency (node 03a_qubit_spectroscopy.py).
-    - Having set the qubit gates duration (qubit.xy.operations["x180"].length).
-    - Having specified the desired flux point if relevant (qubit.z.flux_point).
+    - Having initialized the Quam (quam_config/populate_quam_state_*.py).
 
 State update:
-    - The qubit pulse amplitude corresponding to the specified operation (x180, x90...) 
-    (qubit.xy.operations[operation].amplitude).
+    - The time of flight: qubit.resonator.time_of_flight
 """
 
 
-# Be sure to include [Parameters, Quam] so the node has proper type hinting
 node = QualibrationNode[Parameters, Quam](
-    name="04b_power_rabi",  # Name should be unique
-    description=description,  # Describe what the node is doing, which is also reflected in the QUAlibrate GUI
-    parameters=Parameters(),  # Node parameters defined under quam_experiment/experiments/node_name
+    name="01_time_of_flight_mw_fem", description=description, parameters=Parameters()
 )
 
 
@@ -58,13 +55,8 @@ node = QualibrationNode[Parameters, Quam](
 # These parameters are ignored when run through the GUI or as part of a graph
 @node.run_action(skip_if=node.modes.external)
 def custom_param(node: QualibrationNode[Parameters, Quam]):
-    """Allow the user to locally set the node parameters for debugging purposes, or execution in the Python IDE."""
     # You can get type hinting in your IDE by typing node.parameters.
     # node.parameters.qubits = ["q1", "q2"]
-    # node.parameters.max_number_pulses_per_sweep = 100
-    # node.parameters.min_amp_factor = 0.8
-    # node.parameters.max_amp_factor = 1.2
-    # node.parameters.amp_factor_step = 0.01
     pass
 
 
@@ -72,7 +64,7 @@ def custom_param(node: QualibrationNode[Parameters, Quam]):
 node.machine = Quam.load()
 
 
-# %% {Create_QUA_program}
+# %% {QUA_program}
 @node.run_action(skip_if=node.parameters.load_data_id is not None)
 def create_qua_program(node: QualibrationNode[Parameters, Quam]):
     """Create the sweep axes and generate the QUA program from the pulse sequence and the node parameters."""
@@ -82,85 +74,56 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
     node.namespace["qubits"] = qubits = get_qubits(node)
     num_qubits = len(qubits)
 
-    n_avg = node.parameters.num_shots  # The number of averages
-    operation = node.parameters.operation  # The qubit operation to play
-    # Pulse amplitude sweep (as a pre-factor of the qubit pulse amplitude) - must be within [-2; 2)
-    amps = np.arange(
-        node.parameters.min_amp_factor,
-        node.parameters.max_amp_factor,
-        node.parameters.amp_factor_step,
-    )
-    # Number of applied Rabi pulses sweep
-    N_pi_vec = get_number_of_pulses(node.parameters)
+    node.namespace["tracked_resonators"] = [] = []
+    for q in qubits:
+        resonator = q.resonator
+        # make temporary updates before running the program and revert at the end.
+        with tracked_updates(resonator, auto_revert=False, dont_assign_to_none=True) as resonator:
+            if node.parameters.time_of_flight_in_ns is not None:
+                resonator.time_of_flight = node.parameters.time_of_flight_in_ns
+            resonator.operations["readout"].length = node.parameters.readout_length_in_ns
+            resonator.set_output_power(node.parameters.readout_amplitude_in_dBm, operation="readout")
+            node.namespace["tracked_resonators"].append(resonator)
+
     # Register the sweep axes to be added to the dataset when fetching data
     node.namespace["sweep_axes"] = {
         "qubit": xr.DataArray(qubits.get_names()),
-        "nb_of_pulses": xr.DataArray(N_pi_vec, attrs={"long_name": "number of pulses"}),
-        "amp_prefactor": xr.DataArray(amps, attrs={"long_name": "pulse amplitude prefactor"}),
+        "readout_time": xr.DataArray(
+            np.arange(0, node.parameters.readout_length_in_ns, 1),
+            attrs={"long_name": "readout time", "units": "ns"},
+        ),
     }
 
     with program() as node.namespace["qua_program"]:
-        I, I_st, Q, Q_st, n, n_st = node.machine.declare_qua_variables()
-        if node.parameters.use_state_discrimination:
-            state = [declare(int) for _ in range(num_qubits)]
-            state_st = [declare_stream() for _ in range(num_qubits)]
-        a = declare(fixed)  # QUA variable for the qubit drive amplitude pre-factor
-        npi = declare(int)  # QUA variable for the number of qubit pulses
-        count = declare(int)  # QUA variable for counting the qubit pulses
+        n = declare(int)  # QUA variable for the averaging loop
+        n_st = declare_stream()
+        adc_st = [declare_stream(adc_trace=True) for _ in range(num_qubits)]  # The stream to store the raw ADC trace
 
         for multiplexed_qubits in qubits.batch():
-            # Initialize the QPU in terms of flux points (flux tunable transmons and/or tunable couplers)
-            for qubit in multiplexed_qubits.values():
-                node.machine.initialize_qpu(target=qubit)
-            align()
-
-            with for_(n, 0, n < n_avg, n + 1):
+            with for_(n, 0, n < node.parameters.num_shots, n + 1):
                 save(n, n_st)
-                with for_(*from_array(npi, N_pi_vec)):
-                    with for_(*from_array(a, amps)):
-                        # Qubit initialization
-                        for i, qubit in multiplexed_qubits.items():
-                            qubit.reset(node.parameters.reset_type, node.parameters.simulate)
-                        align()
-
-                        # Qubit manipulation
-                        for i, qubit in multiplexed_qubits.items():
-                            # Loop for error amplification (perform many qubit pulses)
-                            with for_(count, 0, count < npi, count + 1):
-                                qubit.xy.play(operation, amplitude_scale=a)
-                        align()
-
-                        # Qubit readout
-                        for i, qubit in multiplexed_qubits.items():
-                            if node.parameters.use_state_discrimination:
-                                qubit.readout_state(state[i])
-                                save(state[i], state_st[i])
-                            else:
-                                qubit.resonator.measure("readout", qua_vars=(I[i], Q[i]))
-                                save(I[i], I_st[i])
-                                save(Q[i], Q_st[i])
-                        align()
+                for i, qubit in multiplexed_qubits.items():
+                    # Reset the phase of the digital oscillator associated to the resonator element. Needed to average the cosine signal.
+                    reset_if_phase(qubit.resonator.name)
+                    # Measure the resonator (send a readout pulse and record the raw ADC trace)
+                    qubit.resonator.measure("readout", stream=adc_st[i])
+                    # Wait for the resonator to deplete
+                    qubit.resonator.wait(node.machine.depletion_time * u.ns)
+                align()
 
         with stream_processing():
             n_st.save("n")
-            for i, qubit in enumerate(qubits):
-                if operation == "x180":
-                    if node.parameters.use_state_discrimination:
-                        state_st[i].buffer(len(amps)).buffer(
-                            np.ceil(node.parameters.max_number_pulses_per_sweep / 2)
-                        ).average().save(f"state{i + 1}")
-                    else:
-                        I_st[i].buffer(len(amps)).buffer(len(N_pi_vec)).average().save(f"I{i + 1}")
-                        Q_st[i].buffer(len(amps)).buffer(len(N_pi_vec)).average().save(f"Q{i + 1}")
-
-                elif operation in ["x90", "-x90", "y90", "-y90"]:
-                    if node.parameters.use_state_discrimination:
-                        state_st[i].buffer(len(amps)).buffer(len(N_pi_vec)).average().save(f"state{i + 1}")
-                    else:
-                        I_st[i].buffer(len(amps)).buffer(len(N_pi_vec)).average().save(f"I{i + 1}")
-                        Q_st[i].buffer(len(amps)).buffer(len(N_pi_vec)).average().save(f"Q{i + 1}")
+            for i, qubit in enumerate(node.namespace["qubits"]):
+                if qubit.resonator.opx_input.port_id == 1:
+                    stream = adc_st[i].input1()
                 else:
-                    raise ValueError(f"Unrecognized operation {operation}.")
+                    stream = adc_st[i].input2()
+                # Will save average:
+                stream.real().average().save(f"adcI{i + 1}")
+                stream.image().average().save(f"adcQ{i + 1}")
+                # Will save only last run:
+                stream.real().save(f"adc_single_runI{i + 1}")
+                stream.image().save(f"adc_single_runQ{i + 1}")
 
 
 # %% {Simulate}
@@ -203,7 +166,7 @@ def execute_qua_program(node: QualibrationNode[Parameters, Quam]):
     node.results["ds_raw"] = dataset
 
 
-# %% {Load_historical_data}
+# %% {Data_loading_and_dataset_creation}
 @node.run_action(skip_if=node.parameters.load_data_id is None)
 def load_data(node: QualibrationNode[Parameters, Quam]):
     """Load a previously acquired dataset."""
@@ -215,7 +178,7 @@ def load_data(node: QualibrationNode[Parameters, Quam]):
     node.namespace["qubits"] = get_qubits(node)
 
 
-# %% {Analyse_data}
+# %% {Data_analysis}
 @node.run_action(skip_if=node.parameters.simulate)
 def analyse_data(node: QualibrationNode[Parameters, Quam]):
     """Analyse the raw data and store the fitted data in another xarray dataset "ds_fit" and the fitted results in the "fit_results" dictionary."""
@@ -231,16 +194,24 @@ def analyse_data(node: QualibrationNode[Parameters, Quam]):
     }
 
 
-# %% {Plot_data}
+# %% {Plotting}
 @node.run_action(skip_if=node.parameters.simulate)
 def plot_data(node: QualibrationNode[Parameters, Quam]):
     """Plot the raw and fitted data in specific figures whose shape is given by qubit.grid_location."""
-    fig_raw_fit = plot_raw_data_with_fit(node.results["ds_raw"], node.namespace["qubits"], node.results["ds_fit"])
-    node.add_node_info_subtitle(fig_raw_fit)
+    fig_single_run_fit = plot_single_run_with_fit(
+        node.results["ds_raw"], node.namespace["qubits"], node.results["ds_fit"]
+    )
+    node.add_node_info_subtitle(fig_single_run_fit)
+    fig_averaged_run_fit = plot_averaged_run_with_fit(
+        node.results["ds_raw"], node.namespace["qubits"], node.results["ds_fit"]
+    )
+    node.add_node_info_subtitle(fig_averaged_run_fit)
+    
     plt.show()
     # Store the generated figures
     node.results["figures"] = {
-        "amplitude": fig_raw_fit,
+        "single_run": fig_single_run_fit,
+        "averaged_run": fig_averaged_run_fit,
     }
 
 
@@ -248,15 +219,21 @@ def plot_data(node: QualibrationNode[Parameters, Quam]):
 @node.run_action(skip_if=node.parameters.simulate)
 def update_state(node: QualibrationNode[Parameters, Quam]):
     """Update the relevant parameters if the qubit data analysis was successful."""
+
+    # Revert the change done at the beginning of the node
+    for tracked_resonator in node.namespace.get("tracked_resonators", []):
+        tracked_resonator.revert_changes()
+
     with node.record_state_updates():
         for q in node.namespace["qubits"]:
-            if node.outcomes[q.name] == "failed":
+            if not node.results["fit_results"][q.name]["success"]:
                 continue
 
-            operation = q.xy.operations[node.parameters.operation]
-            operation.amplitude = node.results["fit_results"][q.name]["opt_amp"]
-            if node.parameters.operation == "x180":
-                q.xy.operations["x90"].amplitude = node.results["fit_results"][q.name]["opt_amp"] / 2
+            fit_result = node.results["fit_results"][q.name]
+            if node.parameters.time_of_flight_in_ns is not None:
+                q.resonator.time_of_flight = node.parameters.time_of_flight_in_ns + fit_result["tof_to_add"]
+            else:
+                q.resonator.time_of_flight = fit_result["tof_to_add"]
 
 
 # %% {Save_results}

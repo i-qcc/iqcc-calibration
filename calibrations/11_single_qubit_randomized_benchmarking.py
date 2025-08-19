@@ -56,7 +56,7 @@ State update:
 
 
 node = QualibrationNode[Parameters, Quam](
-    name="11a_single_qubit_randomized_benchmarking",
+    name="11_single_qubit_randomized_benchmarking",
     description=description,
     parameters=Parameters(),
 )

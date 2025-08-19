@@ -20,7 +20,7 @@ g = QualibrationGraph(
         "ramsey_vs_flux_calibration": library.nodes["09_ramsey_vs_flux_calibration"].copy(
             name="ramsey_vs_flux_calibration"
         ),
-        "power_rabi_error_amplification_x180": library.nodes["04b_power_rabi"].copy(
+        "power_rabi_error_amplification_x180": library.nodes["04_power_rabi"].copy(
             name="power_rabi_error_amplification_x180",
             max_number_pulses_per_sweep=200,
             min_amp_factor=0.98,
@@ -28,7 +28,7 @@ g = QualibrationGraph(
             amp_factor_step=0.002,
             use_state_discrimination=True,
         ),
-        "power_rabi_error_amplification_x90": library.nodes["04b_power_rabi"].copy(
+        "power_rabi_error_amplification_x90": library.nodes["04_power_rabi"].copy(
             name="power_rabi_error_amplification_x90",
             max_number_pulses_per_sweep=200,
             min_amp_factor=0.98,
@@ -38,7 +38,7 @@ g = QualibrationGraph(
             update_x90=False,
             use_state_discrimination=True,
         ),
-        "Randomized_benchmarking": library.nodes["11a_single_qubit_randomized_benchmarking"].copy(
+        "Randomized_benchmarking": library.nodes["11_single_qubit_randomized_benchmarking"].copy(
             name="Randomized_benchmarking",
             use_state_discrimination=True,
             delta_clifford=20,
