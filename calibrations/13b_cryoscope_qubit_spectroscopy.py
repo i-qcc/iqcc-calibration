@@ -15,8 +15,8 @@ from qualang_tools.multi_user import qm_session
 from qualang_tools.units import unit
 
 from qualibrate import QualibrationNode, NodeParameters
-from quam_config import Quam
-from calibration_utils.Pi_vs_flux_time import (
+from iqcc_calibration_tools.quam_config.components.quam_root import Quam
+from calibration_utils.cryoscope_qubit_spectroscopy import (
     process_raw_dataset, 
     fit_raw_data, 
     plot_qubit_spectroscopy_vs_time,
@@ -110,7 +110,7 @@ class Parameters(NodeParameters):
 
 # Be sure to include [Parameters, Quam] so the node has proper type hinting
 node = QualibrationNode[Parameters, Quam](
-    name="97b_Pi_vs_flux_time",  # Name should be unique
+    name="13b_cryoscope_qubit_spectroscopy",  # Name should be unique
     description=description,  # Describe what the node is doing, which is also reflected in the QUAlibrate GUI
     parameters=Parameters(),  # Node parameters defined under quam_experiment/experiments/node_name
 )
