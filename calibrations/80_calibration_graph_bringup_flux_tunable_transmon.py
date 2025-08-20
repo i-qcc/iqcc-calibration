@@ -18,7 +18,7 @@ g = QualibrationGraph(
     nodes={
         "resonator_spectroscopy": library.nodes["02a_resonator_spectroscopy"].copy(name="resonator_spectroscopy"),
         # "resonator_spectroscopy_vs_power": library.nodes["02b_resonator_spectroscopy_vs_power"].copy(name="resonator_spectroscopy_vs_power"),
-        "resonator_spectroscopy_vs_flux": library.nodes["02c_resonator_spectroscopy_vs_flux"].copy(
+        "resonator_spectroscopy_vs_flux": library.nodes["02b_resonator_spectroscopy_vs_flux"].copy(
             name="resonator_spectroscopy_vs_flux"
         ),
         "qubit_spectroscopy": library.nodes["03a_qubit_spectroscopy"].copy(name="qubit_spectroscopy"),
@@ -61,7 +61,7 @@ g = QualibrationGraph(
         "DRAG_calibration": library.nodes["10b_drag_calibration_180_minus_180"].copy(
             name="DRAG_calibration", use_state_discrimination=True
         ),
-        "Randomized_benchmarking": library.nodes["11a_single_qubit_randomized_benchmarking"].copy(
+        "Randomized_benchmarking": library.nodes["11_single_qubit_randomized_benchmarking"].copy(
             name="Randomized_benchmarking", use_state_discrimination=True
         ),
     },

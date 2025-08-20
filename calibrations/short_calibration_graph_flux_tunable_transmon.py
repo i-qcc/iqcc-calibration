@@ -13,14 +13,14 @@ class Parameters(GraphParameters):
 
 
 g = QualibrationGraph(
-    name="FluxTunableTransmon_Retuning",
+    name="SQA2025_Retuning",
     parameters=Parameters(),
     nodes={
         "IQ_blobs": library.nodes["07_iq_blobs"].copy(name="IQ_blobs"),
         "ramsey_vs_flux_calibration": library.nodes["09_ramsey_vs_flux_calibration"].copy(
             name="ramsey_vs_flux_calibration"
         ),
-        "power_rabi_error_amplification_x180": library.nodes["04_power_rabi"].copy(
+        "power_rabi_error_amplification_x180": library.nodes["04b_power_rabi"].copy(
             name="power_rabi_error_amplification_x180",
             max_number_pulses_per_sweep=200,
             min_amp_factor=0.98,
@@ -28,7 +28,7 @@ g = QualibrationGraph(
             amp_factor_step=0.002,
             use_state_discrimination=True,
         ),
-        "power_rabi_error_amplification_x90": library.nodes["04_power_rabi"].copy(
+        "power_rabi_error_amplification_x90": library.nodes["04b_power_rabi"].copy(
             name="power_rabi_error_amplification_x90",
             max_number_pulses_per_sweep=200,
             min_amp_factor=0.98,
