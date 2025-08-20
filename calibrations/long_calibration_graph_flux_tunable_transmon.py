@@ -13,12 +13,18 @@ class Parameters(GraphParameters):
 
 
 g = QualibrationGraph(
-    name="FixedFrequencyTransmon_BringUp",
+    name="FluxTunableTransmon_BringUp",
     parameters=Parameters(),
     nodes={
         "resonator_spectroscopy": library.nodes["02a_resonator_spectroscopy"].copy(name="resonator_spectroscopy"),
         # "resonator_spectroscopy_vs_power": library.nodes["02b_resonator_spectroscopy_vs_power"].copy(name="resonator_spectroscopy_vs_power"),
+        "resonator_spectroscopy_vs_flux": library.nodes["02c_resonator_spectroscopy_vs_flux"].copy(
+            name="resonator_spectroscopy_vs_flux"
+        ),
         "qubit_spectroscopy": library.nodes["03a_qubit_spectroscopy"].copy(name="qubit_spectroscopy"),
+        "qubit_spectroscopy_vs_flux": library.nodes["03b_qubit_spectroscopy_vs_flux"].copy(
+            name="qubit_spectroscopy_vs_flux"
+        ),
         "rabi_chevron": library.nodes["04a_rabi_chevron"].copy(name="rabi_chevron"),
         "power_rabi": library.nodes["04b_power_rabi"].copy(name="power_rabi"),
         "readout_power_optimization": library.nodes["08b_readout_power_optimization"].copy(
@@ -28,6 +34,9 @@ g = QualibrationGraph(
             name="readout_frequency_optimization"
         ),
         "IQ_blobs": library.nodes["07_iq_blobs"].copy(name="IQ_blobs"),
+        "ramsey_vs_flux_calibration": library.nodes["09_ramsey_vs_flux_calibration"].copy(
+            name="ramsey_vs_flux_calibration"
+        ),
         "power_rabi_error_amplification_x180": library.nodes["04b_power_rabi"].copy(
             name="power_rabi_error_amplification_x180",
             max_number_pulses_per_sweep=100,
@@ -58,13 +67,16 @@ g = QualibrationGraph(
     },
     connectivity=[
         # ("resonator_spectroscopy_vs_power", "resonator_spectroscopy"),
-        ("resonator_spectroscopy", "qubit_spectroscopy"),
-        ("qubit_spectroscopy", "rabi_chevron"),
+        ("resonator_spectroscopy", "resonator_spectroscopy_vs_flux"),
+        ("resonator_spectroscopy_vs_flux", "qubit_spectroscopy"),
+        ("qubit_spectroscopy", "qubit_spectroscopy_vs_flux"),
+        ("qubit_spectroscopy_vs_flux", "rabi_chevron"),
         ("rabi_chevron", "power_rabi"),
         ("power_rabi", "readout_power_optimization"),
         ("readout_power_optimization", "readout_frequency_optimization"),
         ("readout_frequency_optimization", "IQ_blobs"),
-        ("IQ_blobs", "power_rabi_error_amplification_x180"),
+        ("IQ_blobs", "ramsey_vs_flux_calibration"),
+        ("ramsey_vs_flux_calibration", "power_rabi_error_amplification_x180"),
         ("power_rabi_error_amplification_x180", "power_rabi_error_amplification_x90"),
         ("power_rabi_error_amplification_x90", "ramsey"),
         ("ramsey", "T1"),

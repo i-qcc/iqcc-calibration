@@ -13,12 +13,14 @@ class Parameters(GraphParameters):
 
 
 g = QualibrationGraph(
-    name="FixedFrequencyTransmon_Retuning",
+    name="FluxTunableTransmon_Retuning",
     parameters=Parameters(),
     nodes={
         "IQ_blobs": library.nodes["07_iq_blobs"].copy(name="IQ_blobs"),
-        "ramsey": library.nodes["06a_ramsey"].copy(name="ramsey", use_state_discrimination=True),
-        "power_rabi_error_amplification_x180": library.nodes["04b_power_rabi"].copy(
+        "ramsey_vs_flux_calibration": library.nodes["09_ramsey_vs_flux_calibration"].copy(
+            name="ramsey_vs_flux_calibration"
+        ),
+        "power_rabi_error_amplification_x180": library.nodes["04_power_rabi"].copy(
             name="power_rabi_error_amplification_x180",
             max_number_pulses_per_sweep=200,
             min_amp_factor=0.98,
@@ -26,7 +28,7 @@ g = QualibrationGraph(
             amp_factor_step=0.002,
             use_state_discrimination=True,
         ),
-        "power_rabi_error_amplification_x90": library.nodes["04b_power_rabi"].copy(
+        "power_rabi_error_amplification_x90": library.nodes["04_power_rabi"].copy(
             name="power_rabi_error_amplification_x90",
             max_number_pulses_per_sweep=200,
             min_amp_factor=0.98,
@@ -36,7 +38,7 @@ g = QualibrationGraph(
             update_x90=False,
             use_state_discrimination=True,
         ),
-        "Randomized_benchmarking": library.nodes["11a_single_qubit_randomized_benchmarking"].copy(
+        "Randomized_benchmarking": library.nodes["11_single_qubit_randomized_benchmarking"].copy(
             name="Randomized_benchmarking",
             use_state_discrimination=True,
             delta_clifford=20,
@@ -44,8 +46,8 @@ g = QualibrationGraph(
         ),
     },
     connectivity=[
-        ("IQ_blobs", "ramsey"),
-        ("ramsey", "power_rabi_error_amplification_x180"),
+        ("IQ_blobs", "ramsey_vs_flux_calibration"),
+        ("ramsey_vs_flux_calibration", "power_rabi_error_amplification_x180"),
         ("power_rabi_error_amplification_x180", "power_rabi_error_amplification_x90"),
         ("power_rabi_error_amplification_x90", "Randomized_benchmarking"),
     ],
