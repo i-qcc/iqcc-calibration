@@ -4,8 +4,8 @@ from qualibration_libs.parameters import QubitsExperimentNodeParameters, CommonN
 
 
 class NodeSpecificParameters(RunnableParameters):
-    num_shots: int = 1000
-    """Number of averages to perform. Default is 1000."""
+    num_shots: int = 200
+    """Number of averages to perform. Default is 200."""
 
 
 class Parameters(

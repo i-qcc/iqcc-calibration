@@ -84,7 +84,7 @@ class Parameters(NodeParameters):
         reset_type_active_or_thermal (str): Reset method to use
     """
 
-    qubits: Optional[List[str]] = None
+    qubits: Optional[List[str]] = ['qC1']
     num_shots: int = 5
     operation: str = "x180"
     operation_amplitude_factor: Optional[float] = 1
@@ -104,7 +104,7 @@ class Parameters(NodeParameters):
     timeout: int = 100
     load_data_id: Optional[int] = None
     multiplexed: bool = False
-    reset_type: Literal['active', 'thermal'] = 'active'
+    reset_type: Literal['active', 'thermal'] = 'thermal'
     thermal_reset_extra_time_in_us: Optional[int] = 10_000
     min_wait_time_in_ns: Optional[int] = 32
 
