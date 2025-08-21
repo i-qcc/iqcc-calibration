@@ -12,8 +12,8 @@ class Parameters(GraphParameters):
     qubits: List[str] = ["qC1"]
 
 parameters = Parameters()
-reset_type = "active" if len(parameters.qubits) == 1 else "thermal"
-# reset_type = "thermal"
+# reset_type = "active" if len(parameters.qubits) == 1 else "thermal"
+reset_type = "thermal"
 
 g = QualibrationGraph(
     name="SQA2025_short",
