@@ -9,7 +9,7 @@ library = QualibrationLibrary.get_active_library()
 
 
 class Parameters(GraphParameters):
-    qubits: List[str] = ["q1"]
+    qubits: List[str] = ["qC1"]
 
 
 g = QualibrationGraph(
