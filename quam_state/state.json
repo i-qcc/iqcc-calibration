@@ -1288,7 +1288,7 @@
             "chi": -300000,
             "grid_location": "2,0",
             "gate_fidelity": {
-                "averaged": 0.9970038354312458,
+                "averaged": 0.9968163082561062,
                 "single_qubit_rb": 0.9968782849736166
             },
             "z": {
