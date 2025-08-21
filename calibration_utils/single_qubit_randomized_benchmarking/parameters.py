@@ -5,14 +5,14 @@ from qualibration_libs.parameters import QubitsExperimentNodeParameters, CommonN
 
 
 class NodeSpecificParameters(RunnableParameters):
-    use_state_discrimination: bool = False
+    use_state_discrimination: bool = True
     """Perform qubit state discrimination. Default is True."""
     use_strict_timing: bool = False
     """Use strict timing in the QUA program. Default is False."""
-    num_random_sequences: int = 10
-    """Number of random RB sequences. Default is 10."""
-    num_shots: int = 50
-    """Number of averages. Default is 50."""
+    num_random_sequences: int = 100
+    """Number of random RB sequences. Default is 100."""
+    num_shots: int = 100
+    """Number of averages. Default is 100."""
     log_scale: bool = True
     """Use log scale for the circuit depth. Default is True."""
     max_circuit_depth: int = 1024

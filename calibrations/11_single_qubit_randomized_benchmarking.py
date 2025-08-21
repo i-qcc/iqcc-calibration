@@ -69,6 +69,9 @@ def custom_param(node: QualibrationNode[Parameters, Quam]):
     # You can get type hinting in your IDE by typing node.parameters.
     # node.parameters.qubits = ["q1", "q2"]
     node.parameters.qubits = ["qC1"]
+    node.parameters.num_random_sequences = 40
+    node.parameters.num_shots = 100
+    node.parameters.max_circuit_depth = 1024
 
 
 # Instantiate the QUAM class from the state file
