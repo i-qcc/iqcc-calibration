@@ -1,59 +1,57 @@
 # %% {Imports}
 import matplotlib.pyplot as plt
 import numpy as np
+from calibration_utils.iq_blobs.plotting import plot_historams
 import xarray as xr
 from dataclasses import asdict
 
 from qm.qua import *
 
-from qualang_tools.loops import from_array
 from qualang_tools.multi_user import qm_session
 from qualang_tools.results import progress_counter
 from qualang_tools.units import unit
 
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode
 from iqcc_calibration_tools.quam_config.components.quam_root import Quam
-from calibration_utils.qubit_spectroscopy import (
+from calibration_utils.iq_blobs import (
     Parameters,
     process_raw_dataset,
     fit_raw_data,
     log_fitted_results,
-    plot_raw_data_with_fit,
+    plot_iq_blobs,
+    plot_confusion_matrices,
 )
 from qualibration_libs.parameters import get_qubits
 from qualibration_libs.runtime import simulate_and_plot
 from qualibration_libs.data import XarrayDataFetcher
 
 
-# %% {Node initialisation}
+# %% {Description}
 description = """
-        QUBIT SPECTROSCOPY
-This sequence involves sending a saturation pulse to the qubit, placing it in a mixed state,
-and then measuring the state of the resonator across various qubit drive frequencies.
-In order to facilitate the qubit search, the qubit pulse duration and amplitude can be changed manually
-from the node parameters.
-
-The data is post-processed to determine the qubit resonance frequency and the width of the peak.
-
-Note that it can happen that the qubit is excited by the image sideband or LO leakage instead of the desired sideband.
-This is why calibrating the qubit mixer is highly recommended when using external mixers or the Octave.
+        IQ BLOBS
+This sequence involves measuring the state of the resonator 'N' times, first after thermalization (with the qubit in
+the |g> state) and then after applying a x180 (pi) pulse to the qubit (bringing the qubit to the |e> state).
+The resulting IQ blobs are displayed, and the data is processed to determine:
+    - The rotation angle required for the integration weights, ensuring that the
+      separation between |g> and |e> states aligns with the 'I' quadrature.
+    - The threshold along the 'I' quadrature for effective qubit state discrimination (at the center between the two blobs).
+    - The repeat-until-success threshold along the 'I' quadrature for effective active reset (at the center of the |g> blob).
+    - The readout confusion matrix, which is also influenced by the x180 pulse fidelity.
 
 Prerequisites:
-    - Having calibrated the mixer or the Octave (nodes 01a or 01b).
     - Having calibrated the readout parameters (nodes 02a, 02b and/or 02c).
-    - Having specified the desired flux point if relevant (qubit.z.flux_point).
+    - Having calibrated the qubit x180 pulse parameters (nodes 03a_qubit_spectroscopy.py and 04b_power_rabi.py).
 
 State update:
-    - The qubit 0->1 frequency: qubit.f_01 & qubit.xy.RF_frequency
-    - The integration weight angle to get the state discrimination along the 'I' quadrature: qubit.resonator.operations["readout"].integration_weights_angle.
-    - (optional) The saturation pulse amplitude to get the targeted fwhm: qubit.xy.operations["saturation"].amplitude.
-    - (optional) The guessed x180/x90 pulse amplitude: qubit.xy.operations["x180"/"x90"].amplitude.
+    - The integration weight angle: qubit.resonator.operations["readout"].integration_weights_angle
+    - the ge discrimination threshold: qubit.resonator.operations["readout"].threshold
+    - the Repeat Until Success threshold: qubit.resonator.operations["readout"].rus_exit_threshold
+    - The confusion matrix: qubit.resonator.operations["readout"].confusion_matrix
 """
-
 
 # Be sure to include [Parameters, Quam] so the node has proper type hinting
 node = QualibrationNode[Parameters, Quam](
-    name="03a_qubit_spectroscopy",  # Name should be unique
+    name="07_iq_blobs",  # Name should be unique
     description=description,  # Describe what the node is doing, which is also reflected in the QUAlibrate GUI
     parameters=Parameters(),  # Node parameters defined under quam_experiment/experiments/node_name
 )
@@ -63,7 +61,10 @@ node = QualibrationNode[Parameters, Quam](
 # These parameters are ignored when run through the GUI or as part of a graph
 @node.run_action(skip_if=node.modes.external)
 def custom_param(node: QualibrationNode[Parameters, Quam]):
-    """Allow the user to locally set the node parameters for debugging purposes, or execution in the Python IDE."""
+    """
+    Allow the user to locally set the node parameters for debugging purposes, or
+    execution in the Python IDE.
+    """
     # You can get type hinting in your IDE by typing node.parameters.
     # node.parameters.qubits = ["q1", "q2"]
     pass
@@ -76,34 +77,27 @@ node.machine = Quam.load()
 # %% {Create_QUA_program}
 @node.run_action(skip_if=node.parameters.load_data_id is not None)
 def create_qua_program(node: QualibrationNode[Parameters, Quam]):
-    """Create the sweep axes and generate the QUA program from the pulse sequence and the node parameters."""
+    """
+    Create the sweep axes and generate the QUA program from the pulse sequence and the
+    node parameters.
+    """
     # Class containing tools to help handle units and conversions.
     u = unit(coerce_to_integer=True)
     # Get the active qubits from the node and organize them by batches
     node.namespace["qubits"] = qubits = get_qubits(node)
     num_qubits = len(qubits)
 
-    operation = node.parameters.operation  # The qubit operation to play
-    n_avg = node.parameters.num_shots  # The number of averages
-    # Adjust the pulse duration and amplitude to drive the qubit into a mixed state - can be None
-    operation_len = node.parameters.operation_len_in_ns
-    # pre-factor to the value defined in the config - restricted to [-2; 2)
-    operation_amp = node.parameters.operation_amplitude_factor
-    # Qubit detuning sweep with respect to their resonance frequencies
-    span = node.parameters.frequency_span_in_mhz * u.MHz
-    step = node.parameters.frequency_step_in_mhz * u.MHz
-    dfs = np.arange(-span // 2, +span // 2, step)
-
+    n_runs = node.parameters.num_shots  # Number of runs
+    operation = node.parameters.operation
     # Register the sweep axes to be added to the dataset when fetching data
     node.namespace["sweep_axes"] = {
         "qubit": xr.DataArray(qubits.get_names()),
-        "detuning": xr.DataArray(dfs, attrs={"long_name": "readout frequency", "units": "Hz"}),
+        "n_runs": xr.DataArray(np.linspace(1, n_runs, n_runs), attrs={"long_name": "number of shots"}),
     }
 
     with program() as node.namespace["qua_program"]:
-        # Macro to declare I, Q, n and their respective streams for a given number of qubit
-        I, I_st, Q, Q_st, n, n_st = node.machine.declare_qua_variables()
-        df = declare(int)  # QUA variable for the qubit frequency
+        I_g, I_g_st, Q_g, Q_g_st, n, n_st = node.machine.declare_qua_variables()
+        I_e, I_e_st, Q_e, Q_e_st, _, _ = node.machine.declare_qua_variables()
 
         for multiplexed_qubits in qubits.batch():
             # Initialize the QPU in terms of flux points (flux tunable transmons and/or tunable couplers)
@@ -111,37 +105,45 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                 node.machine.initialize_qpu(target=qubit)
             align()
 
-            with for_(n, 0, n < n_avg, n + 1):
+            with for_(n, 0, n < n_runs, n + 1):
                 save(n, n_st)
-                with for_(*from_array(df, dfs)):
-                    for i, qubit in multiplexed_qubits.items():
-                        # Get the duration of the operation from the node parameters or the state
-                        duration = operation_len if operation_len is not None else qubit.xy.operations[operation].length
-                        # Update the qubit frequency
-                        qubit.xy.update_frequency(df + qubit.xy.intermediate_frequency)
-                        # Play the saturation pulse
-                        qubit.xy.play(
-                            operation,
-                            amplitude_scale=operation_amp,
-                            duration=duration // 4,
-                        )
-                    align()
 
-                    for i, qubit in multiplexed_qubits.items():
-                        # readout the resonator
-                        qubit.resonator.measure("readout", qua_vars=(I[i], Q[i]))
-                        # wait for the resonator to deplete
-                        qubit.resonator.wait(node.machine.depletion_time * u.ns)
-                        # save data
-                        save(I[i], I_st[i])
-                        save(Q[i], Q_st[i])
-                    align()
+                # Ground state iq blobs for all qubits
+                # Qubit initialization
+                for i, qubit in multiplexed_qubits.items():
+                    qubit.reset(node.parameters.reset_type, node.parameters.simulate)
+                align()
+                # Qubit readout
+                for i, qubit in multiplexed_qubits.items():
+                    qubit.resonator.measure(operation, qua_vars=(I_g[i], Q_g[i]))
+                    qubit.resonator.wait(qubit.resonator.depletion_time * u.ns)
+                    # save data
+                    save(I_g[i], I_g_st[i])
+                    save(Q_g[i], Q_g_st[i])
+                align()
+
+                # Excited state iq blobs for all qubits
+                # Qubit initialization
+                for i, qubit in multiplexed_qubits.items():
+                    qubit.reset(node.parameters.reset_type, node.parameters.simulate)
+                align()
+
+                # Qubit readout
+                for i, qubit in multiplexed_qubits.items():
+                    qubit.xy.play("x180")
+                    qubit.resonator.measure(operation, qua_vars=(I_e[i], Q_e[i]))
+                    qubit.resonator.wait(qubit.resonator.depletion_time * u.ns)
+                    # save data
+                    save(I_e[i], I_e_st[i])
+                    save(Q_e[i], Q_e_st[i])
 
         with stream_processing():
             n_st.save("n")
             for i in range(num_qubits):
-                I_st[i].buffer(len(dfs)).average().save(f"I{i + 1}")
-                Q_st[i].buffer(len(dfs)).average().save(f"Q{i + 1}")
+                I_g_st[i].buffer(n_runs).save(f"Ig{i + 1}")
+                Q_g_st[i].buffer(n_runs).save(f"Qg{i + 1}")
+                I_e_st[i].buffer(n_runs).save(f"Ie{i + 1}")
+                Q_e_st[i].buffer(n_runs).save(f"Qe{i + 1}")
 
 
 # %% {Simulate}
@@ -161,7 +163,9 @@ def simulate_qua_program(node: QualibrationNode[Parameters, Quam]):
 # %% {Execute}
 @node.run_action(skip_if=node.parameters.load_data_id is not None or node.parameters.simulate)
 def execute_qua_program(node: QualibrationNode[Parameters, Quam]):
-    """Connect to the QOP, execute the QUA program and fetch the raw data and store it in a xarray dataset called "ds_raw"."""
+    """
+    Connect to the QOP, execute the QUA program and fetch the raw data and store it in a xarray dataset called "ds_raw".
+    """
     # Connect to the QOP
     qmm = node.machine.connect()
     # Get the config from the machine
@@ -169,7 +173,7 @@ def execute_qua_program(node: QualibrationNode[Parameters, Quam]):
     # Execute the QUA program only if the quantum machine is available (this is to avoid interrupting running jobs).
     with qm_session(qmm, config, timeout=node.parameters.timeout) as qm:
         # The job is stored in the node namespace to be reused in the fetching_data run_action
-        node.namespace["job"] = job = qm.execute(node.namespace["qua_program"], options={"timeout": 5})
+        node.namespace["job"] = job = qm.execute(node.namespace["qua_program"])
         # Display the progress bar
         data_fetcher = XarrayDataFetcher(job, node.namespace["sweep_axes"])
         for dataset in data_fetcher:
@@ -182,6 +186,7 @@ def execute_qua_program(node: QualibrationNode[Parameters, Quam]):
         node.log(job.execution_report())
     # Register the raw dataset
     node.results["ds_raw"] = dataset
+    node.results["ds_raw"] = process_raw_dataset(node.results["ds_raw"], node)
 
 
 # %% {Load_historical_data}
@@ -199,8 +204,10 @@ def load_data(node: QualibrationNode[Parameters, Quam]):
 # %% {Analyse_data}
 @node.run_action(skip_if=node.parameters.simulate)
 def analyse_data(node: QualibrationNode[Parameters, Quam]):
-    """Analyse the raw data and store the fitted data in another xarray dataset "ds_fit" and the fitted results in the "fit_results" dictionary."""
-    node.results["ds_raw"] = process_raw_dataset(node.results["ds_raw"], node)
+    """
+    Analyse the raw data and store the fitted data in another xarray dataset "ds_fit"
+    and the fitted results in the "fit_results" dictionary.
+    """
     node.results["ds_fit"], fit_results = fit_raw_data(node.results["ds_raw"], node)
     node.results["fit_results"] = {k: asdict(v) for k, v in fit_results.items()}
 
@@ -215,13 +222,22 @@ def analyse_data(node: QualibrationNode[Parameters, Quam]):
 # %% {Plot_data}
 @node.run_action(skip_if=node.parameters.simulate)
 def plot_data(node: QualibrationNode[Parameters, Quam]):
-    """Plot the raw and fitted data in specific figures whose shape is given by qubit.grid_location."""
-    fig_raw_fit = plot_raw_data_with_fit(node.results["ds_raw"], node.namespace["qubits"], node.results["ds_fit"])
-    node.add_node_info_subtitle(fig_raw_fit)
+    """
+    Plot the raw and fitted data in specific figures whose shape is given by
+    qubit.grid_location.
+    """
+    fig_iq = plot_iq_blobs(node.results["ds_raw"], node.namespace["qubits"], node.results["ds_fit"])
+    fig_confusion = plot_confusion_matrices(node.results["ds_raw"], node.namespace["qubits"], node.results["ds_fit"])
+    fig_histogram = plot_historams(node.results["ds_raw"], node.namespace["qubits"], node.results["ds_fit"])
+    node.add_node_info_subtitle(fig_iq)
+    node.add_node_info_subtitle(fig_confusion)
+    node.add_node_info_subtitle(fig_histogram)
     plt.show()
     # Store the generated figures
     node.results["figures"] = {
-        "amplitude": fig_raw_fit,
+        "iq_blobs": fig_iq,
+        "confusion_matrix": fig_confusion,
+        "histograms": fig_histogram,
     }
 
 
@@ -234,19 +250,14 @@ def update_state(node: QualibrationNode[Parameters, Quam]):
             if node.outcomes[q.name] == "failed":
                 continue
 
-            # Update the readout frequency for the given flux point
-            q.f_01 = node.results["fit_results"][q.name]["frequency"]
-            q.xy.RF_frequency = node.results["fit_results"][q.name]["frequency"]
-
             fit_result = node.results["fit_results"][q.name]
-            # Update the integration weight angle
-            q.resonator.operations["readout"].integration_weights_angle = fit_result["iw_angle"]
-            if node.parameters.update_pulses_amplitude:
-                # Update the saturation amplitude
-                q.xy.operations["saturation"].amplitude = fit_result["saturation_amp"]
-                # Update the x180 and x90 amplitudes
-                q.xy.operations["x180"].amplitude = fit_result["x180_amp"]
-                q.xy.operations["x90"].amplitude = fit_result["x180_amp"] / 2
+            operation = q.resonator.operations[node.parameters.operation]
+            operation.integration_weights_angle -= float(fit_result["iw_angle"])
+            # Convert the thresholds back to demod units
+            operation.threshold = float(fit_result["ge_threshold"]) * operation.length / 2**12
+            operation.rus_exit_threshold = float(fit_result["rus_threshold"]) * operation.length / 2**12
+            if node.parameters.operation == "readout":
+                q.resonator.confusion_matrix = fit_result["confusion_matrix"]
 
 
 # %% {Save_results}

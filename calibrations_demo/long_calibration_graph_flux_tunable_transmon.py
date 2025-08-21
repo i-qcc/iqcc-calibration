@@ -12,6 +12,10 @@ class Parameters(GraphParameters):
     qubits: List[str] = ["qC1"]
 
 
+parameters = Parameters()
+reset_type = "active_simple" if len(parameters.qubits) == 1 else "thermal"
+
+
 g = QualibrationGraph(
     name="SQA2025_long",
     parameters=Parameters(),
@@ -49,11 +53,13 @@ g = QualibrationGraph(
         "IQ_blobs": library.nodes["07_iq_blobs"].copy(
             name="IQ_blobs",
             multiplexed=True,
+            reset_type=reset_type,
         ),
         "ramsey_vs_flux_calibration": library.nodes["09_ramsey_vs_flux_calibration"].copy(
             name="ramsey_vs_flux_calibration",
             flux_span=0.005,
             flux_num=11,
+            reset_type=reset_type,
         ),
         "power_rabi_error_amplification_x180": library.nodes["04b_power_rabi"].copy(
             name="power_rabi_error_amplification_x180",
@@ -62,6 +68,7 @@ g = QualibrationGraph(
             max_amp_factor=1.02,
             amp_factor_step=0.002,
             use_state_discrimination=True,
+            reset_type=reset_type,
         ),
         "power_rabi_error_amplification_x90": library.nodes["04b_power_rabi"].copy(
             name="power_rabi_error_amplification_x90",
@@ -72,32 +79,38 @@ g = QualibrationGraph(
             operation="x90",
             update_x90=False,
             use_state_discrimination=True,
+            reset_type=reset_type,
         ),
         "T1": library.nodes["05_T1"].copy(
             name="T1", 
             multiplexed=True,
             wait_time_num_points=250,
-            use_state_discrimination=True
+            use_state_discrimination=True,
+            reset_type=reset_type,
             ),
         "ramsey": library.nodes["06a_ramsey"].copy(
             name="ramsey", 
             multiplexed=True,
             use_state_discrimination=True,
+            reset_type=reset_type,
         ),
         "T2echo": library.nodes["06b_echo"].copy(
             name="T2echo", 
             multiplexed=True,
-            use_state_discrimination=True
+            use_state_discrimination=True,
+            reset_type=reset_type,
         ),
         "DRAG_calibration": library.nodes["10b_drag_calibration_180_minus_180"].copy(
             name="DRAG_calibration", 
             multiplexed=True,
-            use_state_discrimination=True
+            use_state_discrimination=True,
+            reset_type=reset_type,
         ),
         "Randomized_benchmarking": library.nodes["11_single_qubit_randomized_benchmarking"].copy(
             name="Randomized_benchmarking", 
             multiplexed=True,
             use_state_discrimination=True,
+            reset_type=reset_type,
         ),
     },
     connectivity=[
