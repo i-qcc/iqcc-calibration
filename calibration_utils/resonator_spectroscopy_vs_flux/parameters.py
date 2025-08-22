@@ -4,17 +4,17 @@ from qualibration_libs.parameters import QubitsExperimentNodeParameters, CommonN
 
 
 class NodeSpecificParameters(RunnableParameters):
-    num_shots: int = 100
+    num_shots: int = 50
     """Number of averages to perform. Default is 100."""
     min_flux_offset_in_v: float = -0.5
     """Minimum flux bias offset in volts. Default is -0.5 V."""
     max_flux_offset_in_v: float = 0.5
     """Maximum flux bias offset in volts. Default is 0.5 V."""
-    num_flux_points: int = 101
+    num_flux_points: int = 41
     """Number of flux points. Default is 101."""
-    frequency_span_in_mhz: float = 15
+    frequency_span_in_mhz: float = 8
     """Frequency span in MHz. Default is 15 MHz."""
-    frequency_step_in_mhz: float = 0.1
+    frequency_step_in_mhz: float = 0.25
     """Frequency step in MHz. Default is 0.1 MHz."""
     input_line_impedance_in_ohm: float = 50
     """Input line impedance in ohms. Default is 50 Ohm."""
