@@ -133,7 +133,7 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                                 qubit.xy.play("x90")
                                 qubit.xy.frame_rotation_2pi(phi)
                                 qubit.xy.wait(t + 1)
-                                qubit.z.wait(duration=qubit.xy.operations["x90"].length)
+                                qubit.z.wait(duration=qubit.xy.operations["x90"].length // 4)
                                 qubit.z.play(
                                     "const", amplitude_scale=flux / qubit.z.operations["const"].amplitude, duration=t
                                 )
@@ -254,6 +254,7 @@ def update_state(node: QualibrationNode[Parameters, Quam]):
                 node.parameters.frequency_detuning_in_mhz * 1e6
                 - node.results["ds_fit"].freq_offset.sel(qubit=q.name).values * 1e3
             )
+            quad_term = node.results["fit_results"][q.name]["quad_term"]
             if flux_point == "independent":
                 q.z.independent_offset += flux_offset
             elif flux_point == "joint":
@@ -262,9 +263,11 @@ def update_state(node: QualibrationNode[Parameters, Quam]):
                 raise RuntimeError("Unknown flux_point")
             q.f_01 += freq_offset
             q.xy.RF_frequency += freq_offset
-
+            q.freq_vs_flux_01_quad_term = quad_term*1e3
 
 # %% {Save_results}
 @node.run_action()
 def save_results(node: QualibrationNode[Parameters, Quam]):
     node.save()
+
+# %%
