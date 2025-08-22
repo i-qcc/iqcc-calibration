@@ -32,7 +32,7 @@ from iqcc_calibration_tools.quam_config.components import Quam
 from iqcc_calibration_tools.quam_config.macros import qua_declaration, active_reset, readout_state
 from iqcc_calibration_tools.quam_config.trackable_object import tracked_updates
 from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
-from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset, get_node_id, save_node
+from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset
 from qualang_tools.results import progress_counter, fetching_tool
 from qualang_tools.loops import from_array
 from qualang_tools.multi_user import qm_session
@@ -44,7 +44,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 import time
-import Quam_libs.lib.cryoscope_tools as cryoscope_tools
+import iqcc_calibration_tools.analysis.cryoscope_tools as cryoscope_tools
 start = time.time()
 
 # %% {Node_parameters}
@@ -72,9 +72,9 @@ class Parameters(NodeParameters):
         reset_type_active_or_thermal (str): Reset method to use
     """
 
-    qubits: Optional[List[str]] = None
-    num_averages: int = 40
-    operation: str = "x180_Gaussian"
+    qubits: Optional[List[str]] = ["Q3"]
+    num_averages: int = 20
+    operation: str = "x180"
     operation_amplitude_factor: Optional[float] = 1
     duration_in_ns: Optional[int] = 5000
     time_axis: Literal["linear", "log"] = "linear"
@@ -82,8 +82,8 @@ class Parameters(NodeParameters):
     time_step_num: Optional[int] = 200 # for log time axis
     frequency_span_in_mhz: float = 200
     frequency_step_in_mhz: float = 0.4
-    flux_amp : float = 0.06
-    update_lo: bool = True
+    flux_amp : float = 0.17
+    update_lo: bool = False
     fitting_base_fractions: List[float] = [0.4, 0.15, 0.05] # fraction of times from which to fit each exponential
     update_state: bool = False
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
@@ -98,7 +98,7 @@ class Parameters(NodeParameters):
 
 
 node = QualibrationNode(name="97b_Pi_vs_flux_time", parameters=Parameters())
-node_id = get_node_id()
+node_id = 1
 
 # %% {Initialize_QuAM_and_QOP}
 # Class containing tools to help handling units and conversions.
