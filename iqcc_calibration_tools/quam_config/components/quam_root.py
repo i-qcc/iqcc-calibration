@@ -28,7 +28,7 @@ class Quam(FluxTunableQuam):
 
     _data_handler: ClassVar[DataHandler | None] = None
 
-    twpas: Dict[str, TWPA] = field(default=dict)
+    twpas: Dict[str, TWPA] = field(default_factory=dict)
 
     @property
     def data_handler(self) -> DataHandler:
