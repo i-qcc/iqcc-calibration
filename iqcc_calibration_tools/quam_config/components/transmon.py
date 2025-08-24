@@ -45,7 +45,7 @@ class Transmon(FluxTunableTransmon):
         log_callable: Optional[Callable] = None,
         **kwargs,
     ):
-        if not simulate and reset_type == "active_simple":
+        if not simulate and reset_type in ["active_simple", "active"]:
             self.reset_qubit_active_simple()
         else:
             super().reset(reset_type, simulate, log_callable, **kwargs)
