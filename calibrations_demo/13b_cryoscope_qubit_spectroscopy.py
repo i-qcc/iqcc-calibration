@@ -84,19 +84,19 @@ class Parameters(NodeParameters):
     """
 
     qubits: Optional[List[str]] = ['Q4']
-    num_shots: int = 40
+    num_shots: int = 30
     operation: str = "x180"
     operation_amplitude_factor: Optional[float] = 1
-    duration_in_ns: Optional[int] = 1200
+    duration_in_ns: Optional[int] = 2000
     time_axis: Literal["linear", "log"] = "log"
     time_step_in_ns: Optional[int] = 20 # for linear time axis
-    time_step_num: Optional[int] = 40 # for log time axis
-    frequency_span_in_mhz: float = 200
+    time_step_num: Optional[int] = 30 # for log time axis
+    frequency_span_in_mhz: float = 160
     frequency_step_in_mhz: float = 0.4
     flux_amp : float = 0.2
     update_lo: bool = True
-    fitting_base_fractions: List[float] = [0.02] # fraction of times from which to fit each exponential
-    update_state: bool = True
+    fitting_base_fractions: List[float] = [0.6, 0.3, 0.1] # fraction of times from which to fit each exponential
+    update_state: bool = False
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
     simulate: bool = False
     simulation_duration_ns: int = 2500
@@ -329,3 +329,5 @@ def update_state(node: QualibrationNode[Parameters, Quam]):
 @node.run_action()
 def save_results(node: QualibrationNode[Parameters, Quam]):
     node.save()
+
+# %%

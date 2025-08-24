@@ -67,7 +67,7 @@ def custom_param(node: QualibrationNode[Parameters, Quam]):
     """
     # You can get type hinting in your IDE by typing node.parameters.
     # node.parameters.qubits = ["q1", "q2"]
-    pass
+    node.parameters.qubits = ["Q4"]
 
 
 # Instantiate the QUAM class from the state file
@@ -268,3 +268,5 @@ def update_state(node: QualibrationNode[Parameters, Quam]):
 @node.run_action()
 def save_results(node: QualibrationNode[Parameters, Quam]):
     node.save()
+
+# %%
