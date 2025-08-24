@@ -199,14 +199,13 @@ plt.show()
 
 node.results['figure'] = grid.fig
 
-# %%
-
+# %% {Update_state}
 with node.record_state_updates():
     for i, q in enumerate(qubits):
         if delays.sel(qubit=q.name) is not None:
             q.z.opx_output.delay -= int(np.round(delays.sel(qubit=q.name).values))
 
-# %%
+# %% {Save_results}
 node.results['initial_parameters'] = node.parameters.model_dump()
 node.machine = machine
 node.save()

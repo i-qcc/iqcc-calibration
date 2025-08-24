@@ -1,20 +1,4 @@
 """
-RAMSEY WITH VIRTUAL Z ROTATIONS
-The program consists in playing a Ramsey sequence (x90 - idle_time - x90 - measurement) for different idle times.
-Instead of detuning the qubit gates, the frame of the second x90 pulse is rotated (de-phased) to mimic an accumulated
-phase acquired for a given detuning after the idle time.
-This method has the advantage of playing resonant gates.
-
-From the results, one can fit the Ramsey oscillations and precisely measure the qubit resonance frequency and T2*.
-
-Prerequisites:
-    - Having found the resonance frequency of the resonator coupled to the qubit under study (resonator_spectroscopy).
-    - Having calibrated qubit pi pulse (x180) by running qubit, spectroscopy, rabi_chevron, power_rabi and updated the state.
-    - (optional) Having calibrated the readout (readout_frequency, amplitude, duration_optimization IQ_blobs) for better SNR.
-
-Next steps before going to the next node:
-    - Update the qubits frequency (f_01) in the state.
-    - Save the current state by calling machine.save("quam")
 """
 
 
@@ -23,10 +7,9 @@ from datetime import datetime
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
 from iqcc_calibration_tools.quam_config.components import Quam
 from iqcc_calibration_tools.quam_config.macros import qua_declaration, readout_state
-from iqcc_calibration_tools.quam_config.lib.qua_datasets import convert_IQ_to_V
 from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
-from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, get_node_id, load_dataset, save_node
-from iqcc_calibration_tools.analysis.fit import fit_oscillation_decay_exp, oscillation_decay_exp, fit_decay_exp, decay_exp
+from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset
+from qualibration_libs.analysis import fit_decay_exp, decay_exp
 from qualang_tools.results import progress_counter, fetching_tool
 from qualang_tools.loops import from_array
 from qualang_tools.multi_user import qm_session
@@ -56,7 +39,6 @@ class Parameters(NodeParameters):
     multiplexed: bool = False
 
 node = QualibrationNode(name="98_T1_vs_flux", parameters=Parameters())
-node_id = get_node_id()
 
 # %% {Initialize_QuAM_and_QOP}
 # Class containing tools to help handle units and conversions.
@@ -242,7 +224,7 @@ if not node.parameters.simulate:
         ax.set_ylabel('Detuning [MHz]')
 
 
-    grid.fig.suptitle(f"{date_time} #{node_id} \n multiplexed = {node.parameters.multiplexed}")
+    grid.fig.suptitle(f"{date_time} #{node.node_id} \n multiplexed = {node.parameters.multiplexed}")
     
 
             
@@ -257,7 +239,7 @@ if not node.parameters.simulate:
         ax.set_xlabel("Detuning [MHz]")
         ax.set_ylabel("T1 [uSec]")
 
-    grid.fig.suptitle(f"{date_time} #{node_id} \n multiplexed = {node.parameters.multiplexed}")
+    grid.fig.suptitle(f"{date_time} #{node.node_id} \n multiplexed = {node.parameters.multiplexed}")
     plt.tight_layout()
     plt.show()
     node.results["figure"] = grid.fig

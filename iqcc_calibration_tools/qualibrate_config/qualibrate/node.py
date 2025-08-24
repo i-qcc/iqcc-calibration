@@ -233,11 +233,9 @@ class QualibrationNode(QualibrationNodeBase, Generic[ParametersType, MachineType
             subtitle_parts.append(f"multiplexed = {self.parameters.multiplexed}")
         
         # Add reset type info if the parameter exists
-        reset_param_names = ['reset_type_thermal_or_active', 'reset_type_active_or_thermal']
-        for param_name in reset_param_names:
-            if hasattr(self.parameters, param_name):
-                subtitle_parts.append(f"reset type = {getattr(self.parameters, param_name)}")
-                break
+        param_name = 'reset_type'
+        if hasattr(self.parameters, param_name):
+            subtitle_parts.append(f"reset type = {getattr(self.parameters, param_name)}")
         
         # Add any additional info
         if additional_info:
@@ -279,11 +277,9 @@ class QualibrationNode(QualibrationNodeBase, Generic[ParametersType, MachineType
             subtitle_parts.append(f"multiplexed = {self.parameters.multiplexed}")
         
         # Add reset type info if the parameter exists
-        reset_param_names = ['reset_type_thermal_or_active', 'reset_type_active_or_thermal']
-        for param_name in reset_param_names:
-            if hasattr(self.parameters, param_name):
-                subtitle_parts.append(f"reset type = {getattr(self.parameters, param_name)}")
-                break
+        param_name = 'reset_type'
+        if hasattr(self.parameters, param_name):
+            subtitle_parts.append(f"reset type = {getattr(self.parameters, param_name)}")
         
         # Add any additional info
         if additional_info:
