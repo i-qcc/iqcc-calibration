@@ -1,22 +1,33 @@
-# %%
-"""
-    XY-Z delay as describe in page 108 at https://web.physics.ucsb.edu/~martinisgroup/theses/Chen2018.pdf
-"""
-import warnings
-
+# %% {Imports}
+import matplotlib.pyplot as plt
+import numpy as np
 from datetime import datetime, timezone, timedelta
+from typing import Optional, Literal, List
+
+from qm.qua import *
+from qm import SimulationConfig
+from qualang_tools.units import unit
 from qualang_tools.multi_user import qm_session
 from qualang_tools.results import fetching_tool, progress_counter
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
-from typing import Optional, Literal
+from iqcc_calibration_tools.quam_config.components import Quam
+from iqcc_calibration_tools.quam_config.macros import qua_declaration, active_reset, readout_state
+from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
+from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray
+
+
+# %% {Node initialisation}
+description = """
+        XY-Z delay as described in page 108 at https://web.physics.ucsb.edu/~martinisgroup/theses/Chen2018.pdf
+"""
 
 class Parameters(NodeParameters):
-    qubits: Optional[str] = None
+    qubits: Optional[List[str]] = ["Q4"]
     num_averages: int = 100
     # z_pulse_amplitude: float = 0.1  # defines how much you want to detune the qubit in frequency
     delay_span: int = 50 # in clock cycles
     flux_point_joint_or_independent: Literal['joint', 'independent'] = "joint"
-    reset_type_thermal_or_active: Literal['thermal', 'active'] = "thermal"
+    reset_type: Literal['thermal', 'active_simple', 'active'] = "thermal"
     simulate: bool = False
     timeout: int = 100
 
@@ -25,21 +36,6 @@ node = QualibrationNode(
     name="14b_XY_Z_delay_4nS",
     parameters=Parameters()
 )
-
-from qm.qua import *
-from qm import SimulationConfig
-from qualang_tools.units import unit
-from iqcc_calibration_tools.quam_config.components import Quam
-from iqcc_calibration_tools.quam_config.macros import qua_declaration, active_reset, readout_state
-import matplotlib.pyplot as plt
-from qualang_tools.bakery import baking
-import numpy as np
-
-from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
-from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray
-
-# matplotlib.use("TKAgg")
-
 
 ###################################################
 #  Load QuAM and open Communication with the QOP  #
@@ -74,7 +70,7 @@ relative_time = np.arange(-node.parameters.delay_span + 4, node.parameters.delay
 
 n_avg = node.parameters.num_averages  # The number of averages
 flux_point = node.parameters.flux_point_joint_or_independent  # 'independent' or 'joint'
-reset_type = node.parameters.reset_type_thermal_or_active  # "active" or "thermal"
+reset_type = node.parameters.reset_type  # "active" or "thermal"
 
 # %%
 
@@ -193,7 +189,7 @@ for ax, qubit in grid_iter(grid):
 
     ax.legend()
 
-grid.fig.suptitle(f'XY Z Delay Fitting \n {date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type_thermal_or_active}')
+grid.fig.suptitle(f'XY Z Delay Fitting \n {date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type}')
 plt.tight_layout()
 plt.show()
 

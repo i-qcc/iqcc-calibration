@@ -28,7 +28,6 @@ from qualibration_libs.parameters import get_qubits
 from qualibration_libs.runtime import simulate_and_plot
 from qualibration_libs.data import XarrayDataFetcher
 from qualibration_libs.core import tracked_updates
-# from quam_libs.lib.save_utils import fetch_results_as_xarray, load_dataset, get_node_id, save_node
 start = time.time()
 
 
@@ -84,30 +83,31 @@ class Parameters(NodeParameters):
         reset_type_active_or_thermal (str): Reset method to use
     """
 
-    qubits: Optional[List[str]] = ['qC1']
-    num_shots: int = 5
+    qubits: Optional[List[str]] = ['Q4']
+    num_shots: int = 40
     operation: str = "x180"
     operation_amplitude_factor: Optional[float] = 1
-    duration_in_ns: Optional[int] = 500
-    time_axis: Literal["linear", "log"] = "linear"
-    time_step_in_ns: Optional[int] = 48 # for linear time axis
-    time_step_num: Optional[int] = 200 # for log time axis
+    duration_in_ns: Optional[int] = 1200
+    time_axis: Literal["linear", "log"] = "log"
+    time_step_in_ns: Optional[int] = 20 # for linear time axis
+    time_step_num: Optional[int] = 40 # for log time axis
     frequency_span_in_mhz: float = 200
     frequency_step_in_mhz: float = 0.4
-    flux_amp : float = 0.06
+    flux_amp : float = 0.2
     update_lo: bool = True
-    fitting_base_fractions: List[float] = [0.4, 0.15, 0.05] # fraction of times from which to fit each exponential
-    update_state: bool = False
+    fitting_base_fractions: List[float] = [0.02] # fraction of times from which to fit each exponential
+    update_state: bool = True
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
     simulate: bool = False
     simulation_duration_ns: int = 2500
     timeout: int = 100
     load_data_id: Optional[int] = None
     multiplexed: bool = False
-    reset_type: Literal['active', 'thermal'] = 'thermal'
+    reset_type: Literal['active', 'active_simple', 'thermal'] = 'thermal'
     thermal_reset_extra_time_in_us: Optional[int] = 10_000
     min_wait_time_in_ns: Optional[int] = 32
 
+# %% {Node initialisation}
 # Be sure to include [Parameters, Quam] so the node has proper type hinting
 node = QualibrationNode[Parameters, Quam](
     name="13b_cryoscope_qubit_spectroscopy",  # Name should be unique
@@ -317,7 +317,7 @@ def update_state(node: QualibrationNode[Parameters, Quam]):
         with node.record_state_updates():
             for q in node.namespace["qubits"]:
                 fit_results_per_qubit = node.results["fit_results"][q.name]
-                if fit_results_per_qubit    ["fit_successful"]:
+                if fit_results_per_qubit["fit_successful"]:
                     A_list = [component[0] / fit_results_per_qubit["best_a_dc"] for component in fit_results_per_qubit["best_components"]]
                     tau_list = [component[1] for component in fit_results_per_qubit["best_components"]]
                     A_c, tau_c, scale = decompose_exp_sum_to_cascade(A=A_list, tau=tau_list, A_dc=1)
