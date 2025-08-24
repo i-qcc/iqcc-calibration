@@ -46,7 +46,7 @@ node = QualibrationNode[Parameters, Quam](name="06b_echo", description=descripti
 
 # Any parameters that should change for debugging purposes only should go in here
 # These parameters are ignored when run through the GUI or as part of a graph
-@node.run_action(skip_if=node.modes.external)
+@node.run_action
 def custom_param(node: QualibrationNode[Parameters, Quam]):
     # You can get type hinting in your IDE by typing node.parameters.
     # node.parameters.qubits = ["q1", "q2"]
@@ -145,7 +145,11 @@ def simulate_qua_program(node: QualibrationNode[Parameters, Quam]):
     # Simulate the QUA program, generate the waveform report and plot the simulated samples
     samples, fig, wf_report = simulate_and_plot(qmm, config, node.namespace["qua_program"], node.parameters)
     # Store the figure, waveform report and simulated samples
-    node.results["simulation"] = {"figure": fig, "wf_report": wf_report, "samples": samples}
+    node.results["simulation"] = {
+        "figure": fig,
+        "wf_report": wf_report,
+        "samples": samples,
+    }
 
 
 # %% {Execute}

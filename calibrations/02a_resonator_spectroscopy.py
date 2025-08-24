@@ -53,7 +53,7 @@ node = QualibrationNode[Parameters, Quam](
 
 # Any parameters that should change for debugging purposes only should go in here
 # These parameters are ignored when run through the GUI or as part of a graph
-@node.run_action(skip_if=node.modes.external)
+@node.run_action
 def custom_param(node: QualibrationNode[Parameters, Quam]):
     """Allow the user to locally set the node parameters for debugging purposes, or execution in the Python IDE."""
     # You can get type hinting in your IDE by typing node.parameters.
@@ -61,6 +61,7 @@ def custom_param(node: QualibrationNode[Parameters, Quam]):
     node.parameters.num_shots = 50
     node.parameters.frequency_span_in_mhz = 20.0
     node.parameters.frequency_step_in_mhz = 0.2
+    node.parameters.reset_type = "active"
 
 
 # Instantiate the QUAM class from the state file
@@ -132,7 +133,11 @@ def simulate_qua_program(node: QualibrationNode[Parameters, Quam]):
     # Simulate the QUA program, generate the waveform report and plot the simulated samples
     samples, fig, wf_report = simulate_and_plot(qmm, config, node.namespace["qua_program"], node.parameters)
     # Store the figure, waveform report and simulated samples
-    node.results["simulation"] = {"figure": fig, "wf_report": wf_report, "samples": samples}
+    node.results["simulation"] = {
+        "figure": fig,
+        "wf_report": wf_report,
+        "samples": samples,
+    }
 
 
 # %% {Execute}

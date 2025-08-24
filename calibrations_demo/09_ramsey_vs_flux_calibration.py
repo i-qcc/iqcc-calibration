@@ -57,7 +57,7 @@ node = QualibrationNode[Parameters, Quam](
 
 # Any parameters that should change for debugging purposes only should go in here
 # These parameters are ignored when run through the GUI or as part of a graph
-@node.run_action(skip_if=node.modes.external)
+@node.run_action
 def custom_param(node: QualibrationNode[Parameters, Quam]):
     # You can get type hinting in your IDE by typing node.parameters.
     # node.parameters.qubits = ["q1", "q3"]
@@ -135,7 +135,9 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                                 qubit.xy.wait(t + 1)
                                 qubit.z.wait(duration=qubit.xy.operations["x90"].length // 4)
                                 qubit.z.play(
-                                    "const", amplitude_scale=flux / qubit.z.operations["const"].amplitude, duration=t
+                                    "const",
+                                    amplitude_scale=flux / qubit.z.operations["const"].amplitude,
+                                    duration=t,
                                 )
                                 qubit.xy.play("x90")
                         align()
@@ -167,7 +169,11 @@ def simulate_qua_program(node: QualibrationNode[Parameters, Quam]):
     # Simulate the QUA program, generate the waveform report and plot the simulated samples
     samples, fig, wf_report = simulate_and_plot(qmm, config, node.namespace["qua_program"], node.parameters)
     # Store the figure, waveform report and simulated samples
-    node.results["simulation"] = {"figure": fig, "wf_report": wf_report, "samples": samples}
+    node.results["simulation"] = {
+        "figure": fig,
+        "wf_report": wf_report,
+        "samples": samples,
+    }
 
 
 # %% {Execute}
@@ -263,11 +269,13 @@ def update_state(node: QualibrationNode[Parameters, Quam]):
                 raise RuntimeError("Unknown flux_point")
             q.f_01 += freq_offset
             q.xy.RF_frequency += freq_offset
-            q.freq_vs_flux_01_quad_term = quad_term*1e3
+            q.freq_vs_flux_01_quad_term = quad_term * 1e3
+
 
 # %% {Save_results}
 @node.run_action()
 def save_results(node: QualibrationNode[Parameters, Quam]):
     node.save()
+
 
 # %%

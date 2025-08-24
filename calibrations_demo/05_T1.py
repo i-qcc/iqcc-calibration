@@ -50,7 +50,7 @@ node = QualibrationNode[Parameters, Quam](
 
 # Any parameters that should change for debugging purposes only should go in here
 # These parameters are ignored when run through the GUI or as part of a graph
-@node.run_action(skip_if=node.modes.external)
+@node.run_action
 def custom_param(node: QualibrationNode[Parameters, Quam]):
     # You can get type hinting in your IDE by typing node.parameters.
     # node.parameters.qubits = ["q1", "q2"]

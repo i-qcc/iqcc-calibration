@@ -64,7 +64,7 @@ node = QualibrationNode[Parameters, Quam](
 
 # Any parameters that should change for debugging purposes only should go in here
 # These parameters are ignored when run through the GUI or as part of a graph
-@node.run_action(skip_if=node.modes.external)
+@node.run_action
 def custom_param(node: QualibrationNode[Parameters, Quam]):
     # You can get type hinting in your IDE by typing node.parameters.
     # node.parameters.qubits = ["q1", "q2"]
@@ -72,6 +72,7 @@ def custom_param(node: QualibrationNode[Parameters, Quam]):
     node.parameters.num_random_sequences = 40
     node.parameters.num_shots = 100
     node.parameters.max_circuit_depth = 1024
+    node.parameters.reset_type = "active"
 
 
 # Instantiate the QUAM class from the state file
@@ -103,7 +104,9 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
         depths = np.array(depths)
     else:
         # Linear scale using delta_clifford
-        assert (max_circuit_depth / delta_clifford).is_integer(), "max_circuit_depth / delta_clifford must be an integer."
+        assert (max_circuit_depth / delta_clifford).is_integer(), (
+            "max_circuit_depth / delta_clifford must be an integer."
+        )
         depths = np.arange(0, max_circuit_depth + 0.1, delta_clifford)
         depths[0] = 1  # Ensure we start with depth 1
     num_depths = len(depths)
@@ -247,7 +250,7 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                     # The original gate is saved in 'saved_gate' and is being restored at the end
                     assign(saved_gate, sequence_list[depth])
                     assign(sequence_list[depth], inv_gate_list[depth - 1])
-                    
+
                     with for_(n, 0, n < n_avg, n + 1):
                         # Initialize the qubits
                         for i, qubit in multiplexed_qubits.items():
@@ -305,7 +308,11 @@ def simulate_qua_program(node: QualibrationNode[Parameters, Quam]):
     # Simulate the QUA program, generate the waveform report and plot the simulated samples
     samples, fig, wf_report = simulate_and_plot(qmm, config, node.namespace["qua_program"], node.parameters)
     # Store the figure, waveform report and simulated samples
-    node.results["simulation"] = {"figure": fig, "wf_report": wf_report, "samples": samples}
+    node.results["simulation"] = {
+        "figure": fig,
+        "wf_report": wf_report,
+        "samples": samples,
+    }
 
 
 # %% {Execute}
