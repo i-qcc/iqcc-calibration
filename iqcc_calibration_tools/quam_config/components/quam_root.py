@@ -28,8 +28,6 @@ class Quam(FluxTunableQuam):
 
     _data_handler: ClassVar[DataHandler | None] = None
 
-    twpas: Dict[str, TWPA] = field(default_factory=dict)
-
     @property
     def data_handler(self) -> DataHandler:
         """Return the existing data handler or open a new one to conveniently handle data saving."""
