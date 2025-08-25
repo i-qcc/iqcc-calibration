@@ -50,7 +50,7 @@ State update:
 node = QualibrationNode[Parameters, Quam](
     name="04b_power_rabi",  # Name should be unique
     description=description,  # Describe what the node is doing, which is also reflected in the QUAlibrate GUI
-    parameters=Parameters(),  # Node parameters defined under quam_experiment/experiments/node_name
+    parameters=Parameters(qubits=["qC1", "qC2"]),  # Node parameters defined under quam_experiment/experiments/node_name
 )
 
 
