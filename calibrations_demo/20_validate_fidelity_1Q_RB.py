@@ -22,7 +22,7 @@ from calibration_utils.single_qubit_randomized_benchmarking import (
     plot_raw_data_with_fit,
     Parameters as RBParameters,
 )
-from qualibration_libs.parameters import get_qubits
+from iqcc_calibration_tools import get_qubits
 from qualibration_libs.runtime import simulate_and_plot
 from qualibration_libs.data import XarrayDataFetcher
 
@@ -67,7 +67,7 @@ node = QualibrationNode[Parameters, Quam](
 )
 
 
-node.parameters = RBParameters()
+parameters = RBParameters()
 
 
 # Any parameters that should change for debugging purposes only should go in here
@@ -75,18 +75,18 @@ node.parameters = RBParameters()
 @node.run_action
 def custom_param(node: QualibrationNode[Parameters, Quam]):
     # You can get type hinting in your IDE by typing parameters.
-    node.parameters.qubits = ["q1", "q2"]
-    node.parameters.num_random_sequences = 100
-    node.parameters.num_shots = 100
-    node.parameters.max_circuit_depth = 1000
-    node.parameters.delta_clifford = 50
-    node.parameters.log_scale = True
-    node.parameters.use_strict_timing = True
-    node.parameters.use_state_discrimination = True
-    node.parameters.reset_type = "thermal"
-    node.parameters.simulate = True
-    node.parameters.timeout = 100
-    node.parameters.seed = 1234567890
+    parameters.qubits = ["q1", "q2"]
+    parameters.num_random_sequences = 100
+    parameters.num_shots = 100
+    parameters.max_circuit_depth = 1000
+    parameters.delta_clifford = 50
+    parameters.log_scale = True
+    parameters.use_strict_timing = True
+    parameters.use_state_discrimination = True
+    parameters.reset_type = "thermal"
+    parameters.simulate = True
+    parameters.timeout = 100
+    parameters.seed = 1234567890
 
 
 # Instantiate the QUAM class from the state file
@@ -94,21 +94,21 @@ node.machine = Quam.load()
 
 
 # %% {Create_QUA_program}
-@node.run_action(skip_if=node.parameters.load_data_id is not None)
+@node.run_action(skip_if=parameters.load_data_id is not None)
 def create_qua_program(node: QualibrationNode[Parameters, Quam]):
     """Create the sweep axes and generate the QUA program from the pulse sequence and the node parameters."""
     # Class containing tools to help handle units and conversions.
     u = unit(coerce_to_integer=True)
     # Get the active qubits from the node and organize them by batches
-    node.namespace["qubits"] = qubits = get_qubits(node)
+    node.namespace["qubits"] = qubits = get_qubits(node, parameters)
     num_qubits = len(qubits)
-    num_of_sequences = node.parameters.num_random_sequences  # Number of random sequences
+    num_of_sequences = parameters.num_random_sequences  # Number of random sequences
     # Number of averaging loops for each random sequence
-    n_avg = node.parameters.num_shots
-    max_circuit_depth = node.parameters.max_circuit_depth
-    delta_clifford = node.parameters.delta_clifford
+    n_avg = parameters.num_shots
+    max_circuit_depth = parameters.max_circuit_depth
+    delta_clifford = parameters.delta_clifford
     # Generate depth list based on log_scale parameter
-    if node.parameters.log_scale:
+    if parameters.log_scale:
         # Log scale: 1, 2, 4, 8, 16, 32, ... up to max_circuit_depth
         depths = [1]  # Start with depth 1
         current_depth = 2
@@ -124,8 +124,8 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
         depths = np.arange(0, max_circuit_depth + 0.1, delta_clifford)
         depths[0] = 1  # Ensure we start with depth 1
     num_depths = len(depths)
-    seed = node.parameters.seed  # Pseudo-random number generator seed
-    strict_timing = node.parameters.use_strict_timing
+    seed = parameters.seed  # Pseudo-random number generator seed
+    strict_timing = parameters.use_strict_timing
     # List of recovery gates from the lookup table
     inv_gates = [int(np.where(c1_table[i, :] == 0)[0][0]) for i in range(24)]
 
@@ -268,7 +268,7 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                     with for_(n, 0, n < n_avg, n + 1):
                         # Initialize the qubits
                         for i, qubit in multiplexed_qubits.items():
-                            qubit.reset(node.parameters.reset_type, node.parameters.simulate)
+                            qubit.reset(parameters.reset_type, parameters.simulate)
                             # Align the two elements to play the sequence after qubit initialization
                         align()
                         # Manipulate the qubits
@@ -283,7 +283,7 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                         align()
                         # Readout the qubits
                         for i, qubit in multiplexed_qubits.items():
-                            if node.parameters.use_state_discrimination:
+                            if parameters.use_state_discrimination:
                                 qubit.readout_state(state[i])
                                 save(state[i], state_st[i])
                             else:
@@ -298,7 +298,7 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
         with stream_processing():
             m_st.save("n")
             for i in range(num_qubits):
-                if node.parameters.use_state_discrimination:
+                if parameters.use_state_discrimination:
                     state_st[i].buffer(n_avg).map(FUNCTIONS.average()).buffer(num_depths).buffer(num_of_sequences).save(
                         f"state{i + 1}"
                     )
@@ -312,7 +312,7 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
 
 
 # %% {Simulate}
-@node.run_action(skip_if=node.parameters.load_data_id is not None or not node.parameters.simulate)
+@node.run_action(skip_if=parameters.load_data_id is not None or not parameters.simulate)
 def simulate_qua_program(node: QualibrationNode[Parameters, Quam]):
     """Connect to the QOP and simulate the QUA program"""
     # Connect to the QOP
@@ -320,7 +320,7 @@ def simulate_qua_program(node: QualibrationNode[Parameters, Quam]):
     # Get the config from the machine
     config = node.machine.generate_config()
     # Simulate the QUA program, generate the waveform report and plot the simulated samples
-    samples, fig, wf_report = simulate_and_plot(qmm, config, node.namespace["qua_program"], node.parameters)
+    samples, fig, wf_report = simulate_and_plot(qmm, config, node.namespace["qua_program"], parameters)
     # Store the figure, waveform report and simulated samples
     node.results["simulation"] = {
         "figure": fig,
@@ -330,7 +330,7 @@ def simulate_qua_program(node: QualibrationNode[Parameters, Quam]):
 
 
 # %% {Execute}
-@node.run_action(skip_if=node.parameters.load_data_id is not None or node.parameters.simulate)
+@node.run_action(skip_if=parameters.load_data_id is not None or parameters.simulate)
 def execute_qua_program(node: QualibrationNode[Parameters, Quam]):
     """Connect to the QOP, execute the QUA program and fetch the raw data and store it in a xarray dataset called "ds_raw"."""
     # Connect to the QOP
@@ -338,7 +338,7 @@ def execute_qua_program(node: QualibrationNode[Parameters, Quam]):
     # Get the config from the machine
     config = node.machine.generate_config()
     # Execute the QUA program only if the quantum machine is available (this is to avoid interrupting running jobs).
-    with qm_session(qmm, config, timeout=node.parameters.timeout) as qm:
+    with qm_session(qmm, config, timeout=parameters.timeout) as qm:
         # The job is stored in the node namespace to be reused in the fetching_data run_action
         node.namespace["job"] = job = qm.execute(node.namespace["qua_program"])
         # Display the progress bar
@@ -346,7 +346,7 @@ def execute_qua_program(node: QualibrationNode[Parameters, Quam]):
         for dataset in data_fetcher:
             progress_counter(
                 data_fetcher["n"],
-                node.parameters.num_random_sequences,
+                parameters.num_random_sequences,
                 start_time=data_fetcher.t_start,
             )
         # Display the execution report to expose possible runtime errors
@@ -356,19 +356,19 @@ def execute_qua_program(node: QualibrationNode[Parameters, Quam]):
 
 
 # %% {Load_historical_data}
-@node.run_action(skip_if=node.parameters.load_data_id is None)
+@node.run_action(skip_if=parameters.load_data_id is None)
 def load_data(node: QualibrationNode[Parameters, Quam]):
     """Load a previously acquired dataset."""
-    load_data_id = node.parameters.load_data_id
+    load_data_id = parameters.load_data_id
     # Load the specified dataset
-    node.load_from_id(node.parameters.load_data_id)
-    node.parameters.load_data_id = load_data_id
+    node.load_from_id(parameters.load_data_id)
+    parameters.load_data_id = load_data_id
     # Get the active qubits from the loaded node parameters
-    node.namespace["qubits"] = get_qubits(node)
+    node.namespace["qubits"] = get_qubits(node, parameters)
 
 
 # %% {Analyse_data}
-@node.run_action(skip_if=node.parameters.simulate)
+@node.run_action(skip_if=parameters.simulate)
 def analyse_data(node: QualibrationNode[Parameters, Quam]):
     """Analyse the raw data and store the fitted data in another xarray dataset "ds_fit" and the fitted results in the "fit_results" dictionary."""
     node.results["ds_raw"] = process_raw_dataset(node.results["ds_raw"], node)
@@ -384,7 +384,7 @@ def analyse_data(node: QualibrationNode[Parameters, Quam]):
 
 
 # %% {Plot_data}
-@node.run_action(skip_if=node.parameters.simulate)
+@node.run_action(skip_if=parameters.simulate)
 def plot_data(node: QualibrationNode[Parameters, Quam]):
     """Plot the raw and fitted data in specific figures whose shape is given by qubit.grid_location."""
     fig_raw_fit = plot_raw_data_with_fit(node.results["ds_raw"], node.namespace["qubits"], node.results["ds_fit"])
@@ -397,7 +397,7 @@ def plot_data(node: QualibrationNode[Parameters, Quam]):
 
 
 # %% {Update_state}
-@node.run_action(skip_if=node.parameters.simulate)
+@node.run_action(skip_if=parameters.simulate)
 def update_state(node: QualibrationNode[Parameters, Quam]):
     """Update the relevant parameters if the qubit data analysis was successful."""
     with node.record_state_updates():
