@@ -40,7 +40,7 @@ g = QualibrationGraph(
             multiplexed=multiplexed, name="ramsey_flux_calibration",
             flux_span = 0.01,
             flux_num = 21,
-            frequency_detuning_in_mhz = 1
+            frequency_detuning_in_mhz = 4
         ),
         "power_rabi_x180": library.nodes["04b_power_rabi"].copy(
             operation="x180",
