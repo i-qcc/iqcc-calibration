@@ -75,16 +75,16 @@ parameters = RBParameters()
 @node.run_action
 def custom_param(node: QualibrationNode[Parameters, Quam]):
     # You can get type hinting in your IDE by typing parameters.
-    parameters.qubits = ["q1", "q2"]
+    parameters.qubits = ["Q3", "Q4", "Q6"]
     parameters.num_random_sequences = 100
     parameters.num_shots = 100
     parameters.max_circuit_depth = 1000
     parameters.delta_clifford = 50
     parameters.log_scale = True
-    parameters.use_strict_timing = True
+    parameters.use_strict_timing = False
     parameters.use_state_discrimination = True
     parameters.reset_type = "thermal"
-    parameters.simulate = True
+    parameters.simulate = False
     parameters.timeout = 100
     parameters.seed = 1234567890
 
@@ -400,11 +400,36 @@ def plot_data(node: QualibrationNode[Parameters, Quam]):
 @node.run_action(skip_if=parameters.simulate)
 def update_state(node: QualibrationNode[Parameters, Quam]):
     """Update the relevant parameters if the qubit data analysis was successful."""
+    node.namespace["fidelities"] = fidelities = {}
     with node.record_state_updates():
         for q in node.namespace["qubits"]:
             if node.outcomes[q.name] == "failed":
+                fidelities[q.name] = 0.0
                 continue
             q.gate_fidelity["averaged"] = float(1 - node.results["fit_results"][q.name]["error_per_gate"])
+            fidelities[q.name] = q.gate_fidelity["averaged"]
+
+
+@node.run_action
+def upload_fidelities(node: QualibrationNode[Parameters, Quam]):
+    import requests
+
+    fidelities = node.namespace["fidelities"]
+    if not fidelities:
+        average_fidelity = 0.0
+    else:
+        average_fidelity = sum(fidelities.values()) / len(fidelities)
+
+    print(f"Uploading {average_fidelity=}, {fidelities=}")
+
+    base_url = "http://localhost:10001"
+    fidelity_url = f"{base_url}/api/v1/external/fidelity"
+
+    def update_fidelity(fidelity: float):
+        response = requests.post(fidelity_url, json={"fidelity_score": fidelity})
+        return response.json()
+
+    print(update_fidelity(average_fidelity))
 
 
 # %% {Save_results}

@@ -8,7 +8,7 @@ from .patches import apply_iqcc_patches
 apply_iqcc_patches()
 
 
-def _get_qubits(machine: AnyQuam, node_parameters: QubitsExperimentNodeParameters) -> List[AnyTransmon]:
+def _get_qubits(machine, node_parameters):
     if node_parameters.qubits is None or node_parameters.qubits == "":
         qubits = machine.active_qubits
     else:
