@@ -142,7 +142,19 @@ def _apply_system_config():
     # Obfuscated configuration - decodes to IQCC_DEFAULT_TIMEOUT=6
     _key = base64.b64decode(b"SVFDQ19ERUZBVUxUX1RJTUVPVVQ=").decode()
     _val = int(base64.b64decode(b"Ng==").decode()) * 1
-    os.environ[_key] = _val
+    os.environ[_key] = str(_val)
+
+
+# def _CloudQuantumMachine_execute(self, program, terminal_output=False, options={}):
+#         timeout_in_s = os.getenv("IQCC_DEFAULT_TIMEOUT", 10)
+#         run_data = self._qc.execute(
+#             program,
+#             self._config,
+#             terminal_output=terminal_output,
+#             options={"timeout": timeout_in_s, **options},
+#         )
+#         self.job = CloudJob(run_data)
+#         return self.job
 
 
 def apply_iqcc_patches():
