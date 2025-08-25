@@ -172,5 +172,3 @@ def apply_iqcc_patches():
 
     # Apply system configuration
     _apply_system_config()
-
-    print("✅ IQCC Cloud Client patches applied successfully")
