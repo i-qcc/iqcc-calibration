@@ -76,7 +76,7 @@ parameters = RBParameters()
 def custom_param(node: QualibrationNode[Parameters, Quam]):
     # You can get type hinting in your IDE by typing parameters.
     parameters.qubits = ["Q3", "Q4", "Q6"]
-    parameters.num_random_sequences = 100
+    parameters.num_random_sequences = 10
     parameters.num_shots = 100
     parameters.max_circuit_depth = 1000
     parameters.delta_clifford = 50
@@ -371,8 +371,8 @@ def load_data(node: QualibrationNode[Parameters, Quam]):
 @node.run_action(skip_if=parameters.simulate)
 def analyse_data(node: QualibrationNode[Parameters, Quam]):
     """Analyse the raw data and store the fitted data in another xarray dataset "ds_fit" and the fitted results in the "fit_results" dictionary."""
-    node.results["ds_raw"] = process_raw_dataset(node.results["ds_raw"], node)
-    node.results["ds_fit"], fit_results = fit_raw_data(node.results["ds_raw"], node)
+    node.results["ds_raw"] = process_raw_dataset(node.results["ds_raw"], node, parameters)
+    node.results["ds_fit"], fit_results = fit_raw_data(node.results["ds_raw"], node, parameters)
     node.results["fit_results"] = {k: asdict(v) for k, v in fit_results.items()}
 
     # Log the relevant information extracted from the data analysis
