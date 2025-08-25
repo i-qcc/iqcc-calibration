@@ -13,7 +13,7 @@ class Parameters(GraphParameters):
 
 
 parameters = Parameters()
-reset_type = "active_simple" if len(parameters.qubits) == 1 else "thermal"
+reset_type = "active" if len(parameters.qubits) == 1 else "thermal"
 
 
 g = QualibrationGraph(
@@ -26,28 +26,25 @@ g = QualibrationGraph(
             frequency_span_in_mhz=20,
         ),
         "resonator_spectroscopy_vs_flux": library.nodes["02b_resonator_spectroscopy_vs_flux"].copy(
-            name="resonator_spectroscopy_vs_flux",
-            min_flux_offset_in_v=-0.2,
-            max_flux_offset_in_v=0.2
+            name="resonator_spectroscopy_vs_flux", min_flux_offset_in_v=-0.2, max_flux_offset_in_v=0.2
         ),
         "qubit_spectroscopy": library.nodes["03a_qubit_spectroscopy"].copy(
             name="qubit_spectroscopy",
             frequency_span_in_mhz=60,
             multiplexed=True,
-            ),
+        ),
         "power_rabi": library.nodes["04b_power_rabi"].copy(
             name="power_rabi",
             multiplexed=True,
-            ),
+        ),
         "readout_frequency_optimization": library.nodes["08a_readout_frequency_optimization"].copy(
-            name="readout_frequency_optimization",
-            multiplexed=True
+            name="readout_frequency_optimization", multiplexed=True
         ),
         "IQ_blobs": library.nodes["07_iq_blobs"].copy(
             name="IQ_blobs",
             multiplexed=True,
             reset_type=reset_type,
-            ),
+        ),
         "ramsey_vs_flux_calibration": library.nodes["09_ramsey_vs_flux_calibration"].copy(
             name="ramsey_vs_flux_calibration",
             flux_span=0.005,
@@ -82,7 +79,7 @@ g = QualibrationGraph(
             reset_type=reset_type,
         ),
         "Randomized_benchmarking": library.nodes["11_single_qubit_randomized_benchmarking"].copy(
-            name="Randomized_benchmarking", 
+            name="Randomized_benchmarking",
             use_state_discrimination=True,
             reset_type=reset_type,
         ),

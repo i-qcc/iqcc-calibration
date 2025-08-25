@@ -13,7 +13,7 @@ class Parameters(GraphParameters):
 
 
 parameters = Parameters()
-reset_type = "active_simple" if len(parameters.qubits) == 1 else "thermal"
+reset_type = "active" if len(parameters.qubits) == 1 else "thermal"
 
 
 g = QualibrationGraph(

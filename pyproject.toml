@@ -4,14 +4,14 @@ version = "0.1.0"
 description = "calibration, research and integration tools for IQCC"
 readme = "README.md"
 authors = [
-    {name = "Tom Dvir", email = "tom.dvir@quantum-machines.co"},
-    {name = "Shlomi Matityahu", email = "Shlomi.Matityahu@quantum-machines.co"},
-    {name = "Akiva Feintuch", email = "akiva@quantum-machines.co"},    
-    {name = "Arthur Strauss", email = "Arthur.Strauss@quantum-machines.co"},
-    {name = "Omrie Ovdat", email = "omrie.ovdat@quantum-machines.co"}
-    
+    { name = "Tom Dvir", email = "tom.dvir@quantum-machines.co" },
+    { name = "Shlomi Matityahu", email = "Shlomi.Matityahu@quantum-machines.co" },
+    { name = "Akiva Feintuch", email = "akiva@quantum-machines.co" },
+    { name = "Arthur Strauss", email = "Arthur.Strauss@quantum-machines.co" },
+    { name = "Omrie Ovdat", email = "omrie.ovdat@quantum-machines.co" },
+
 ]
-license = {text = "BSD-3-Clause"}
+license = { text = "BSD-3-Clause" }
 keywords = []
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -25,7 +25,10 @@ dependencies = [
     "xarray",
     "lmfit",
     "tqdm",
-    "qualibrate>=0.2.0,<0.3.0",
+    "qualibrate==0.3.0a5",
+    "qualibrate-app==0.4.0a3",
+    "qualibrate-core==0.4.0a3",
+    "qualibrate-runner==0.4.0a2",
     "qm-qua==1.2.2",
     "ipykernel>=6.29.3,<7.0.0",
     "more-itertools",
@@ -35,7 +38,7 @@ dependencies = [
     "qualibrate-lab-notebook @ git+https://github.com/i-qcc/qualibrate-lab-notebook.git@main",
     "cloud-qualibrate-link @ git+https://github.com/i-qcc/cloud_qualibrate_link.git@main",
     "quam-builder@git+https://github.com/qua-platform/quam-builder.git",
-    "qualibration-libs@git+https://github.com/qua-platform/qualibration-libs.git"
+    "qualibration-libs@git+https://github.com/qua-platform/qualibration-libs.git",
 ]
 
 [build-system]
