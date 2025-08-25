@@ -83,20 +83,19 @@ class Parameters(NodeParameters):
         reset_type_active_or_thermal (str): Reset method to use
     """
 
-    qubits: Optional[List[str]] = ['Q4']
-    num_shots: int = 30
+    qubits: Optional[List[str]] = ['Q3']
+    num_shots: int = 50
     operation: str = "x180"
     operation_amplitude_factor: Optional[float] = 1
-    duration_in_ns: Optional[int] = 2000
-    time_axis: Literal["linear", "log"] = "log"
-    time_step_in_ns: Optional[int] = 20 # for linear time axis
-    time_step_num: Optional[int] = 30 # for log time axis
-    frequency_span_in_mhz: float = 160
-    frequency_step_in_mhz: float = 0.4
-    flux_amp : float = 0.2
+    duration_in_ns: Optional[int] = 1000
+    time_axis: Literal["linear", "log"] = "linear"
+    time_step_in_ns: Optional[int] = 40 # for linear time axis
+    time_step_num: Optional[int] = 200 # for log time axis
+    frequency_span_in_mhz: float = 150
+    frequency_step_in_mhz: float = 0.5
+    flux_amp : float = 0.16
     update_lo: bool = True
-    fitting_base_fractions: List[float] = [0.6, 0.3, 0.1] # fraction of times from which to fit each exponential
-    update_state: bool = False
+    fitting_base_fractions: List[float] = [0.15, 0.05] # fraction of times from which to fit each exponential  
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
     simulate: bool = False
     simulation_duration_ns: int = 2500
@@ -106,6 +105,7 @@ class Parameters(NodeParameters):
     reset_type: Literal['active', 'active_simple', 'thermal'] = 'thermal'
     thermal_reset_extra_time_in_us: Optional[int] = 10_000
     min_wait_time_in_ns: Optional[int] = 32
+    update_state: bool = False
 
 # %% {Node initialisation}
 # Be sure to include [Parameters, Quam] so the node has proper type hinting
@@ -303,6 +303,111 @@ def plot_data(node: QualibrationNode[Parameters, Quam]):
         "flux_response_vs_time_log": fig_flux_response_vs_time_log,
     }
 
+
+# %% extra plots
+
+"""
+Plots the flux response vs time for the given qubits.
+
+Parameters
+----------
+ds : xr.Dataset
+    The dataset containing the flux response.
+qubits : list of AnyTransmon
+    A list of qubits to plot.
+fits : xr.Dataset
+    The dataset containing the fit parameters.
+
+Returns
+-------
+Figure
+    The matplotlib figure object containing the plots.
+"""
+from qualibration_libs.plotting import QubitGrid, grid_iter
+qubits = node.namespace["qubits"]
+fit = node.results["ds_fit"]
+fit_results = node.results["fit_results"]
+scale = "linear"
+
+
+grid = QubitGrid(fit, [q.grid_location for q in qubits])
+
+# Plot flux response and fitted curves for each qubit
+for ax, qubit in grid_iter(grid):
+    # Plot measured flux response
+    # fit.loc[qubit].flux_response.plot(ax=ax)
+    # flux_response_norm = ds.loc[qubit].flux_response / ds.loc[qubit].flux_response.values[-1]
+    # flux_response_norm.plot(ax=ax)
+    
+    # Plot fitted curves and parameters if fits were successful    
+    if fit_results[qubit["qubit"]]["fit_successful"]:
+        t_data = fit.loc[qubit].time.values
+        best_a_dc = fit_results[qubit["qubit"]]["best_a_dc"]
+        t_offset = t_data - t_data[0]
+        y_fit = np.ones_like(t_data, dtype=float) * best_a_dc  
+        fit_text = f'a_dc = {best_a_dc:.3f}\n'
+        for i, (amp, tau) in enumerate(fit_results[qubit["qubit"]]["best_components"]):
+            y_fit += amp * np.exp(-t_offset/tau)
+            fit_text += f'a{i+1} = {amp / best_a_dc:.3f}, τ{i+1} = {tau:.0f}ns\n'
+        magnitude = y_fit[-1]
+        if node.parameters.update_state:
+            ax.plot(t_data, y_fit / magnitude, color='r', label='Full Fit', linewidth=2)
+        # ax.text(0.02, 0.98, fit_text, transform=ax.transAxes, 
+        #         verticalalignment='top', fontsize=8)
+    (fit.loc[qubit].flux_response/magnitude).plot(ax=ax)
+    ax.axhline(y=0.999, color='k', linestyle='--', linewidth=1)
+    ax.axhline(y=1.001, color='k', linestyle='--', linewidth=1)
+    ax.set_ylabel("Flux (V)")
+    ax.set_xlabel("Time (ns)")
+    ax.set_title(qubit["qubit"])
+    if scale == "log":
+        ax.set_xscale('log')
+        ax.grid(True)
+grid.fig.suptitle(f"Flux response vs time")
+grid.fig.tight_layout()
+
+plt.show()
+
+scale = "log"
+
+
+grid = QubitGrid(fit, [q.grid_location for q in qubits])
+
+# Plot flux response and fitted curves for each qubit
+for ax, qubit in grid_iter(grid):
+    # Plot measured flux response
+    # fit.loc[qubit].flux_response.plot(ax=ax)
+    # flux_response_norm = ds.loc[qubit].flux_response / ds.loc[qubit].flux_response.values[-1]
+    # flux_response_norm.plot(ax=ax)
+    
+    # Plot fitted curves and parameters if fits were successful    
+    if fit_results[qubit["qubit"]]["fit_successful"]:
+        t_data = fit.loc[qubit].time.values
+        best_a_dc = fit_results[qubit["qubit"]]["best_a_dc"]
+        t_offset = t_data - t_data[0]
+        y_fit = np.ones_like(t_data, dtype=float) * best_a_dc  
+        fit_text = f'a_dc = {best_a_dc:.3f}\n'
+        for i, (amp, tau) in enumerate(fit_results[qubit["qubit"]]["best_components"]):
+            y_fit += amp * np.exp(-t_offset/tau)
+            fit_text += f'a{i+1} = {amp / best_a_dc:.3f}, τ{i+1} = {tau:.0f}ns\n'
+        magnitude = y_fit[-1]
+        if node.parameters.update_state:
+            ax.plot(t_data, y_fit / magnitude, color='r', label='Full Fit', linewidth=2)
+        # ax.text(0.02, 0.98, fit_text, transform=ax.transAxes, 
+        #         verticalalignment='top', fontsize=8)
+    (fit.loc[qubit].flux_response/magnitude).plot(ax=ax)
+    ax.axhline(y=0.999, color='k', linestyle='--', linewidth=1)
+    ax.axhline(y=1.001, color='k', linestyle='--', linewidth=1)
+    ax.set_ylabel("Flux (V)")
+    ax.set_xlabel("Time (ns)")
+    ax.set_title(qubit["qubit"])
+    if scale == "log":
+        ax.set_xscale('log')
+        ax.grid(True)
+grid.fig.suptitle(f"Flux response vs time")
+grid.fig.tight_layout()
+
+plt.show()
 
 # %% {Update_state}
 @node.run_action(skip_if=node.parameters.simulate)
