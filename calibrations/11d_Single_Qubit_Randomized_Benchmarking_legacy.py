@@ -468,10 +468,12 @@ if not node.parameters.simulate:
         fidelities_per_qubit = {}
         for q in qubits:
             fidelities_per_qubit[q.name] = 1 - EPG.sel(qubit=q.name).values
+            if "averaged" not in q.gate_fidelity: # need to set dummy value otherwise qualibrate will fail
+                q.gate_fidelity["averaged"] = 0
         with node.record_state_updates():
-            for qubit in qubits:
-                qubit.gate_fidelity["single_qubit_rb"] = fidelities_per_qubit[qubit.name]
-                print(f"Updated {qubit.name} fidelity to {qubit.gate_fidelity['single_qubit_rb']:.4f}")
+            for q in qubits:
+                q.gate_fidelity["averaged"] = fidelities_per_qubit[q.name]
+                print(f"Updated {q.name} fidelity to {q.gate_fidelity['averaged']:.4f}")
 
 
     # %% {Save_results}
