@@ -75,7 +75,7 @@ parameters = RBParameters()
 @node.run_action
 def custom_param(node: QualibrationNode[Parameters, Quam]):
     # You can get type hinting in your IDE by typing parameters.
-    parameters.qubits = ["Q3", "Q4", "Q6"]
+    parameters.qubits = ["Q3", "Q4"]
     parameters.num_random_sequences = 10
     parameters.num_shots = 100
     parameters.max_circuit_depth = 1000

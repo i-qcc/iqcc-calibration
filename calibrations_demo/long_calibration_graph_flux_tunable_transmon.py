@@ -17,7 +17,7 @@ reset_type = "active" if len(parameters.qubits) == 1 else "thermal"
 
 
 g = QualibrationGraph(
-    name="SQA2025_long",
+    name="Full Calibration Graph 1Q",
     parameters=Parameters(),
     nodes={
         "resonator_spectroscopy": library.nodes["02a_resonator_spectroscopy"].copy(
