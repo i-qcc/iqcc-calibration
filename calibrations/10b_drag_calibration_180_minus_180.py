@@ -52,7 +52,7 @@ Next steps before going to the next node:
 node = QualibrationNode[Parameters, Quam](
     name="10b_drag_calibration_180_minus_180",
     description=description,
-    parameters=Parameters(),
+    parameters=Parameters(qubits=["qC1", "qC2"]),
 )
 
 

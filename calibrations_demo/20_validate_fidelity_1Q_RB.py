@@ -22,7 +22,7 @@ from calibration_utils.single_qubit_randomized_benchmarking import (
     plot_raw_data_with_fit,
     Parameters as RBParameters,
 )
-from qualibration_libs.parameters import get_qubits
+from iqcc_calibration_tools import get_qubits
 from qualibration_libs.runtime import simulate_and_plot
 from qualibration_libs.data import XarrayDataFetcher
 
@@ -75,17 +75,16 @@ parameters = RBParameters()
 @node.run_action
 def custom_param(node: QualibrationNode[Parameters, Quam]):
     # You can get type hinting in your IDE by typing parameters.
-    # parameters.qubits = ["q1", "q2"]
-    parameters.qubits = ["qC1"]
-    parameters.num_random_sequences = 100
+    parameters.qubits = ["Q3", "Q4"]
+    parameters.num_random_sequences = 10
     parameters.num_shots = 100
     parameters.max_circuit_depth = 1000
     parameters.delta_clifford = 50
     parameters.log_scale = True
-    parameters.use_strict_timing = True
+    parameters.use_strict_timing = False
     parameters.use_state_discrimination = True
     parameters.reset_type = "thermal"
-    parameters.simulate = True
+    parameters.simulate = False
     parameters.timeout = 100
     parameters.seed = 1234567890
 
@@ -101,7 +100,7 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
     # Class containing tools to help handle units and conversions.
     u = unit(coerce_to_integer=True)
     # Get the active qubits from the node and organize them by batches
-    node.namespace["qubits"] = qubits = get_qubits(node)
+    node.namespace["qubits"] = qubits = get_qubits(node, parameters)
     num_qubits = len(qubits)
     num_of_sequences = parameters.num_random_sequences  # Number of random sequences
     # Number of averaging loops for each random sequence
@@ -365,15 +364,15 @@ def load_data(node: QualibrationNode[Parameters, Quam]):
     node.load_from_id(parameters.load_data_id)
     parameters.load_data_id = load_data_id
     # Get the active qubits from the loaded node parameters
-    node.namespace["qubits"] = get_qubits(node)
+    node.namespace["qubits"] = get_qubits(node, parameters)
 
 
 # %% {Analyse_data}
 @node.run_action(skip_if=parameters.simulate)
 def analyse_data(node: QualibrationNode[Parameters, Quam]):
     """Analyse the raw data and store the fitted data in another xarray dataset "ds_fit" and the fitted results in the "fit_results" dictionary."""
-    node.results["ds_raw"] = process_raw_dataset(node.results["ds_raw"], node)
-    node.results["ds_fit"], fit_results = fit_raw_data(node.results["ds_raw"], node)
+    node.results["ds_raw"] = process_raw_dataset(node.results["ds_raw"], node, parameters)
+    node.results["ds_fit"], fit_results = fit_raw_data(node.results["ds_raw"], node, parameters)
     node.results["fit_results"] = {k: asdict(v) for k, v in fit_results.items()}
 
     # Log the relevant information extracted from the data analysis
@@ -401,11 +400,36 @@ def plot_data(node: QualibrationNode[Parameters, Quam]):
 @node.run_action(skip_if=parameters.simulate)
 def update_state(node: QualibrationNode[Parameters, Quam]):
     """Update the relevant parameters if the qubit data analysis was successful."""
+    node.namespace["fidelities"] = fidelities = {}
     with node.record_state_updates():
         for q in node.namespace["qubits"]:
             if node.outcomes[q.name] == "failed":
+                fidelities[q.name] = 0.0
                 continue
             q.gate_fidelity["averaged"] = float(1 - node.results["fit_results"][q.name]["error_per_gate"])
+            fidelities[q.name] = q.gate_fidelity["averaged"]
+
+
+@node.run_action
+def upload_fidelities(node: QualibrationNode[Parameters, Quam]):
+    import requests
+
+    fidelities = node.namespace["fidelities"]
+    if not fidelities:
+        average_fidelity = 0.0
+    else:
+        average_fidelity = sum(fidelities.values()) / len(fidelities)
+
+    print(f"Uploading {average_fidelity=}, {fidelities=}")
+
+    base_url = "http://localhost:10001"
+    fidelity_url = f"{base_url}/api/v1/external/fidelity"
+
+    def update_fidelity(fidelity: float):
+        response = requests.post(fidelity_url, json={"fidelity_score": fidelity})
+        return response.json()
+
+    print(update_fidelity(average_fidelity))
 
 
 # %% {Save_results}

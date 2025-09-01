@@ -37,12 +37,12 @@ g = QualibrationGraph(
         "power_rabi": library.nodes["04b_power_rabi"].copy(
             name="power_rabi",
             multiplexed=True,
-            num_shots = 60,
-            min_amp_factor = 0.001,
-            max_amp_factor = 1.99,
-            amp_factor_step = 0.1,
-            max_number_pulses_per_sweep = 1,
-            ),
+            num_shots=60,
+            min_amp_factor=0.001,
+            max_amp_factor=1.99,
+            amp_factor_step=0.1,
+            max_number_pulses_per_sweep=1,
+        ),
         "IQ_blobs": library.nodes["07_iq_blobs"].copy(
             name="IQ_blobs",
             multiplexed=True,

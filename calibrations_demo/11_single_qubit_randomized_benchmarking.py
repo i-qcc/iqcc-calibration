@@ -68,7 +68,7 @@ node = QualibrationNode[Parameters, Quam](
 def custom_param(node: QualibrationNode[Parameters, Quam]):
     # You can get type hinting in your IDE by typing node.parameters.
     # node.parameters.qubits = ["q1", "q2"]
-    node.parameters.qubits = ["qC1"]
+    pass
 
 
 # Instantiate the QUAM class from the state file
@@ -383,13 +383,14 @@ def plot_data(node: QualibrationNode[Parameters, Quam]):
 def update_state(node: QualibrationNode[Parameters, Quam]):
     """Update the relevant parameters if the qubit data analysis was successful."""
     for q in node.namespace["qubits"]:
-        if "averaged" not in q.gate_fidelity: # need to set dummy value otherwise qualibrate will fail
+        if "averaged" not in q.gate_fidelity:  # need to set dummy value otherwise qualibrate will fail
             q.gate_fidelity["averaged"] = 0
     with node.record_state_updates():
         for q in node.namespace["qubits"]:
             if node.outcomes[q.name] == "failed":
                 continue
             q.gate_fidelity["averaged"] = float(1 - node.results["fit_results"][q.name]["error_per_gate"])
+
 
 # %% {Save_results}
 @node.run_action()

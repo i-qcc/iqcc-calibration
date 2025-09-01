@@ -58,7 +58,7 @@ State update:
 node = QualibrationNode[Parameters, Quam](
     name="11_single_qubit_randomized_benchmarking",
     description=description,
-    parameters=Parameters(),
+    parameters=Parameters(qubits=["qC1", "qC2"]),
 )
 
 
@@ -387,7 +387,7 @@ def plot_data(node: QualibrationNode[Parameters, Quam]):
 def update_state(node: QualibrationNode[Parameters, Quam]):
     """Update the relevant parameters if the qubit data analysis was successful."""
     for q in node.namespace["qubits"]:
-        if "averaged" not in q.gate_fidelity: # need to set dummy value otherwise qualibrate will fail
+        if "averaged" not in q.gate_fidelity:  # need to set dummy value otherwise qualibrate will fail
             q.gate_fidelity["averaged"] = 0
     with node.record_state_updates():
         for q in node.namespace["qubits"]:
