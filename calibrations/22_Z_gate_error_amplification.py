@@ -24,7 +24,7 @@ from iqcc_calibration_tools.quam_config.macros import qua_declaration, active_re
 from iqcc_calibration_tools.quam_config.lib.instrument_limits import instrument_limits
 from iqcc_calibration_tools.quam_config.lib.qua_datasets import convert_IQ_to_V
 from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
-from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset, save_node
+from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset
 from iqcc_calibration_tools.analysis.fit import fit_oscillation, oscillation
 from qualang_tools.results import progress_counter, fetching_tool
 from qualang_tools.loops import from_array
@@ -42,7 +42,7 @@ class Parameters(NodeParameters):
 
     qubits: Optional[List[str]] = None
     num_averages: int = 50
-    operation_x180_or_any_90: Literal["z180", "z90", "-z90"] = "-z90"
+    z_operation: Literal["z180", "z90", "-z90"] = "z90"
     min_amp_factor: float = 0.9
     max_amp_factor: float = 1.1
     amp_factor_step: float = 0.005
@@ -50,7 +50,6 @@ class Parameters(NodeParameters):
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
     reset_type_thermal_or_active: Literal["thermal", "active"] = "active"
     state_discrimination: bool = True
-    update_x90: bool = True
     simulate: bool = False
     simulation_duration_ns: int = 2500
     timeout: int = 100
@@ -58,7 +57,8 @@ class Parameters(NodeParameters):
     multiplexed: bool = False
 
 node = QualibrationNode(name="22_Z_gate_error_amplification", parameters=Parameters())
-
+node.parameters.qubits = ["Q3"]
+node.parameters.reset_type_thermal_or_active = "thermal"
 
 # %% {Initialize_QuAM_and_QOP}
 # Class containing tools to help handling units and conversions.
@@ -85,7 +85,7 @@ N_pi = node.parameters.max_number_rabi_pulses_per_sweep  # Number of applied Rab
 flux_point = node.parameters.flux_point_joint_or_independent  # 'independent' or 'joint'
 reset_type = node.parameters.reset_type_thermal_or_active  # "active" or "thermal"
 state_discrimination = node.parameters.state_discrimination
-operation = node.parameters.operation_x180_or_any_90  # The qubit operation to play
+operation = node.parameters.z_operation  # The qubit operation to play
 # Pulse amplitude sweep (as a pre-factor of the qubit pulse amplitude) - must be within [-2; 2)
 amps = np.arange(
     node.parameters.min_amp_factor,

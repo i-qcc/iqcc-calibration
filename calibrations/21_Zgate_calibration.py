@@ -31,7 +31,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from qualang_tools.multi_user import qm_session
 from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
-from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset, save_node
+from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray
 from scipy.optimize import curve_fit
 import xarray as xr
 from iqcc_calibration_tools.quam_config.lib import guess
@@ -39,12 +39,12 @@ from iqcc_calibration_tools.quam_config.lib import guess
 # %% {Node_parameters}
 class Parameters(NodeParameters):
     qubits: Optional[List[str]] = None
-    num_averages: int = 1000
+    num_averages: int = 200
     ref_frequnecy_MHz: float = 0.0
     num_points: int = 100
     flux_point_joint_or_independent: Literal['joint', 'independent'] = "joint"
     simulate: bool = False
-    reset_type: Literal['active', 'thermal'] = "active"
+    reset_type: Literal['active', 'thermal'] = "thermal"
     timeout: int = 100
     load_data_id: Optional[int] = None
     multiplexed: bool = True
@@ -54,6 +54,7 @@ node = QualibrationNode(
     parameters=Parameters()
 )
 
+node.parameters.multiplexed = False
 
 # %% {Utility_functions}
 
@@ -322,7 +323,7 @@ if not node.parameters.simulate:
             return -1e-6 * (flux/1e3)**2 * machine.qubits[qubit['qubit']].freq_vs_flux_01_quad_term
 
         # Create secondary axis with the transformation functions
-        ax2 = ax.secondary_xaxis('top', functions=(flux_to_detuning, detuning_to_flux))
+        ax2 = ax.secondary_xaxis('top', functions=(detuning_to_flux, flux_to_detuning))
         ax2.set_xlabel('Flux (mV)')
 
         ax.set_title(qubit['qubit'])

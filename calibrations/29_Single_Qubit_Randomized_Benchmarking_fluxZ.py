@@ -29,7 +29,7 @@ from iqcc_calibration_tools.qualibrate_config.qualibrate.node import Qualibratio
 from iqcc_calibration_tools.quam_config.components import Quam, Transmon
 from iqcc_calibration_tools.quam_config.macros import qua_declaration, active_reset, readout_state
 from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
-from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset, save_node
+from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset
 from iqcc_calibration_tools.analysis.fit import fit_decay_exp, decay_exp
 from qualang_tools.results import progress_counter, fetching_tool
 from iqcc_calibration_tools.analysis.RB_z_rotations import c1_table_XZ
@@ -51,8 +51,8 @@ class Parameters(NodeParameters):
     use_strict_timing: bool = False
     num_random_sequences: int = 100  # Number of random sequences
     num_averages: int = 20
-    max_circuit_depth: int = 1000  # Maximum circuit depth
-    delta_clifford: int = 20
+    max_circuit_depth: int = 100  # Maximum circuit depth
+    delta_clifford: int = 5
     seed: int = 345324
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
     reset_type_thermal_or_active: Literal["thermal", "active"] = "thermal"
@@ -60,10 +60,10 @@ class Parameters(NodeParameters):
     simulation_length_ns: int = 2500
     timeout: int = 100
     load_data_id: Optional[int] = None
-    multiplexed: bool = False
+    multiplexed: bool = True
 
 node = QualibrationNode(name="29a_Single_Qubit_Randomized_Benchmarking__wait_fluxZ", parameters=Parameters())
-
+node.parameters.qubits = ["Q2"]
 
 # %% {Initialize_QuAM_and_QOP}
 # Class containing tools to help handling units and conversions.
@@ -560,8 +560,8 @@ if not node.parameters.simulate:
             f"RB fidelity = {1 - EPG.sel(**qubit).values:.5f}",
             transform=ax.transAxes,
         )
-    plt.tight_layout()
     plt.suptitle("RB - flux Z rotations")
+    plt.tight_layout()
     plt.show()
     node.results["figure"] = grid.fig
 
