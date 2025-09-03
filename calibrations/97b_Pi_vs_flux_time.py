@@ -73,17 +73,17 @@ class Parameters(NodeParameters):
     """
 
     qubits: Optional[List[str]] = ["Q3"]
-    num_averages: int = 20
+    num_averages: int = 100
     operation: str = "x180"
     operation_amplitude_factor: Optional[float] = 1
-    duration_in_ns: Optional[int] = 5000
+    duration_in_ns: Optional[int] = 2000
     time_axis: Literal["linear", "log"] = "linear"
     time_step_in_ns: Optional[int] = 48 # for linear time axis
-    time_step_num: Optional[int] = 200 # for log time axis
-    frequency_span_in_mhz: float = 200
+    time_step_num: Optional[int] = 40 # for log time axis
+    frequency_span_in_mhz: float = 160
     frequency_step_in_mhz: float = 0.4
     flux_amp : float = 0.17
-    update_lo: bool = False
+    update_lo: bool = True
     fitting_base_fractions: List[float] = [0.4, 0.15, 0.05] # fraction of times from which to fit each exponential
     update_state: bool = False
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
@@ -127,7 +127,6 @@ if node.parameters.update_lo:
                 lo_frequency = 4.5e9
             print(f"Updated LO frequency for {q.name}: {lo_frequency/1e9} GHz")
             
-            q.xy.intermediate_frequency = rf_frequency - lo_frequency
             q.xy.opx_output.upconverter_frequency = lo_frequency
             tracked_qubits.append(q)
 
