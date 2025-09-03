@@ -56,7 +56,7 @@ g = QualibrationGraph(
         "single_qubit_randomized_benchmarking": library.nodes["11d_Single_Qubit_Randomized_Benchmarking_legacy"].copy(
             flux_point_joint_or_independent=flux_point, 
             multiplexed=True, 
-            num_random_sequences=500,
+            num_random_sequences=300,
             log_scale=True,
             reset_type_thermal_or_active=reset_type_thermal_or_active,
             name="single_qubit_randomized_benchmarking"
