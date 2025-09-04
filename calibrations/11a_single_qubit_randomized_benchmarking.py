@@ -58,7 +58,7 @@ State update:
 node = QualibrationNode[Parameters, Quam](
     name="11a_single_qubit_randomized_benchmarking",
     description=description,
-    parameters=Parameters(qubits=["qC1", "qC2"]),
+    parameters=Parameters(),
 )
 
 
@@ -68,11 +68,7 @@ node = QualibrationNode[Parameters, Quam](
 def custom_param(node: QualibrationNode[Parameters, Quam]):
     # You can get type hinting in your IDE by typing node.parameters.
     # node.parameters.qubits = ["q1", "q2"]
-    node.parameters.qubits = ["qC1"]
-    node.parameters.num_random_sequences = 40
-    node.parameters.num_shots = 100
-    node.parameters.max_circuit_depth = 1024
-    node.parameters.reset_type = "active"
+    pass
 
 
 # Instantiate the QUAM class from the state file
