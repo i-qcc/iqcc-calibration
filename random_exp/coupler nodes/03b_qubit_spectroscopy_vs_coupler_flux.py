@@ -60,7 +60,7 @@ class Parameters(NodeParameters):
     load_data_id: Optional[int] = None
     reset_type: Literal['active', 'thermal'] = "active"
 
-node = QualibrationNode(name="02b_Resonator_Spectroscopy_vs_Flux", parameters=Parameters())
+node = QualibrationNode(name="03b_Qubit_Spectroscopy_vs_Coupler_Flux", parameters=Parameters())
 
 
 # %% {Initialize_QuAM_and_QOP}
