@@ -73,19 +73,20 @@ class Parameters(NodeParameters):
     """
 
     qubits: Optional[List[str]] = ["Q3"]
-    num_averages: int = 100
+    num_averages: int = 50
     operation: str = "x180"
     operation_amplitude_factor: Optional[float] = 1
-    duration_in_ns: Optional[int] = 2000
-    time_axis: Literal["linear", "log"] = "linear"
+    duration_in_ns: Optional[int] = 200000
+    time_axis: Literal["linear", "log"] = "log"
     time_step_in_ns: Optional[int] = 48 # for linear time axis
-    time_step_num: Optional[int] = 40 # for log time axis
+    time_step_num: Optional[int] = 100 # for log time axis
     frequency_span_in_mhz: float = 160
     frequency_step_in_mhz: float = 0.4
     flux_amp : float = 0.17
     update_lo: bool = True
-    fitting_base_fractions: List[float] = [0.4, 0.15, 0.05] # fraction of times from which to fit each exponential
+    fitting_base_fractions: List[float] = [0.5, 0.2, 0.05] # fraction of times from which to fit each exponential
     update_state: bool = False
+    fit_multiple_exponentials: bool = False
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
     simulate: bool = False
     simulation_duration_ns: int = 2500
@@ -320,23 +321,24 @@ flux_response = np.sqrt(center_freqs / xr.DataArray([q.freq_vs_flux_01_quad_term
 ds['center_freqs'] = center_freqs
 ds['flux_response'] = flux_response
 
-# Perform exponential fitting for each qubit
-fit_results = {}
-for q in qubits:
-    fit_results[q.name] = {}
-    t_data = flux_response.sel(qubit=q.name).time.values
-    y_data = flux_response.sel(qubit=q.name).values
-    fit_successful, best_fractions, best_components, best_a_dc, best_rms = cryoscope_tools.optimize_start_fractions(
-        t_data, y_data, node.parameters.fitting_base_fractions, bounds_scale=0.5
-        )
+# %% Perform exponential fitting of flux response for each qubit
+if node.parameters.fit_multiple_exponentials:
+    fit_results = {}
+    for q in qubits:
+        fit_results[q.name] = {}
+        t_data = flux_response.sel(qubit=q.name).time.values
+        y_data = flux_response.sel(qubit=q.name).values
+        fit_successful, best_fractions, best_components, best_a_dc, best_rms = cryoscope_tools.optimize_start_fractions(
+            t_data, y_data, node.parameters.fitting_base_fractions, bounds_scale=0.5
+            )
 
-    fit_results[q.name]["fit_successful"] = fit_successful
-    fit_results[q.name]["best_fractions"] = best_fractions
-    fit_results[q.name]["best_components"] = best_components
-    fit_results[q.name]["best_a_dc"] = best_a_dc
-    fit_results[q.name]["best_rms"] = best_rms
+        fit_results[q.name]["fit_successful"] = fit_successful
+        fit_results[q.name]["best_fractions"] = best_fractions
+        fit_results[q.name]["best_components"] = best_components
+        fit_results[q.name]["best_a_dc"] = best_a_dc
+        fit_results[q.name]["best_rms"] = best_rms
 
-node.results["fit_results"] = fit_results
+    node.results["fit_results"] = fit_results
 
 # %% {Plotting}
 # Create grid for raw spectroscopy data plots
@@ -385,20 +387,20 @@ for ax, qubit in grid_iter(grid):
     ds.loc[qubit].flux_response.plot(ax=ax)
     # flux_response_norm = ds.loc[qubit].flux_response / ds.loc[qubit].flux_response.values[-1]
     # flux_response_norm.plot(ax=ax)
-    
-    # Plot fitted curves and parameters if fits were successful    
-    if fit_results[qubit["qubit"]]["fit_successful"]:
-        best_a_dc = fit_results[qubit["qubit"]]["best_a_dc"]
-        t_offset = t_data - t_data[0]
-        y_fit = np.ones_like(t_data, dtype=float) * best_a_dc  # Start with fitted constant
-        fit_text = f'a_dc = {best_a_dc:.3f}\n'
-        for i, (amp, tau) in enumerate(fit_results[qubit["qubit"]]["best_components"]):
-            y_fit += amp * np.exp(-t_offset/tau)
-            fit_text += f'a{i+1} = {amp / best_a_dc:.3f}, τ{i+1} = {tau:.0f}ns\n'
+    if node.parameters.fit_multiple_exponentials:
+        # Plot fitted curves and parameters if fits were successful    
+        if fit_results[qubit["qubit"]]["fit_successful"]:
+            best_a_dc = fit_results[qubit["qubit"]]["best_a_dc"]
+            t_offset = t_data - t_data[0]
+            y_fit = np.ones_like(t_data, dtype=float) * best_a_dc  # Start with fitted constant
+            fit_text = f'a_dc = {best_a_dc:.3f}\n'
+            for i, (amp, tau) in enumerate(fit_results[qubit["qubit"]]["best_components"]):
+                y_fit += amp * np.exp(-t_offset/tau)
+                fit_text += f'a{i+1} = {amp / best_a_dc:.3f}, τ{i+1} = {tau:.0f}ns\n'
 
-        ax.plot(t_data, y_fit, color='r', label='Full Fit', linewidth=2) # Plot full fit
-        ax.text(0.02, 0.98, fit_text, transform=ax.transAxes, 
-                verticalalignment='top', fontsize=8)
+            ax.plot(t_data, y_fit, color='r', label='Full Fit', linewidth=2) # Plot full fit
+            ax.text(0.02, 0.98, fit_text, transform=ax.transAxes, 
+                    verticalalignment='top', fontsize=8)
 
     ax.set_ylabel("Flux (V)")
     ax.set_xlabel("Time (ns)")
@@ -436,12 +438,12 @@ for ax, qubit in grid_iter(grid):
     ds.loc[qubit].flux_response.plot(ax=ax)
     # flux_response_norm = ds.loc[qubit].flux_response / ds.loc[qubit].flux_response.max()
     # flux_response_norm.plot(ax=ax)
-
-    # Plot fitted curves and parameters if fits were successful    
-    if fit_results[qubit["qubit"]]["fit_successful"]:
-        ax.plot(t_data, y_fit, color='r', label='Full Fit', linewidth=2) # Plot full fit
-        ax.text(0.02, 0.98, fit_text, transform=ax.transAxes, 
-                verticalalignment='top', fontsize=8)
+    if node.parameters.fit_multiple_exponentials:
+        # Plot fitted curves and parameters if fits were successful    
+        if fit_results[qubit["qubit"]]["fit_successful"]:
+            ax.plot(t_data, y_fit, color='r', label='Full Fit', linewidth=2) # Plot full fit
+            ax.text(0.02, 0.98, fit_text, transform=ax.transAxes, 
+                    verticalalignment='top', fontsize=8)
 
     ax.set_ylabel("Normalized flux")
     ax.set_xlabel("Time (ns)")
