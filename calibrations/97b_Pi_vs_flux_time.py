@@ -72,19 +72,20 @@ class Parameters(NodeParameters):
         reset_type_active_or_thermal (str): Reset method to use
     """
 
-    qubits: Optional[List[str]] = ["Q3"]
+    qubits: Optional[List[str]] = ["Q6"]
     num_averages: int = 50
     operation: str = "x180"
     operation_amplitude_factor: Optional[float] = 1
-    duration_in_ns: Optional[int] = 200000
+    duration_in_ns: Optional[int] = 80000
     time_axis: Literal["linear", "log"] = "log"
     time_step_in_ns: Optional[int] = 48 # for linear time axis
-    time_step_num: Optional[int] = 100 # for log time axis
+    time_step_num: Optional[int] = 50 # for log time axis
     frequency_span_in_mhz: float = 160
     frequency_step_in_mhz: float = 0.4
     flux_amp : float = 0.17
     update_lo: bool = True
-    fitting_base_fractions: List[float] = [0.5, 0.2, 0.05] # fraction of times from which to fit each exponential
+    fitting_base_fractions: List[float] = [0.6, 0.3, 0.02] # fraction of times from which to fit each exponential
+    fixed_taus: Optional[List[float]] = None
     update_state: bool = False
     fit_multiple_exponentials: bool = False
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
@@ -95,7 +96,7 @@ class Parameters(NodeParameters):
     multiplexed: bool = False
     reset_type_active_or_thermal: Literal['active', 'thermal'] = 'active'
     thermal_reset_extra_time_in_us: Optional[int] = 10_000
-    min_wait_time_in_ns: Optional[int] = 32
+    min_wait_time_in_ns: Optional[int] = 12
 
 
 node = QualibrationNode(name="97b_Pi_vs_flux_time", parameters=Parameters())
@@ -329,8 +330,9 @@ if node.parameters.fit_multiple_exponentials:
         t_data = flux_response.sel(qubit=q.name).time.values
         y_data = flux_response.sel(qubit=q.name).values
         fit_successful, best_fractions, best_components, best_a_dc, best_rms = cryoscope_tools.optimize_start_fractions(
-            t_data, y_data, node.parameters.fitting_base_fractions, bounds_scale=0.5
+            t_data, y_data, node.parameters.fitting_base_fractions, bounds_scale=0.5, fixed_taus=node.parameters.fixed_taus
             )
+        best_components = [(amp * np.exp(t_data[0] / tau), tau) for amp, tau in best_components]
 
         fit_results[q.name]["fit_successful"] = fit_successful
         fit_results[q.name]["best_fractions"] = best_fractions
@@ -391,11 +393,11 @@ for ax, qubit in grid_iter(grid):
         # Plot fitted curves and parameters if fits were successful    
         if fit_results[qubit["qubit"]]["fit_successful"]:
             best_a_dc = fit_results[qubit["qubit"]]["best_a_dc"]
-            t_offset = t_data - t_data[0]
+            # t_offset = t_data - t_data[0]
             y_fit = np.ones_like(t_data, dtype=float) * best_a_dc  # Start with fitted constant
             fit_text = f'a_dc = {best_a_dc:.3f}\n'
             for i, (amp, tau) in enumerate(fit_results[qubit["qubit"]]["best_components"]):
-                y_fit += amp * np.exp(-t_offset/tau)
+                y_fit += amp * np.exp(-t_data/tau)
                 fit_text += f'a{i+1} = {amp / best_a_dc:.3f}, τ{i+1} = {tau:.0f}ns\n'
 
             ax.plot(t_data, y_fit, color='r', label='Full Fit', linewidth=2) # Plot full fit
@@ -445,7 +447,7 @@ for ax, qubit in grid_iter(grid):
             ax.text(0.02, 0.98, fit_text, transform=ax.transAxes, 
                     verticalalignment='top', fontsize=8)
 
-    ax.set_ylabel("Normalized flux")
+    ax.set_ylabel("Flux (V)")
     ax.set_xlabel("Time (ns)")
     ax.set_title(qubit["qubit"])
     ax.grid(True)
@@ -489,4 +491,3 @@ node.outcomes = {q.name: "successful" for q in qubits}
 node.results["initial_parameters"] = node.parameters.model_dump()
 node.machine = machine
 node.save()
-# %%

@@ -247,7 +247,14 @@ def single_exp_decay(t, amp, tau):
     return amp * np.exp(-t/tau)
 
 
-def sequential_exp_fit(t, y, start_fractions, verbose=True):
+def sequential_exp_fit(
+    t: np.ndarray, 
+    y: np.ndarray, 
+    start_fractions: List[float], 
+    fixed_taus: List[float]=None, 
+    verbose: bool=True, 
+    a_dc: float=None
+    ) -> Tuple[List[Tuple[float, float]], float, np.ndarray]:
     """
     Fit multiple exponentials sequentially by:
     1. First fit a constant term from the tail of the data
@@ -259,14 +266,19 @@ def sequential_exp_fit(t, y, start_fractions, verbose=True):
         t (array): Time points in nanoseconds
         y (array): Data points (normalized amplitude)
         start_fractions (list): List of fractions (0 to 1) indicating where to start fitting each component
-        verbose (bool): Whether to print detailed fitting information
+        fixed_taus (list, optional): Fixed tau values for each exponential component. 
+                                   If provided, only amplitudes are fitted, taus are constrained.
+                                   Must have same length as start_fractions.
+        verbose (bool): Whether to print detailed fitting information   
+        a_dc (float, optional): Fixed constant term. If provided, the constant term is not fitted.
         
     Returns:
         tuple: (components, a_dc, residual) where:
             - components: List of (amplitude, tau) pairs for each fitted component
-            - a_dc: Fitted constant term
+            - a_dc: Fitted constant term or the fixed constant term
             - residual: Residual after subtracting all components
     """
+    
     components = []  # List to store (amplitude, tau) pairs
     t_offset = t - t[0]  # Make time start at 0
     
@@ -275,13 +287,14 @@ def sequential_exp_fit(t, y, start_fractions, verbose=True):
     rolling_var = np.array([np.var(y[i:i+window]) for i in range(len(y)-window)])
     # Find where variance drops below threshold, indicating flat region
     var_threshold = np.mean(rolling_var) * 0.1  # 10% of mean variance
-    try:
-        flat_start = np.where(rolling_var < var_threshold)[0][-1]
-        # Use the flat region to estimate constant term
-        a_dc = np.mean(y[flat_start:])
-    except IndexError:
-        print("No flat region found, using last point of the signal as constant term")
-        a_dc = y[-1]
+    if a_dc is None:
+        try:
+            flat_start = np.where(rolling_var < var_threshold)[0][-1]
+            # Use the flat region to estimate constant term
+            a_dc = np.mean(y[flat_start:])
+        except IndexError:
+            print("No flat region found, using last point of the signal as constant term")
+            a_dc = y[-1]
 
     if verbose:
         print(f"\nFitted constant term: {a_dc:.3e}")
@@ -296,28 +309,47 @@ def sequential_exp_fit(t, y, start_fractions, verbose=True):
         
         # Fit current component
         try:
-            # Initial guess for parameters
-            p0 = [
-                y_residual[start_idx],  # amplitude
-                t_offset[start_idx] / 3  # tau
-            ]
+            # Prepare fitting parameters based on whether tau is fixed
+            if fixed_taus is not None:
+                # Use fixed tau - only fit amplitude using lambda
+                tau_fixed = fixed_taus[i]
+                p0 = [y_residual[start_idx]]  # Only amplitude initial guess
+                if verbose:
+                    print(f"Using fixed tau = {tau_fixed:.3f} ns")
+                
+                # Perform the fit on the current interval
+                t_fit = t_offset[start_idx:]
+                y_fit = y_residual[start_idx:]
+                popt, _ = curve_fit(lambda t, amp: single_exp_decay(t, amp, tau_fixed), t_fit, y_fit, p0=p0)
+                
+                # Store the components
+                amp = popt[0]
+                tau = tau_fixed
+            else:
+                # Fit both amplitude and tau (original behavior)
+                p0 = [
+                    y_residual[start_idx],  # amplitude
+                    t_offset[start_idx] / 3  # tau
+                ]
+                
+                # Set bounds for the fit
+                bounds = (
+                    [-np.inf, 0.1],  # lower bounds: amplitude can be negative, tau must be positive (0.1 ns is arbitrary)
+                    [np.inf, np.inf]  # upper bounds
+                )
+                
+                # Perform the fit on the current interval
+                t_fit = t_offset[start_idx:]
+                y_fit = y_residual[start_idx:]
+                popt, _ = curve_fit(single_exp_decay, t_fit, y_fit, p0=p0, bounds=bounds)
+                
+                # Store the components
+                amp, tau = popt
             
-            # Set bounds for the fit
-            bounds = (
-                [-np.inf, 0.1],  # lower bounds: amplitude can be negative, tau must be positive (0.1 ns is arbitrary)
-                [np.inf, np.inf]  # upper bounds
-            )
-            
-            # Perform the fit on the current interval
-            t_fit = t_offset[start_idx:]
-            y_fit = y_residual[start_idx:]
-            popt, _ = curve_fit(single_exp_decay, t_fit, y_fit, p0=p0, bounds=bounds)
-            
-            # Store the components
-            amp, tau = popt
             components.append((amp, tau))
             if verbose:
-                print(f"Found component: amplitude = {amp:.3e}, tau = {tau:.3f} ns")
+                tau_status = "(fixed)" if fixed_taus is not None else ""
+                print(f"Found component: amplitude = {amp:.3e}, tau = {tau:.3f} ns {tau_status}")
             
             # Subtract this component from the entire signal
             y_residual -= amp * np.exp(-t_offset/tau)
@@ -330,7 +362,7 @@ def sequential_exp_fit(t, y, start_fractions, verbose=True):
     return components, a_dc, y_residual
 
 
-def optimize_start_fractions(t, y, base_fractions, bounds_scale=0.5, verbose=True):
+def optimize_start_fractions(t, y, base_fractions, bounds_scale=0.5, fixed_taus=None, verbose=True, a_dc=None):
     """
     Optimize the start_fractions by minimizing the RMS between the data and the fitted sum 
     of exponentials using scipy.optimize.minimize.
@@ -340,10 +372,21 @@ def optimize_start_fractions(t, y, base_fractions, bounds_scale=0.5, verbose=Tru
         y (array): Data points (normalized amplitude)
         base_fractions (list): Initial guess for start fractions
         bounds_scale (float): Scale factor for bounds around base fractions (0.5 means ±50%)
-        
+        fixed_taus (list, optional): Fixed tau values for each exponential component. 
+                                   If provided, only amplitudes are fitted, taus are constrained.
+                                   Must have same length as base_fractions.
+        verbose (bool): Whether to print detailed fitting information
+        a_dc (float, optional): Constant term. If not provided, the constant term is fitted from 
+                                the tail of the data.
     Returns:
-        tuple: (best_fractions, best_components, best_dc, best_rms)
+        tuple: (success, best_fractions, best_components, best_dc, best_rms)
     """
+    # Validate fixed_taus parameter
+    if fixed_taus is not None:
+        if len(fixed_taus) != len(base_fractions):
+            raise ValueError("fixed_taus must have the same length as base_fractions")
+        if any(tau <= 0 for tau in fixed_taus):
+            raise ValueError("All fixed_taus values must be positive")
     
     def objective(x):
         """
@@ -354,14 +397,15 @@ def optimize_start_fractions(t, y, base_fractions, bounds_scale=0.5, verbose=Tru
         if not np.all(np.diff(x) < 0):
             return 1e6  # Return large value if constraint is violated
                 
-        components, _, residual = sequential_exp_fit(t, y, x, verbose=verbose)
+        components, _, residual = sequential_exp_fit(t, y, x, fixed_taus=fixed_taus, verbose=verbose, a_dc=a_dc)
         if len(components) == len(base_fractions):
             current_rms = np.sqrt(np.mean(residual**2))
         else:
             current_rms = 1e6 # Return large value if fitting fails
             
         return current_rms
-    
+
+
     # Define bounds for optimization
     bounds = []
     for base in base_fractions:
@@ -385,21 +429,23 @@ def optimize_start_fractions(t, y, base_fractions, bounds_scale=0.5, verbose=Tru
     # Get final results
     if result.success:
         best_fractions = result.x
-        components, a_dc, best_residual = sequential_exp_fit(t, y, best_fractions, verbose=False)
+        components, a_dc, best_residual = sequential_exp_fit(t, y, best_fractions, fixed_taus=fixed_taus, verbose=False)
         best_rms = np.sqrt(np.mean(best_residual**2))
-        
         print("\nOptimization successful!")
         print(f"Initial fractions: {[f'{f:.5f}' for f in base_fractions]}")
         print(f"Optimized fractions: {[f'{f:.5f}' for f in best_fractions]}")
+        if fixed_taus is not None:
+            print(f"Fixed taus: {[f'{tau:.3f} ns' for tau in fixed_taus]}")
         print(f"Final RMS: {best_rms:.3e}")
         print(f"Number of iterations: {result.nit}")
     else:
         print("\nOptimization failed. Using initial values.")
         best_fractions = base_fractions
-        components, a_dc, best_residual = sequential_exp_fit(t, y, best_fractions, verbose=False)
+        components, a_dc, best_residual = sequential_exp_fit(t, y, best_fractions, fixed_taus=fixed_taus, verbose=False)
         best_rms = np.sqrt(np.mean(best_residual**2))
     
     return result.success, best_fractions, components, a_dc, best_rms
+
 
 # The functions below are used to decompose the sum of exponentials to a cascade of single 
 # exponent filters, as implemented in QOP 3.4.    
