@@ -1,3 +1,4 @@
+from typing import List, Optional
 from qualibrate_app.config import get_config_path, get_settings
 from iqcc_calibration_tools.quam_config.components import Quam
 import os
@@ -36,7 +37,7 @@ def extract_string(input_string):
         return None
 
 
-def fetch_results_as_xarray(handles, qubits, measurement_axis):
+def fetch_results_as_xarray(handles, qubits, measurement_axis, keys : Optional[List[str]] = None):
     """
     Fetches measurement results as an xarray dataset.
     Parameters:
@@ -47,7 +48,11 @@ def fetch_results_as_xarray(handles, qubits, measurement_axis):
     - ds (xarray.Dataset): An xarray dataset containing the fetched measurement results.
     """
 
-    stream_handles = handles.keys()
+    if keys is None:
+        stream_handles = handles.keys()
+    else:
+        stream_handles = keys.copy()
+    
     meas_vars = list(set([extract_string(handle) for handle in stream_handles if extract_string(handle) is not None]))
     values = [
         [handles.get(f"{meas_var}{i + 1}").fetch_all() for i, qubit in enumerate(qubits)] for meas_var in meas_vars
