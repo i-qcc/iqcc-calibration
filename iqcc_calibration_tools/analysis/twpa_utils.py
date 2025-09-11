@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # gain, snr into db
-def res_snr(spec):
+def res_snr(spec):#ok
     base=spec[spec!=spec.min()]
     signalsize=np.mean(base)-np.min(spec)
     noise=np.std(base)
@@ -19,8 +19,8 @@ def dBm(full_scale_power_dbm,daps):
     return dbm
 
 ## pumpon
-def pumpoon_maxgain_res_spec(IQ_abs, qubits,  dfps, daps):
-    sumresult=np.mean(pump_signal_snr(IQ_abs,qubits, dfps, daps),axis=0) # get avg on all qubit result
+def pumpoon_maxgain_res_spec(IQ_abs, qubits,  dfps, daps,dfs): #ok
+    sumresult=np.mean(pump_signal_snr(IQ_abs,qubits, dfps, daps, dfs),axis=0) # get avg on all qubit result
     signal=sumresult[:,:,0]                                             # get only the signal data
     maxsignal=np.unravel_index(np.argmax(signal),signal.shape)          # get the pump maxarg
     spec=[]
@@ -29,8 +29,8 @@ def pumpoon_maxgain_res_spec(IQ_abs, qubits,  dfps, daps):
         spec.append(val)
     specs = np.array(spec)
     return specs 
-def pumpoon_maxdsnr_res_spec(IQ_abs, qubits,  dfps, daps):
-    sumresult=np.mean(pump_signal_snr(IQ_abs,qubits, dfps, daps),axis=0) # get avg on all qubit result
+def pumpoon_maxdsnr_res_spec(IQ_abs, qubits,  dfps, daps,dfs): #ok
+    sumresult=np.mean(pump_signal_snr(IQ_abs,qubits, dfps, daps,dfs),axis=0) # get avg on all qubit result
     snr=sumresult[:,:,1]                                                # get only the snr data
     maxsnr=np.unravel_index(np.argmax(snr),snr.shape)                   # get the pump maxarg
     spec=[]
@@ -39,17 +39,33 @@ def pumpoon_maxdsnr_res_spec(IQ_abs, qubits,  dfps, daps):
         spec.append(val)
     specs = np.array(spec)
     return specs 
-def pump_signal_snr(IQ_abs,qubits, dfps, daps):
+# def pump_signal_snr(IQ_abs,qubits, dfps, daps): #ok
+#     pump_s_snr=np.zeros((len(qubits),len(dfps),len(daps),2))
+#     for i in range(len(qubits)):
+#         for j in range(len(dfps)):
+#             for k in range(len(daps)):
+#                 spec=IQ_abs.values[i][j][k]
+#                 pump_s_snr[i,j,k,0]=np.mean(voltTOdbm(spec))   
+#                 pump_s_snr[i,j,k,1]=res_snr(spec) 
+#     return pump_s_snr
+def pump_signal_snr(IQ_abs,qubits, dfps, daps, dfs): #0909
+    pumpoff_resspec = pumpoff_res_spec_per_qubit(IQ_abs, qubits, dfs, dfps)
     pump_s_snr=np.zeros((len(qubits),len(dfps),len(daps),2))
     for i in range(len(qubits)):
         for j in range(len(dfps)):
             for k in range(len(daps)):
-                spec=IQ_abs.values[i][j][k]
-                pump_s_snr[i,j,k,0]=np.mean(voltTOdbm(spec))   
-                pump_s_snr[i,j,k,1]=res_snr(spec)    
+                # average signal level
+                spec=IQ_abs.values[i][j][k] 
+                pump_s_snr[i,j,k,0]=np.mean(voltTOdbm(spec))
+                # snr of resonator dip
+                spec_min=spec[spec!=spec[pumpoff_resspec[i].argmin()]]
+                signalsize=np.mean(spec_min)-spec[pumpoff_resspec[i].argmin()]
+                noise=np.std(spec_min)
+                snr=20*np.log10((signalsize/noise))
+                pump_s_snr[i,j,k,1]=snr   
     return pump_s_snr
 ## pump off
-def pumpoff_res_spec_per_qubit(IQ_abs, qubits, dfs, dfps):
+def pumpoff_res_spec_per_qubit(IQ_abs, qubits, dfs, dfps): #ok
     pump0_res_spec_per_qubit = np.zeros((len(qubits), len(dfs)), dtype=float)
     for i in range(len(qubits)):
         sum_pump_0=np.zeros(len(dfs))
@@ -58,21 +74,15 @@ def pumpoff_res_spec_per_qubit(IQ_abs, qubits, dfs, dfps):
                 sum_pump_0+=pump_0
         pump0_res_spec_per_qubit[i]=(sum_pump_0/len(dfps))
     return pump0_res_spec_per_qubit
-
-def pumpzero_signal_snr(IQ_abs, dfs, qubits, dfps, daps):
-    pumpoff_resspec = pumpoff_res_spec_per_qubit(IQ_abs, qubits, dfs, dfps)
-    pumpoff_s_snr0=np.zeros((len(qubits),2))
-    for i in range(len(qubits)):
-        pumpoff_s_snr0[i,0]=np.mean(voltTOdbm(pumpoff_resspec[i]))
-        pumpoff_s_snr0[i,1]=res_snr(pumpoff_resspec[i])
+def pumpzero_signal_snr(IQ_abs, dfs, qubits, dfps, daps): #ok 0910
+    pumpoff_resspec = pumpoff_res_spec_per_qubit(IQ_abs, qubits, dfs, dfps)    
     pumpoff_s_snr=np.zeros((len(qubits),len(dfps),len(daps),2))
     for i in range(len(qubits)):
         for j in range(len(dfps)):
             for k in range(len(daps)):
-                pumpoff_s_snr[i,j,k,0]=pumpoff_s_snr0[i][0]
-                pumpoff_s_snr[i,j,k,1]=pumpoff_s_snr0[i][1]
+                pumpoff_s_snr[i,j,k,0]=np.mean(voltTOdbm(pumpoff_resspec[i]))
+                pumpoff_s_snr[i,j,k,1]=res_snr(pumpoff_resspec[i])
     return pumpoff_s_snr
-
 ### get optimized pump point
 def pump_maxgain(pumpon_signal_snr,dfps,daps):
     sumresult=np.mean(pumpon_signal_snr,axis=0)

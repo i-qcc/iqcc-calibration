@@ -11,7 +11,7 @@ __all__ = ["TWPA"]
 @quam_dataclass
 class TWPA(QuamComponent):
     """
-    Example QuAM component for a transmon qubit.
+    Example QuAM component for a TWPA.
 
     Args:
         id (str, int): The id of the TWPA, used to generate the name.
