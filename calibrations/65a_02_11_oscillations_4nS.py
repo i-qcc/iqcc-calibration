@@ -31,8 +31,8 @@ from iqcc_calibration_tools.qualibrate_config.qualibrate.node import Qualibratio
 from iqcc_calibration_tools.quam_config.components import Quam
 from iqcc_calibration_tools.quam_config.macros import active_reset_simple, readout_state, readout_state_gef, active_reset_gef
 from iqcc_calibration_tools.analysis.plot_utils import QubitPairGrid, grid_iter, grid_pair_names
-from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset, save_node
-from iqcc_calibration_tools.analysis.fit import fit_oscillation
+from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray
+from iqcc_calibration_tools.quam_config.lib.fit import fit_oscillation, oscillation, fix_oscillation_phi_2pi
 from qualang_tools.results import progress_counter, fetching_tool
 from qualang_tools.loops import from_array
 from qualang_tools.multi_user import qm_session
@@ -44,16 +44,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 import warnings
 from qualang_tools.bakery import baking
-from iqcc_calibration_tools.analysis.fit import fit_oscillation_decay_exp, oscillation_decay_exp
+from iqcc_calibration_tools.quam_config.lib.fit import fit_oscillation_decay_exp, oscillation_decay_exp
 from iqcc_calibration_tools.analysis.plot_utils import QubitPairGrid, grid_iter, grid_pair_names
 from scipy.optimize import curve_fit
 from iqcc_calibration_tools.quam_config.components.gates.two_qubit_gates import CZGate
 from iqcc_calibration_tools.quam_config.lib.pulses import FluxPulse
+from iqcc_calibration_tools.quam_config.components.gate_macros import CZMacro
 
 # %% {Node_parameters}
 class Parameters(NodeParameters):
 
-    qubit_pairs: Optional[List[str]] = ["coupler_q1_q2"]
+    qubit_pairs: Optional[List[str]] = ["coupler_qA1_qA2"]
     num_averages: int = 100
     max_time_in_ns: int = 200
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
@@ -63,6 +64,7 @@ class Parameters(NodeParameters):
     amp_range : float = 0.2
     amp_step : float = 0.003
     load_data_id: Optional[int] = None  
+    pulsed_qubit: Literal["control", "target"] = "target"
 
 node = QualibrationNode(
     name="65a_02_11_oscillations_4nS", parameters=Parameters()
@@ -188,7 +190,8 @@ with program() as CPhase_Oscillations:
                     qp.align()
 
                     # play the flux pulse
-                    qp.qubit_control.z.play("const", amplitude_scale = comp_flux_qubit / qp.qubit_control.z.operations["const"].amplitude* amp, duration = t)                
+                    pulsed_qubit = qp.qubit_control if node.parameters.pulsed_qubit == "control" else qp.qubit_target
+                    pulsed_qubit.z.play("const", amplitude_scale = comp_flux_qubit / pulsed_qubit.z.operations["const"].amplitude* amp, duration = t)                
                     qp.coupler.play("const", amplitude_scale = comp_flux_coupler / qp.coupler.operations["const"].amplitude, duration = t)
                     # wait for the flux pulse to end and some extra time
                     for qubit in [qp.qubit_control, qp.qubit_target]:
@@ -197,7 +200,7 @@ with program() as CPhase_Oscillations:
                                 
                     # measure both qubits
                     readout_state_gef(qp.qubit_control, state_control[i])
-                    readout_state(qp.qubit_target, state_target[i])
+                    readout_state_gef(qp.qubit_target, state_target[i])
                     save(state_control[i], state_st_control[i])
                     save(state_target[i], state_st_target[i])
 
@@ -385,17 +388,31 @@ if not node.parameters.simulate:
 
 # %%
 
+
 # %% {Update_state}
 if not node.parameters.simulate:
     if node.parameters.load_data_id is None:
         with node.record_state_updates():
             for qp in qubit_pairs:
-                qp.gates['Cz_unipolar'] = CZGate(flux_pulse_control = FluxPulse(length=lengths[qp.name], amplitude=amplitudes[qp.name], zero_padding=zero_paddings[qp.name], id = 'flux_pulse_control_' + qp.qubit_target.name),
-                                                 coupler_flux_pulse = FluxPulse(length=lengths[qp.name], amplitude=qp.extras["CZ_coupler_flux"], zero_padding=zero_paddings[qp.name], id = 'coupler_flux_pulse_' + qp.qubit_target.name))
-                qp.gates['Cz'] = f"#./Cz_unipolar"
+                stationary_qubit = qp.qubit_control if node.parameters.pulsed_qubit == "target" else qp.qubit_target
+                pulsed_qubit = qp.qubit_control if node.parameters.pulsed_qubit == "control" else qp.qubit_target
+                CZgate = CZMacro(flux_pulse_qubit = FluxPulse(length=lengths[qp.name], amplitude=amplitudes[qp.name], zero_padding=zero_paddings[qp.name], id = 'flux_pulse_qubit_' + stationary_qubit.name),
+                                 coupler_flux_pulse = FluxPulse(length=lengths[qp.name], amplitude=qp.extras["CZ_coupler_flux"], zero_padding=zero_paddings[qp.name], id = 'coupler_flux_pulse_' + stationary_qubit.name),
+                                 pulsed_qubit = node.parameters.pulsed_qubit)
+                qp.macros['Cz_unipolar'] = CZgate
+                qp.coupler.operations[f"coupler_flux_pulse_{stationary_qubit.name}"] = FluxPulse(length=f"#/qubit_pairs/{qp.name}/macros/Cz_unipolar/coupler_flux_pulse/length", 
+                                                                        amplitude=f"#/qubit_pairs/{qp.name}/macros/Cz_unipolar/coupler_flux_pulse/amplitude", 
+                                                                        zero_padding=f"#/qubit_pairs/{qp.name}/macros/Cz_unipolar/coupler_flux_pulse/zero_padding", 
+                                                                        id = 'coupler_flux_pulse_' + stationary_qubit.name)
+                pulsed_qubit.z.operations[f"flux_pulse_qubit_{stationary_qubit.name}"] = FluxPulse(length=f"#/qubit_pairs/{qp.name}/macros/Cz_unipolar/flux_pulse_qubit/length", 
+                                                                  amplitude=f"#/qubit_pairs/{qp.name}/macros/Cz_unipolar/flux_pulse_qubit/amplitude", 
+                                                                  zero_padding=f"#/qubit_pairs/{qp.name}/macros/Cz_unipolar/flux_pulse_qubit/zero_padding", 
+                                                                  id = 'flux_pulse_qubit_' + stationary_qubit.name)
+                # qp.gates['Cz_unipolar'] = CZgate
+                # qp.gates['Cz'] = f"#./Cz_unipolar"
                 
-                qp.J2 = Js[qp.name]
-                qp.detuning = detunings[qp.name]
+                # qp.J2 = Js[qp.name]
+                # qp.detuning = detunings[qp.name]
                 
 # %% {Save_results}
 if not node.parameters.simulate:
