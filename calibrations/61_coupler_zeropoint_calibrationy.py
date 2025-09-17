@@ -38,7 +38,7 @@ from iqcc_calibration_tools.qualibrate_config.qualibrate.node import Qualibratio
 from iqcc_calibration_tools.quam_config.components import Quam
 from iqcc_calibration_tools.quam_config.macros import active_reset, readout_state, readout_state_gef, active_reset_gef, active_reset_simple
 from iqcc_calibration_tools.analysis.plot_utils import QubitPairGrid, grid_iter, grid_pair_names
-from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset, get_node_id, save_node
+from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset
 from qualang_tools.results import progress_counter, fetching_tool
 from qualang_tools.loops import from_array
 from qualang_tools.multi_user import qm_session
@@ -50,7 +50,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import warnings
 from qualang_tools.bakery import baking
-from iqcc_calibration_tools.analysis.fit import fit_oscillation, oscillation, fix_oscillation_phi_2pi
+# from iqcc_calibration_tools.analysis.fit import fit_oscillation, oscillation, fix_oscillation_phi_2pi
 from iqcc_calibration_tools.analysis.plot_utils import QubitPairGrid, grid_iter, grid_pair_names
 from scipy.optimize import curve_fit
 from iqcc_calibration_tools.quam_config.components.gates.two_qubit_gates import CZGate
@@ -59,27 +59,27 @@ from iqcc_calibration_tools.quam_config.lib.pulses import FluxPulse
 # %% {Node_parameters}
 class Parameters(NodeParameters):
 
-    qubit_pairs: Optional[List[str]] = ["coupler_q1_q2"]
-    num_averages: int = 100
+    qubit_pairs: Optional[List[str]] = ["coupler_qA1_qA2"]
+    num_averages: int = 150
     flux_point_joint_or_independent_or_pairwise: Literal["joint", "independent", "pairwise"] = "joint"
     reset_type: Literal['active', 'thermal'] = "active"
     simulate: bool = False
     timeout: int = 100
     load_data_id: Optional[int] = None
-    coupler_flux_min : float = -0. #relative to the coupler set point
-    coupler_flux_max : float = 0.4 #relative to the coupler set point
+    coupler_flux_min : float = 0.00 #relative to the coupler set point
+    coupler_flux_max : float = 0.1 #relative to the coupler set point
     coupler_flux_step : float = 0.0005
-    qubit_flux_span : float = 0.01 # relative to the known/calculated detuning between the qubits
+    qubit_flux_span : float = 0.02 # relative to the known/calculated detuning between the qubits
     qubit_flux_step : float = 0.00025   
     use_state_discrimination: bool = True
-    pulse_duration_ns: int = 48
+    pulse_duration_ns: int = 128
     
 
 node = QualibrationNode(
     name="61_coupler_zeropoint_calibration", parameters=Parameters()
 )
 assert not (node.parameters.simulate and node.parameters.load_data_id is not None), "If simulate is True, load_data_id must be None, and vice versa."
-node_id = get_node_id()
+node_id = 1
 
 # %% {Initialize_QuAM_and_QOP}
 # Class containing tools to help handling units and conversions.
@@ -312,7 +312,7 @@ if not node.parameters.simulate:
         sec_ax.set_xlabel('Detuning [MHz]')
         ax.set_xlabel('Qubit flux pulse [mV]')
         ax.set_ylabel('Coupler flux pulse [mV]')
-    grid.fig.suptitle(f'Control \n {date_time} GMT+3 #{node_id} \n reset type = {node.parameters.reset_type}')
+    grid.fig.suptitle(f'Control: {machine.qubit_pairs[qp["qubit"]].qubit_control.name} \n {date_time} GMT+3 #{node_id} \n reset type = {node.parameters.reset_type}')
     plt.tight_layout()
     plt.show()
     node.results['figure_control'] = grid.fig
@@ -343,7 +343,7 @@ if not node.parameters.simulate:
         sec_ax.set_xlabel('Detuning [MHz]')
         ax.set_xlabel('Qubit flux shift [mV]')
         ax.set_ylabel('Coupler flux [mV]')
-    grid.fig.suptitle(f'Target \n {date_time} GMT+3 #{node_id}')
+    grid.fig.suptitle(f'Target: {machine.qubit_pairs[qp["qubit"]].qubit_target.name} \n {date_time} GMT+3 #{node_id}')
     plt.tight_layout()
     plt.show()
     node.results['figure_target'] = grid.fig
