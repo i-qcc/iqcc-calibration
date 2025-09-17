@@ -68,11 +68,11 @@ class Parameters(NodeParameters):
     simulate: bool = False
     timeout: int = 100
     load_data_id: Optional[int] = None
-    coupler_flux_min : float = 0.02
-    coupler_flux_max : float = 0.1
+    coupler_flux_min : float = -0.03
+    coupler_flux_max : float = 0.035
     coupler_flux_step : float = 0.001
     idle_time_min : int = 16
-    idle_time_max : int = 600
+    idle_time_max : int = 2000
     idle_time_step : int = 4
     use_state_discrimination: bool = True
     
@@ -275,10 +275,10 @@ if not node.parameters.simulate:
         values_to_plot.plot(ax = ax, cmap = 'viridis', y = 'idle_time', x = 'flux_coupler')
         qubit_pair = machine.qubit_pairs[qp['qubit']]
         ax.set_title(f"{qp['qubit']}, coupler set point: {qubit_pair.coupler.decouple_offset}", fontsize = 10)
-    grid.fig.suptitle('I Control')
+    grid.fig.suptitle('state Control')
     plt.tight_layout()
     plt.show()
-    node.results['figure_I_control'] = grid.fig
+    node.results['figure_state_control'] = grid.fig
     
     grid = QubitPairGrid(grid_names, qubit_pair_names)    
     for ax, qp in grid_iter(grid):
@@ -289,10 +289,10 @@ if not node.parameters.simulate:
         values_to_plot.plot(ax = ax, cmap = 'viridis', y = 'idle_time', x = 'flux_coupler')
         qubit_pair = machine.qubit_pairs[qp['qubit']]
         ax.set_title(f"{qp['qubit']}, coupler set point: {qubit_pair.coupler.decouple_offset}", fontsize = 10)
-    grid.fig.suptitle('I Target')
+    grid.fig.suptitle('state Target')
     plt.tight_layout()
     plt.show()
-    node.results['figure_I_target'] = grid.fig
+    node.results['figure_state_target'] = grid.fig
     
     grid = QubitPairGrid(grid_names, qubit_pair_names)    
     for ax, qp in grid_iter(grid):
@@ -303,7 +303,9 @@ if not node.parameters.simulate:
         ax.set_title(f"{qp['qubit']}, coupler set point: {qubit_pair.coupler.decouple_offset}", fontsize = 10)
         ax.set_xlabel('Flux Coupler')
         ax.set_ylabel('Frequency (MHz)')
+        ax.grid()
     grid.fig.suptitle('Dominant Frequency')
+    
     plt.tight_layout()
     plt.show()
     node.results['figure_dominant_frequency'] = grid.fig
