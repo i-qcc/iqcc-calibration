@@ -72,7 +72,7 @@ class Parameters(NodeParameters):
         reset_type_active_or_thermal (str): Reset method to use
     """
 
-    qubits: Optional[List[str]] = ["Q3"]
+    qubits: Optional[List[str]] = None
     num_averages: int = 20
     operation: str = "x180"
     operation_amplitude_factor: Optional[float] = 1
@@ -82,10 +82,11 @@ class Parameters(NodeParameters):
     time_step_num: Optional[int] = 200 # for log time axis
     frequency_span_in_mhz: float = 200
     frequency_step_in_mhz: float = 0.4
-    flux_amp : float = 0.17
+    flux_amp : float = 0.075
     update_lo: bool = False
-    fitting_base_fractions: List[float] = [0.4, 0.15, 0.05] # fraction of times from which to fit each exponential
+    fitting_base_fractions: List[float] = [0.4, 0.15, 0.02] # fraction of times from which to fit each exponential
     update_state: bool = False
+    
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
     simulate: bool = False
     simulation_duration_ns: int = 2500
@@ -320,7 +321,7 @@ flux_response = np.sqrt(center_freqs / xr.DataArray([q.freq_vs_flux_01_quad_term
 # Store results in dataset
 ds['center_freqs'] = center_freqs
 ds['flux_response'] = flux_response
-
+# %%
 # Perform exponential fitting for each qubit
 fit_results = {}
 for q in qubits:
@@ -439,10 +440,23 @@ for ax, qubit in grid_iter(grid):
     # flux_response_norm.plot(ax=ax)
 
     # Plot fitted curves and parameters if fits were successful    
+    # if fit_results[qubit["qubit"]]["fit_successful"]:
+    #     ax.plot(t_data, y_fit, color='r', label='Full Fit', linewidth=2) # Plot full fit
+    #     ax.text(0.02, 0.98, fit_text, transform=ax.transAxes, 
+    #             verticalalignment='top', fontsize=8)
+        
     if fit_results[qubit["qubit"]]["fit_successful"]:
+        best_a_dc = fit_results[qubit["qubit"]]["best_a_dc"]
+        t_offset = t_data - t_data[0]
+        y_fit = np.ones_like(t_data, dtype=float) * best_a_dc  # Start with fitted constant
+        fit_text = f'a_dc = {best_a_dc:.3f}\n'
+        for i, (amp, tau) in enumerate(fit_results[qubit["qubit"]]["best_components"]):
+            y_fit += amp * np.exp(-t_offset/tau)
+            fit_text += f'a{i+1} = {amp / best_a_dc:.3f}, τ{i+1} = {tau:.0f}ns\n'
+
         ax.plot(t_data, y_fit, color='r', label='Full Fit', linewidth=2) # Plot full fit
         ax.text(0.02, 0.98, fit_text, transform=ax.transAxes, 
-                verticalalignment='top', fontsize=8)
+                verticalalignment='top', fontsize=8)        
 
     ax.set_ylabel("Normalized flux")
     ax.set_xlabel("Time (ns)")
