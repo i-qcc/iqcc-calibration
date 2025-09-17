@@ -12,11 +12,11 @@ from typing import Optional, Literal
 
 class Parameters(NodeParameters):
     qubit_pairs: Optional[str] = None
-    num_averages: int = 100
-    delay_span: int = 70 # in clock cycles
+    num_averages: int = 400
+    delay_span: int = 40 # in clock cycles
     flux_point_joint_or_independent: Literal['joint', 'independent'] = "joint"
     reset_type_thermal_or_active: Literal['thermal', 'active'] = "thermal"
-    which_qubit : Literal['control', 'target'] = "target"
+    which_qubit : Literal['control', 'target'] = "control"
     flux_amp: float = 0.03
     simulate: bool = False
     timeout: int = 100
@@ -115,22 +115,22 @@ with program() as xy_z_delay_calibration:
                 else:
                     qubit.resonator.wait(machine.thermalization_time * u.ns)
                     qp.align()
-
+                qp.qubit_control.xy.play("x180")
+                qp.align()
+                qp.qubit_control.z.wait(qubit.xy.operations['x180'].length // 4)
+                qp.qubit_target.z.wait(qp.qubit_target.xy.operations['x180'].length // 4)
+                qp.coupler.wait(qubit.xy.operations['x180'].length // 4)
                 qp.align()
                 with strict_timing_():
-                    qp.qubit_control.xy.play("x180")
-                    qp.qubit_control.z.wait(qubit.xy.operations['x180'].length // 4)
-                    qp.qubit_target.z.wait(qp.qubit_target.xy.operations['x180'].length // 4)
-                    qp.coupler.wait(qubit.xy.operations['x180'].length // 4)
-                    
-                    qp.qubit_control.z.wait(node.parameters.delay_span)
                     if node.parameters.which_qubit == "control":
                         qp.coupler.wait(node.parameters.delay_span + t)
+                        qp.qubit_control.z.wait(node.parameters.delay_span)
+                        qp.qubit_control.z.play("const", amplitude_scale=qp.detuning/qp.qubit_control.z.operations['const'].amplitude,duration = 4)
                     else:
                         qp.coupler.wait(node.parameters.delay_span)
                         qp.qubit_target.z.wait(node.parameters.delay_span + t)
                         qp.qubit_target.z.play("const", amplitude_scale=node.parameters.flux_amp/qp.coupler.operations['const'].amplitude,duration = 4)
-                    qp.qubit_control.z.play("const", amplitude_scale=qp.detuning/qp.qubit_control.z.operations['const'].amplitude,duration = 4)
+                    
                     qp.coupler.play("const", amplitude_scale=node.parameters.flux_amp/qp.coupler.operations['const'].amplitude,duration = 4)
 
                 qp.align()
