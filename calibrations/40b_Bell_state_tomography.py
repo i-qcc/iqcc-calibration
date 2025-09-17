@@ -36,9 +36,9 @@ Outcomes:
 from datetime import datetime, timezone, timedelta
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
 from iqcc_calibration_tools.quam_config.components import Quam
-from iqcc_calibration_tools.quam_config.macros import active_reset, readout_state, readout_state_gef, active_reset_gef
+from iqcc_calibration_tools.quam_config.macros import active_reset, readout_state, readout_state_gef, active_reset_gef, active_reset_simple
 from iqcc_calibration_tools.analysis.plot_utils import QubitPairGrid, grid_iter, grid_pair_names
-from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, get_node_id, load_dataset, save_node
+from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray
 from qualang_tools.results import progress_counter, fetching_tool
 from qualang_tools.loops import from_array
 from qualang_tools.multi_user import qm_session
@@ -50,7 +50,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import warnings
 from qualang_tools.bakery import baking
-from iqcc_calibration_tools.analysis.fit import fit_oscillation, oscillation, fix_oscillation_phi_2pi
+from iqcc_calibration_tools.quam_config.lib.fit import fit_oscillation, oscillation, fix_oscillation_phi_2pi
 from iqcc_calibration_tools.analysis.plot_utils import QubitPairGrid, grid_iter, grid_pair_names
 from scipy.optimize import curve_fit
 from iqcc_calibration_tools.quam_config.components.gates.two_qubit_gates import CZGate
@@ -71,7 +71,7 @@ class Parameters(NodeParameters):
 node = QualibrationNode(
     name="40b_Bell_state_tomography", parameters=Parameters()
 )
-node_id = get_node_id()
+node_id = 1
 assert not (node.parameters.simulate and node.parameters.load_data_id is not None), "If simulate is True, load_data_id must be None, and vice versa."
 
 # %% {Initialize_QuAM_and_QOP}
@@ -317,7 +317,7 @@ with program() as CPhase_Oscillations:
                     # Bell state
                     qp.qubit_control.xy.play("-y90")
                     qp.qubit_target.xy.play("y90")
-                    qp.gates['Cz'].execute()
+                    qp.macros['Cz_unipolar'].apply()
                     qp.qubit_control.xy.play("y90")
                     qp.align()
                     # tomography pulses

@@ -35,9 +35,9 @@ Outcomes:
 from datetime import datetime, timezone, timedelta
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
 from iqcc_calibration_tools.quam_config.components import Quam
-from iqcc_calibration_tools.quam_config.macros import active_reset, readout_state, readout_state_gef, active_reset_gef
+from iqcc_calibration_tools.quam_config.macros import active_reset, readout_state, readout_state_gef, active_reset_gef, active_reset_simple
 from iqcc_calibration_tools.analysis.plot_utils import QubitPairGrid, grid_iter, grid_pair_names
-from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, get_node_id, load_dataset, save_node
+from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset
 from qualang_tools.results import progress_counter, fetching_tool
 from qualang_tools.loops import from_array
 from qualang_tools.multi_user import qm_session
@@ -49,7 +49,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import warnings
 from qualang_tools.bakery import baking
-from iqcc_calibration_tools.analysis.fit import fit_oscillation, oscillation, fix_oscillation_phi_2pi
+from iqcc_calibration_tools.quam_config.lib.fit import fit_oscillation, oscillation, fix_oscillation_phi_2pi
 from iqcc_calibration_tools.analysis.plot_utils import QubitPairGrid, grid_iter, grid_pair_names
 from scipy.optimize import curve_fit
 from iqcc_calibration_tools.quam_config.components.gates.two_qubit_gates import CZGate
@@ -59,9 +59,9 @@ from iqcc_calibration_tools.quam_config.lib.pulses import FluxPulse
 class Parameters(NodeParameters):
 
     qubit_pairs: Optional[List[str]] = None
-    num_averages: int = 200
+    num_averages: int = 500
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
-    reset_type: Literal['active', 'thermal'] = "thermal"
+    reset_type: Literal['active', 'thermal'] = "active"
     simulate: bool = False
     timeout: int = 100
     num_frames: int = 21
@@ -73,7 +73,7 @@ class Parameters(NodeParameters):
 node = QualibrationNode(
     name="33a_Cz_1Qphase_calibration_frame", parameters=Parameters()
 )
-node_id = get_node_id()
+node_id = 1
 
 assert not (node.parameters.simulate and node.parameters.load_data_id is not None), "If simulate is True, load_data_id must be None, and vice versa."
 
@@ -142,9 +142,9 @@ with program() as CPhase_Oscillations:
                 for qubit, state_q, state_st in [(qp.qubit_control, state_control[i], state_st_control[i]), (qp.qubit_target, state_target[i], state_st_target[i])]:
                     # reset
                     if node.parameters.reset_type == "active":
-                            active_reset(qp.qubit_control)
+                            active_reset_simple(qp.qubit_control)
                             qp.align()
-                            active_reset(qp.qubit_target)
+                            active_reset_simple(qp.qubit_target)
                             qp.align()
                     else:
                         wait(qp.qubit_control.thermalization_time * u.ns)
@@ -152,15 +152,10 @@ with program() as CPhase_Oscillations:
                     qp.align()
                     # setting both qubits ot the initial state
                     qubit.xy.play("x90")
-                    qp.align()
                     
-                    if qubit.name == qp.qubit_control.name:
-                        #play the CZ gate
-                        qp.gates['Cz'].execute(additional_control_phase_shift=frame)
-                    else:
-                        #play the CZ gate
-                        qp.gates['Cz'].execute(additional_target_phase_shift=frame)
-                    # return the target qubit before measurement
+                    qp.align()
+                    qp.macros['Cz_unipolar'].apply()
+                    qubit.xy.frame_rotation_2pi(frame)
                     qubit.xy.play("x90")              
                     
                     qp.align()
@@ -240,7 +235,7 @@ for qp in qubit_pairs:
     phases_target[qp.name] = 1 - phase_target
     phases_control[qp.name] = 1 - phase_control
     
-    print(f'measured phase offsets for {qp.name } are target: {phase_target:.3f}, control: {phase_control:.3f} \n old flux amp={qp.gates['Cz'].flux_pulse_control.amplitude}, old phases - target: {qp.gates['Cz'].phase_shift_target}, control: {qp.gates['Cz'].phase_shift_control}')
+    # print(f'measured phase offsets for {qp.name } are target: {phase_target:.3f}, control: {phase_control:.3f} \n old flux amp={qp.gates['Cz'].flux_pulse_control.amplitude}, old phases - target: {qp.gates['Cz'].phase_shift_target}, control: {qp.gates['Cz'].phase_shift_control}')
     
 # %%
 if not node.parameters.simulate:
@@ -282,9 +277,9 @@ if not node.parameters.simulate:
     if node.parameters.load_data_id is None:
         with node.record_state_updates():
             for qp in qubit_pairs:
-                qp.gates['Cz'].phase_shift_control += (phases_control[qp.name] / 1.0)
+                qp.macros['Cz_unipolar'].phase_shift_control += (phases_control[qp.name] / 1.0)
                 # qp.gates['Cz'].phase_shift_control = qp.gates['Cz'].phase_shift_control  % (1.0)
-                qp.gates['Cz'].phase_shift_target += (phases_target[qp.name]/ 1.0)
+                qp.macros['Cz_unipolar'].phase_shift_target += (phases_target[qp.name]/ 1.0)
                 # qp.gates['Cz'].phase_shift_target = qp.gates['Cz'].phase_shift_target  % (1.0)
                 
 # %% {Save_results}
