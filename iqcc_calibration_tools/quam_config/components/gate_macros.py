@@ -211,8 +211,8 @@ class DelayMacro(QubitMacro):
     """
     This macro is used to delay the qubit for a given duration (in clock cycles).
     """
-
-    def apply(self, duration) -> None:
+    duration: int = 25
+    def apply(self, duration = None) -> None:
         """
         This macro is used to delay the qubit for a given duration (in clock cycles).
 
@@ -220,6 +220,8 @@ class DelayMacro(QubitMacro):
             duration: The duration of the delay (in clock cycles).
         """
         qubit: Transmon = self.qubit
+        if self.duration is not None:
+            duration = self.duration
         qubit.wait(duration)
 
 @quam_dataclass

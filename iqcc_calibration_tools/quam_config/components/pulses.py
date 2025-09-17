@@ -17,7 +17,7 @@ from qm.qua import (
 
 from scipy.integrate import quad
 
-def sleppain_waveform(amplitude, length, theta_i, theta_f, coeffs = 0):
+def slepian_waveform(amplitude, length, theta_i, theta_f, coeffs = 0):
     
     def theta_tau(tau, theta_i, theta_f,t_p, coeffs):
         return theta_i + (theta_f - theta_i) / 2 * np.sum([ coeff * (1 - np.cos(2 * np.pi * (2*n+1) * tau / t_p)) for n, coeff in enumerate(coeffs)])
@@ -55,13 +55,13 @@ def sleppain_waveform(amplitude, length, theta_i, theta_f, coeffs = 0):
 from quam.utils.qua_types import ScalarInt, ScalarBool
 
 __all__ = [
-    "SleppainPulse",
+    "SlepianPulse",
     "CosinePulse",
 ]
 
 
 @quam_dataclass
-class SleppainPulse(Pulse):
+class SlepianPulse(Pulse):
 
     amplitude: float
     theta_i: float = 0.1
@@ -73,7 +73,7 @@ class SleppainPulse(Pulse):
 
     def waveform_function(self):
 
-        I= sleppain_waveform(
+        I= slepian_waveform(
             amplitude=self.amplitude,
             length=self.length,
             theta_i=self.theta_i,
