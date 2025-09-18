@@ -44,6 +44,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 import time
+from collections import defaultdict
 import iqcc_calibration_tools.analysis.cryoscope_tools as cryoscope_tools
 start = time.time()
 
@@ -76,7 +77,7 @@ class Parameters(NodeParameters):
     num_averages: int = 50
     operation: str = "x180"
     operation_amplitude_factor: Optional[float] = 1
-    duration_in_ns: Optional[int] = 80000
+    duration_in_ns: Optional[int] = 120000
     time_axis: Literal["linear", "log"] = "log"
     time_step_in_ns: Optional[int] = 48 # for linear time axis
     time_step_num: Optional[int] = 50 # for log time axis
@@ -84,10 +85,10 @@ class Parameters(NodeParameters):
     frequency_step_in_mhz: float = 0.4
     flux_amp : float = 0.17
     update_lo: bool = True
-    fitting_base_fractions: List[float] = [0.6, 0.3, 0.02] # fraction of times from which to fit each exponential
-    fixed_taus: Optional[List[float]] = None
+    fitting_base_fractions: List[float] = [0.3, 0.02] # fraction of times from which to fit each exponential
+    num_fixed_taus: Optional[int] = 2
     update_state: bool = False
-    fit_multiple_exponentials: bool = False
+    fit_multiple_exponentials: bool = True
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
     simulate: bool = False
     simulation_duration_ns: int = 2500
@@ -96,11 +97,10 @@ class Parameters(NodeParameters):
     multiplexed: bool = False
     reset_type_active_or_thermal: Literal['active', 'thermal'] = 'active'
     thermal_reset_extra_time_in_us: Optional[int] = 10_000
-    min_wait_time_in_ns: Optional[int] = 12
+    min_wait_time_in_ns: Optional[int] = 16
 
 
 node = QualibrationNode(name="97b_Pi_vs_flux_time", parameters=Parameters())
-node_id = 1
 
 # %% {Initialize_QuAM_and_QOP}
 # Class containing tools to help handling units and conversions.
@@ -142,7 +142,6 @@ if node.parameters.load_data_id is None:
 # %% {QUA_program}
 n_avg = node.parameters.num_averages  # The number of averages
 operation = node.parameters.operation  # The qubit operation to play
-# Adjust the pulse duration and amplitude to drive the qubit into a mixed state - can be None
 if node.parameters.operation_amplitude_factor:
     # pre-factor to the value defined in the config - restricted to [-2; 2)
     operation_amp = node.parameters.operation_amplitude_factor
@@ -152,13 +151,13 @@ else:
 span = node.parameters.frequency_span_in_mhz * u.MHz
 step = node.parameters.frequency_step_in_mhz * u.MHz
 dfs = np.arange(-span // 2, span // 2, step, dtype=np.int32)
-# Flux bias sweep
+# Time delay sweep (in clock cycles = 4ns) - minimum is 4 clock cycles
 if node.parameters.time_axis == "linear":
     times = np.arange(node.parameters.min_wait_time_in_ns // 4, node.parameters.duration_in_ns // 4, node.parameters.time_step_in_ns // 4, dtype=np.int32)
 elif node.parameters.time_axis == "log":
     times = np.logspace(np.log10(node.parameters.min_wait_time_in_ns // 4), np.log10(node.parameters.duration_in_ns // 4), node.parameters.time_step_num, dtype=np.int32)
-    # Remove repetitions from times
-    times = np.unique(times)
+# Remove repetitions from times
+times = np.unique(times)
 
 flux_point = node.parameters.flux_point_joint_or_independent  # 'independent' or 'joint'
 detuning = [q.freq_vs_flux_01_quad_term * node.parameters.flux_amp**2 for q in qubits]
@@ -192,19 +191,15 @@ with program() as multi_qubit_spec_vs_flux:
                         active_reset(qubit)
                     else:
                         qubit.wait(qubit.thermalization_time * u.ns)  
-                        qubit.wait(node.parameters.thermal_reset_extra_time_in_us * u.us)# Flux sweeping for a qubit
+                        qubit.wait(node.parameters.thermal_reset_extra_time_in_us * u.us) 
                     qubit.xy.update_frequency(df + qubit.xy.intermediate_frequency + detuning[i])
-                    # Bring the qubit to the desired point during the saturation pulse
                     qubit.align()
                     qubit.z.play("const", amplitude_scale=node.parameters.flux_amp / qubit.z.operations["const"].amplitude, duration=t_delay+200)
-                    # Apply saturation pulse to all qubits
-                    # qubit.xy.wait(qubit.z.settle_time * u.ns)
                     qubit.xy.wait(t_delay)
                     qubit.xy.play(
                         operation,
                         amplitude_scale=operation_amp
                     )
-                    # qubit.xy.update_frequency(qubit.xy.intermediate_frequency)
                     qubit.align()
                     qubit.wait(200)
                     # QUA macro to read the state of the active resonators
@@ -329,8 +324,12 @@ if node.parameters.fit_multiple_exponentials:
         fit_results[q.name] = {}
         t_data = flux_response.sel(qubit=q.name).time.values
         y_data = flux_response.sel(qubit=q.name).values
+        if node.parameters.num_fixed_taus is not None:
+            fixed_taus = sorted([component[1] for component in q.z.opx_output.exponential_filter])[:node.parameters.num_fixed_taus][::-1]
+        else:
+            fixed_taus = None
         fit_successful, best_fractions, best_components, best_a_dc, best_rms = cryoscope_tools.optimize_start_fractions(
-            t_data, y_data, node.parameters.fitting_base_fractions, bounds_scale=0.5, fixed_taus=node.parameters.fixed_taus
+            t_data, y_data, node.parameters.fitting_base_fractions, bounds_scale=0.5, fixed_taus=fixed_taus
             )
         best_components = [(amp * np.exp(t_data[0] / tau), tau) for amp, tau in best_components]
 
@@ -358,7 +357,7 @@ for ax, qubit in grid_iter(grid):
     # Add colorbar showing qubit state
     cbar = grid.fig.colorbar(im, ax=ax)
     cbar.set_label("Qubit State")
-grid.fig.suptitle(f"Qubit spectroscopy vs time after flux pulse \n {date_time} #{node_id}")
+grid.fig.suptitle(f"Qubit spectroscopy vs time after flux pulse \n {date_time} #{node.node_id}")
 
 plt.tight_layout()
 plt.show()
@@ -374,7 +373,7 @@ for ax, qubit in grid_iter(grid):
     ax.set_ylabel("Freq (GHz)")
     ax.set_xlabel("Time (ns)")
     ax.set_title(qubit["qubit"])
-grid.fig.suptitle(f"Qubit frequency shift vs time after flux pulse \n {date_time} #{node_id}")
+grid.fig.suptitle(f"Qubit frequency shift vs time after flux pulse \n {date_time} #{node.node_id}")
 
 plt.tight_layout()
 plt.show()
@@ -408,7 +407,7 @@ for ax, qubit in grid_iter(grid):
     ax.set_xlabel("Time (ns)")
     ax.set_title(qubit["qubit"])
     ax.grid(True)
-grid.fig.suptitle(f"Flux response vs time \n {date_time} #{node_id}")
+grid.fig.suptitle(f"Flux response vs time \n {date_time} #{node.node_id}")
 
 plt.tight_layout()
 plt.show()
@@ -424,7 +423,7 @@ for ax, qubit in grid_iter(grid):
     ax.set_title(qubit["qubit"])
     ax.set_xscale('log')
     ax.grid(True)
-grid.fig.suptitle(f"Qubit frequency shift vs time after flux pulse \n {date_time} #{node_id}")
+grid.fig.suptitle(f"Qubit frequency shift vs time after flux pulse \n {date_time} #{node.node_id}")
 
 plt.tight_layout()
 plt.show()
@@ -452,7 +451,7 @@ for ax, qubit in grid_iter(grid):
     ax.set_title(qubit["qubit"])
     ax.grid(True)
     ax.set_xscale('log')
-grid.fig.suptitle(f"Flux response vs time \n {date_time} #{node_id}")
+grid.fig.suptitle(f"Flux response vs time \n {date_time} #{node.node_id}")
 
 plt.tight_layout()
 plt.show()
@@ -463,15 +462,17 @@ node.results["figure_flux_response_log"] = grid.fig
 for q in tracked_qubits:
     q.revert_changes()
 
-# if node.parameters.load_data_id is None:
-#     if node.parameters.update_state:
-#         with node.record_state_updates():
-#             for q in qubits:
-#                 if fit_results[q.name]["fit_successful"]:
-#                     q.z.opx_output.exponential_filter = [[amp / best_a_dc, tau] 
-#                         for amp, tau in fit_results[q.name]["best_components"]
-#                         ]
-#                     print("updated the exponential filter")
+def merge_tuples(list1, list2):
+    """Merge two lists of tuples into a single list of tuples, summing the first elements 
+    for each second element."""
+    combined = defaultdict(float)
+    
+    # Sum first elements for each second element
+    for first, second in list1 + list2:
+        combined[second] += first
+
+    return [(value, key) for key, value in combined.items()]
+
 
 if node.parameters.load_data_id is None:
     if node.parameters.update_state:
@@ -481,7 +482,10 @@ if node.parameters.load_data_id is None:
                     A_list = [component[0] / fit_results[q.name]["best_a_dc"] for component in fit_results[q.name]["best_components"]]
                     tau_list = [component[1] for component in fit_results[q.name]["best_components"]]
                     A_c, tau_c, scale = cryoscope_tools.decompose_exp_sum_to_cascade(A=A_list, tau=tau_list, A_dc=1)
-                    q.z.opx_output.exponential_filter = list(zip(A_c, tau_c))
+                    if q.z.opx_output.exponential_filter is None:
+                        q.z.opx_output.exponential_filter = list(zip(A_c, tau_c))
+                    else:
+                        q.z.opx_output.exponential_filter = merge_tuples(q.z.opx_output.exponential_filter, list(zip(A_c, tau_c)))
                     print("updated the exponential filter")
 
 # %% {Save_results}
@@ -491,3 +495,4 @@ node.outcomes = {q.name: "successful" for q in qubits}
 node.results["initial_parameters"] = node.parameters.model_dump()
 node.machine = machine
 node.save()
+# %%
