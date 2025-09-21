@@ -18,7 +18,7 @@ classifiers = [
     "License :: OSI Approved :: BSD License",
     "Operating System :: OS Independent",
 ]
-requires-python = ">=3.9,<=3.12"
+requires-python = ">=3.10,<=3.12"
 dependencies = [
     "quam>=0.4.2,<0.5.0",
     "qualang-tools==0.19.3",
@@ -31,6 +31,7 @@ dependencies = [
     "more-itertools",
     "qiskit==2.0.0",
     "pylatexenc",
+    "iqcc-cloud-client", 
     "qualibrate-lab-notebook @ git+https://github.com/i-qcc/qualibrate-lab-notebook.git@main",
     "cloud-qualibrate-link @ git+https://github.com/i-qcc/cloud_qualibrate_link.git@main",
     "quam-builder@git+https://github.com/qua-platform/quam-builder.git",
@@ -46,3 +47,6 @@ allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["iqcc_calibration_tools"]
+
+[tool.uv]
+prerelease = "allow"
