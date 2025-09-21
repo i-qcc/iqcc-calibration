@@ -251,9 +251,9 @@ def sequential_exp_fit(
     t: np.ndarray, 
     y: np.ndarray, 
     start_fractions: List[float], 
-    fixed_taus: List[float]=None, 
+    fixed_taus: List[float]=None,
+    a_dc: float=None, 
     verbose: bool=True, 
-    a_dc: float=None
     ) -> Tuple[List[Tuple[float, float]], float, np.ndarray]:
     """
     Fit multiple exponentials sequentially by:
@@ -269,8 +269,8 @@ def sequential_exp_fit(
         fixed_taus (list, optional): Fixed tau values for each exponential component. 
                                    If provided, only amplitudes are fitted, taus are constrained.
                                    Must have same length as start_fractions.
-        verbose (bool): Whether to print detailed fitting information   
         a_dc (float, optional): Fixed constant term. If provided, the constant term is not fitted.
+        verbose (bool): Whether to print detailed fitting information   
         
     Returns:
         tuple: (components, a_dc, residual) where:
@@ -362,7 +362,15 @@ def sequential_exp_fit(
     return components, a_dc, y_residual
 
 
-def optimize_start_fractions(t, y, base_fractions, bounds_scale=0.5, fixed_taus=None, verbose=True, a_dc=None):
+def optimize_start_fractions(
+    t: np.ndarray, 
+    y: np.ndarray, 
+    base_fractions: List[float], 
+    bounds_scale: float=0.5, 
+    fixed_taus: List[float]=None, 
+    a_dc: float=None, 
+    verbose: bool=True
+    ) -> Tuple[bool, List[float], List[Tuple[float, float]], float, float]:
     """
     Optimize the start_fractions by minimizing the RMS between the data and the fitted sum 
     of exponentials using scipy.optimize.minimize.
@@ -375,9 +383,9 @@ def optimize_start_fractions(t, y, base_fractions, bounds_scale=0.5, fixed_taus=
         fixed_taus (list, optional): Fixed tau values for each exponential component. 
                                    If provided, only amplitudes are fitted, taus are constrained.
                                    Must have same length as base_fractions.
-        verbose (bool): Whether to print detailed fitting information
         a_dc (float, optional): Constant term. If not provided, the constant term is fitted from 
                                 the tail of the data.
+        verbose (bool): Whether to print detailed fitting information
     Returns:
         tuple: (success, best_fractions, best_components, best_dc, best_rms)
     """
@@ -397,7 +405,7 @@ def optimize_start_fractions(t, y, base_fractions, bounds_scale=0.5, fixed_taus=
         if not np.all(np.diff(x) < 0):
             return 1e6  # Return large value if constraint is violated
                 
-        components, _, residual = sequential_exp_fit(t, y, x, fixed_taus=fixed_taus, verbose=verbose, a_dc=a_dc)
+        components, _, residual = sequential_exp_fit(t, y, x, fixed_taus=fixed_taus, a_dc=a_dc, verbose=verbose)
         if len(components) == len(base_fractions):
             current_rms = np.sqrt(np.mean(residual**2))
         else:
@@ -429,7 +437,7 @@ def optimize_start_fractions(t, y, base_fractions, bounds_scale=0.5, fixed_taus=
     # Get final results
     if result.success:
         best_fractions = result.x
-        components, a_dc, best_residual = sequential_exp_fit(t, y, best_fractions, fixed_taus=fixed_taus, verbose=False)
+        components, a_dc, best_residual = sequential_exp_fit(t, y, best_fractions, fixed_taus=fixed_taus, a_dc=a_dc, verbose=False)
         best_rms = np.sqrt(np.mean(best_residual**2))
         print("\nOptimization successful!")
         print(f"Initial fractions: {[f'{f:.5f}' for f in base_fractions]}")
@@ -441,7 +449,7 @@ def optimize_start_fractions(t, y, base_fractions, bounds_scale=0.5, fixed_taus=
     else:
         print("\nOptimization failed. Using initial values.")
         best_fractions = base_fractions
-        components, a_dc, best_residual = sequential_exp_fit(t, y, best_fractions, fixed_taus=fixed_taus, verbose=False)
+        components, a_dc, best_residual = sequential_exp_fit(t, y, best_fractions, fixed_taus=fixed_taus, a_dc=a_dc, verbose=False)
         best_rms = np.sqrt(np.mean(best_residual**2))
     
     return result.success, best_fractions, components, a_dc, best_rms

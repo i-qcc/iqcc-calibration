@@ -11,7 +11,7 @@ from iqcc_calibration_tools.qualibrate_config.qualibrate.node import Qualibratio
 from typing import Optional, Literal
 
 class Parameters(NodeParameters):
-    qubits: Optional[str] = ['Q6']
+    qubits: Optional[str] = None
     num_averages: int = 100
     delay_span: int = 50 # in clock cycles
     flux_point_joint_or_independent: Literal['joint', 'independent'] = "joint"

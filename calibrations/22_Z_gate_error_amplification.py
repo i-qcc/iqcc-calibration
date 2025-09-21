@@ -57,8 +57,6 @@ class Parameters(NodeParameters):
     multiplexed: bool = False
 
 node = QualibrationNode(name="22_Z_gate_error_amplification", parameters=Parameters())
-node.parameters.qubits = ["Q3"]
-node.parameters.reset_type_thermal_or_active = "thermal"
 
 # %% {Initialize_QuAM_and_QOP}
 # Class containing tools to help handling units and conversions.

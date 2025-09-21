@@ -39,13 +39,13 @@ from iqcc_calibration_tools.quam_config.lib import guess
 # %% {Node_parameters}
 class Parameters(NodeParameters):
     qubits: Optional[List[str]] = None
-    num_averages: int = 200
+    num_averages: int = 1000
     ref_frequnecy_MHz: float = 0.0
     num_points: int = 100
-    z_pulse_duration_ns: Optional[int] = 24
+    z_pulse_duration_ns: Optional[int] = None
     flux_point_joint_or_independent: Literal['joint', 'independent'] = "joint"
     simulate: bool = False
-    reset_type: Literal['active', 'thermal'] = "thermal"
+    reset_type: Literal['active', 'thermal'] = "active"
     timeout: int = 100
     load_data_id: Optional[int] = None
     multiplexed: bool = True

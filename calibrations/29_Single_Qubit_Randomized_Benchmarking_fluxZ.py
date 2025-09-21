@@ -51,8 +51,8 @@ class Parameters(NodeParameters):
     use_strict_timing: bool = False
     num_random_sequences: int = 100  # Number of random sequences
     num_averages: int = 20
-    max_circuit_depth: int = 100  # Maximum circuit depth
-    delta_clifford: int = 5
+    max_circuit_depth: int = 1000  # Maximum circuit depth
+    delta_clifford: int = 20
     seed: int = 345324
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
     reset_type_thermal_or_active: Literal["thermal", "active"] = "thermal"
@@ -63,7 +63,6 @@ class Parameters(NodeParameters):
     multiplexed: bool = True
 
 node = QualibrationNode(name="29a_Single_Qubit_Randomized_Benchmarking__wait_fluxZ", parameters=Parameters())
-node.parameters.qubits = ["Q2"]
 
 # %% {Initialize_QuAM_and_QOP}
 # Class containing tools to help handling units and conversions.
