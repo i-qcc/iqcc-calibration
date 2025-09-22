@@ -8,8 +8,8 @@ def res_snr(spec):#ok
     noise=np.std(base)
     snr=20*np.log10((signalsize/noise))
     return snr
-def voltTOdbm(spec):
-    p_w=(spec**2)/50
+def voltTOdbm(volt):
+    p_w=(volt**2)/50
     dbm=10*np.log10(p_w*1000)
     return dbm
 def dBm(full_scale_power_dbm,daps):
@@ -17,6 +17,22 @@ def dBm(full_scale_power_dbm,daps):
     p_w=(v**2)/50
     dbm=10*np.log10(p_w*1000)-10
     return dbm +5.68 #5.68 calibrated through SA on 14/09
+
+def mvTOdbm(mv):
+    v=mv*1e-3
+    rms_v=v/np.sqrt(2)
+    p_watt=((rms_v)**2)/50
+    dbm=10*np.log10(p_watt*1000)
+    return dbm
+def snr():
+    noise=np.zeros((len(qubits),len(dfps),len(daps),1))
+    signal=np.zeros((len(qubits),len(dfps),len(daps),1))
+    for i in range(len(qubits)):
+        for j in range(len(dfps)):
+            for k in range(len(daps)):
+                noise[i,j,k]=mvTOdbm(np.mean(ds.IQ_abs_noise.values[i][j][k]))
+                signal[i,j,k]=mvTOdbm(ds.IQ_abs_signal.values[i][j][k][len(ds.IQ_abs_signal.values[i][j][k])//2])
+    return signal-noise
 
 ## pumpon
 def pumpoon_maxgain_res_spec(IQ_abs, qubits,  dfps, daps,dfs): #ok
