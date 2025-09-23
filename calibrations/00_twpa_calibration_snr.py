@@ -29,19 +29,18 @@ import math
 class Parameters(NodeParameters):
     twpas: Optional[List[str]] = ['twpa1']
     num_averages: int = 10
-    amp_min: float =  0.35
-    amp_max: float =  0.7
-    amp_step: float = 0.2#0.01
+    amp_min: float =  0.05
+    amp_max: float =  0.5
     frequency_span_in_mhz: float = 5
-    frequency_step_in_mhz: float =1#0.1
-    p_frequency_span_in_mhz: float = 10
-    p_frequency_step_in_mhz: float = 5#0.5
+    frequency_step_in_mhz: float = 0.1
+    p_frequency_span_in_mhz: float = 50
+    p_frequency_step_in_mhz: float = 0.5
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
     simulate: bool = False
     simulation_duration_ns: int = 4000
     timeout: int = 300
     load_data_id: Optional[int] = None
-    pumpline_attenuation: int = -50-11 #(-50: fridge atten(-30)+directional coupler(-20), -11: room temp line(7m),)  #-5: fridge line # exclude for now
+    pumpline_attenuation: int = -50 #(-50: fridge atten(-30)+directional coupler(-20)/ room temp line(4m)~-5,)  #-5: fridge line # exclude for now
     
 node = QualibrationNode(name="twpa_calibration", parameters=Parameters())
 # %% {Initialize_QuAM_and_QOP}
@@ -75,10 +74,13 @@ span = node.parameters.frequency_span_in_mhz * u.MHz
 step = node.parameters.frequency_step_in_mhz * u.MHz
 dfs = np.arange(-span / 2, +span / 2, step)
 # pump amp, frequency sweep
+full_scale_power_dbm=twpas[0].pump.opx_output.full_scale_power_dbm
 amp_max = node.parameters.amp_max
 amp_min = node.parameters.amp_min
-amp_step = node.parameters.amp_step
-daps = np.arange(amp_min, amp_max, amp_step)
+amp_step = int((dBm(full_scale_power_dbm, amp_max)-dBm(full_scale_power_dbm, amp_min))/0.2)
+# daps = np.linspace(amp_min, amp_max, 0.05)
+daps = np.arange(amp_min, amp_max, 0.01)
+
 span_p = node.parameters.p_frequency_span_in_mhz * u.MHz
 step_p = node.parameters.p_frequency_step_in_mhz * u.MHz
 dfps = np.arange(-span_p / 2, +span_p / 2, step_p)
@@ -125,7 +127,7 @@ with program() as twpa_pump_off:
                         rr.wait(rr.depletion_time * u.ns)
                         # save data
                         save(I_[i], I_st_[i])
-                        save(Q[i], Q_st_[i])
+                        save(Q_[i], Q_st_[i])
                 align()  
     with stream_processing():
         n_st.save("n")
@@ -144,16 +146,16 @@ with program() as twpa_pump_on:
     with for_(n, 0, n < n_avg, n + 1):  
         save(n, n_st)
         with for_(*from_array(dp, dfps)):  
-            update_frequency(twpas[0].pump.name, dp + twpas[0].pump.intermediate_frequency)
+            update_frequency(twpas[0].pump.name, 9e9 + twpas[0].pump.intermediate_frequency)
             with for_each_(da, daps):  
-                twpas[0].pump.play('pump', amplitude_scale=da, duration=pump_duration)#+250)
+                twpas[0].pump.play('pump', amplitude_scale=0.2, duration=pump_duration)#+250)
                 wait(250) #1000/4 wait 1us for pump to settle before readout
 # measure readout responses around readout resonators without pump
                 with for_(*from_array(df, dfs)):
                     for i, rr in enumerate(resonators):
                         # Update the resonator frequencies for all resonators
                         update_frequency(rr.name, df + rr.intermediate_frequency)
-                        # Measure the resonator
+                        # Measure the resonator, amp=0 -> see the noise level
                         rr.measure("readout",amplitude_scale=0, qua_vars=(I[i], Q[i]))
                         # wait for the resonator to relax
                         rr.wait(rr.depletion_time * u.ns)
@@ -164,13 +166,13 @@ with program() as twpa_pump_on:
                     for i, rr in enumerate(resonators):
                         # Update the resonator frequencies for all resonators
                         update_frequency(rr.name, df + rr.intermediate_frequency)
-                        # Measure the resonator
+                        # Measure the resonator, amp, see the signal level
                         rr.measure("readout", qua_vars=(I_[i], Q_[i]))
                         # wait for the resonator to relax
                         rr.wait(rr.depletion_time * u.ns)
                         # save data
                         save(I_[i], I_st_[i])
-                        save(Q[i], Q_st_[i])
+                        save(Q_[i], Q_st_[i])
                 align()  
     with stream_processing():
         n_st.save("n")
@@ -206,7 +208,7 @@ elif node.parameters.load_data_id is None:
             n = results.fetch_all()[0]
     with qm_session(qmm, config, timeout=node.parameters.timeout) as qm:
         job_ = qm.execute(twpa_pump_on)
-        results_ = fetching_tool(job, ["n"], mode="live")
+        results_ = fetching_tool(job_, ["n"], mode="live")
         while results_.is_processing():
             n_ = results_.fetch_all()[0]
 # %% {Data_fetching_and_dataset_creation}
@@ -217,51 +219,35 @@ ds = convert_IQ_to_V(ds, qubits)
 # Derive the amplitude IQ_abs = sqrt(I**2 + Q**2)
 ds = ds.assign({"IQ_abs_noise": 1e3*np.sqrt(ds["I"] ** 2 + ds["Q"] ** 2)})
 ds = ds.assign({"IQ_abs_signal": 1e3*np.sqrt(ds["I_"] ** 2 + ds["Q_"] ** 2)})
-# get pump off - resonator spec, signal, snr
-# pumpoff_resspec = pumpoff_res_spec_per_qubit(ds.IQ_abs, qubits, dfs, dfps)
-# pumpoff_signal_snr = pumpzero_signal_snr(ds.IQ_abs, dfs, qubits, dfps, daps)
-# # get pump on - max signal Gain, max DSNR
-# pumpon_resspec_maxG = pumpoon_maxgain_res_spec(ds.IQ_abs, qubits,  dfps, daps,dfs)
-# pumpon_resspec_maxDsnr = pumpoon_maxdsnr_res_spec(ds.IQ_abs, qubits,  dfps, daps,dfs)
-# # get gain & snr improvement
-# pumpon_signal_snr = pump_signal_snr(ds.IQ_abs, qubits, dfps, daps,dfs)
-# gain_dsnr = pumpon_signal_snr-pumpoff_signal_snr
-# # gain_dsnr = pumpon_signal_snr[:,:,1:len(daps)]-pumpoff_signal_snr[:,:,1:len(daps)] #to remove pump da=0
-# # Add the resonator RF frequency axis of each qubit to the dataset coordinates for plotting
-# RF_freq = np.array([dfs + q.resonator.RF_frequency for q in qubits])
-# node.results = {"ds": ds}
-# %%
+pumpoff_snr = snr(ds, qubits, dfps, daps)
+
 #data for pump on
 ds_ = fetch_results_as_xarray(job_.result_handles, qubits, {"freq": dfs, "pump_amp": daps, "pump_freq" : dfps})
 # Convert IQ data into volts
 ds_ = convert_IQ_to_V(ds_, qubits)
 # Derive the amplitude IQ_abs = sqrt(I**2 + Q**2)
-ds_ = ds_.assign({"IQ_abs": 1e3*np.sqrt(ds_["I_"] ** 2 + ds_["Q_"] ** 2)})
-# get pump off - resonator spec, signal, snr
-pumpoff_resspec_ = pumpoff_res_spec_per_qubit(ds_.IQ_abs, qubits, dfs, dfps)
-pumpoff_signal_snr_ = pumpzero_signal_snr(ds_.IQ_abs, dfs, qubits, dfps, daps)
-# get pump on - max signal Gain, max DSNR
-pumpon_resspec_maxG_ = pumpoon_maxgain_res_spec(ds_.IQ_abs, qubits,  dfps, daps,dfs)
-pumpon_resspec_maxDsnr_ = pumpoon_maxdsnr_res_spec(ds_.IQ_abs, qubits,  dfps, daps,dfs)
-# get gain & snr improvement
-pumpon_signal_snr_ = pump_signal_snr(ds_.IQ_abs, qubits, dfps, daps,dfs)
-gain_dsnr_ = pumpon_signal_snr_-pumpoff_signal_snr_
-node.results = {"ds_": ds_}
-# %% {Data_analysis}
-full_scale_power_dbm=twpas[0].pump.opx_output.full_scale_power_dbm
+ds_ = ds_.assign({"IQ_abs_noise": 1e3*np.sqrt(ds["I"] ** 2 + ds["Q"] ** 2)})
+ds_ = ds_.assign({"IQ_abs_signal": 1e3*np.sqrt(ds["I_"] ** 2 + ds["Q_"] ** 2)})
+pumpon_snr = snr(ds_, qubits, dfps, daps)
+# %% {Data Analysis}
+# SNR improvement & Gain
+RF_freq = np.array([dfs + q.resonator.RF_frequency for q in qubits])
+dsnr = pumpon_snr-pumpoff_snr
+Gain = gain(ds, ds_, qubits, dfps, daps)
+node.results = {"snr_improvement": dsnr,
+                "gain": Gain}
+
 print(f'twpa calibration took {pump_duration*n_avg*len(daps)*len(dfps)*1e-9}sec ')
 p_lo=twpas[0].pump.LO_frequency
 p_if=twpas[0].pump.intermediate_frequency
-# get pump point of max G
-pumpATmaxG=pump_maxgain(pumpon_signal_snr, dfps, daps)
-print(f'max Avg Gain at fp={np.round((p_lo+p_if+pumpATmaxG[0])*1e-9,3)}GHz,Pp={node.parameters.pumpline_attenuation+dBm(full_scale_power_dbm,pumpATmaxG[1])}')
-# get pump point of max dSNR
-pumpATmaxDSNR=pump_maxdsnr(pumpon_signal_snr,dfps, daps)
-print(f'max Avg dSNR at fp={np.round((p_lo+p_if+pumpATmaxDSNR[0])*1e-9,3)}GHz,Pp={node.parameters.pumpline_attenuation+dBm(full_scale_power_dbm,pumpATmaxDSNR[1])}')
-
-operation_point={'fp':np.round((p_lo+p_if+pumpATmaxDSNR[0]),3), 'Pp': node.parameters.pumpline_attenuation+dBm(full_scale_power_dbm,pumpATmaxDSNR[1])}
+# pump at max avg_gain
+pumpATmaxG=pump_maxgain(Gain, dfps, daps)
+print(f'max Avg Gain at fp={np.round((p_lo+p_if+pumpATmaxG[0][0])*1e-9,3)}GHz,Pp={node.parameters.pumpline_attenuation+dBm(full_scale_power_dbm,pumpATmaxG[0][1])}')
+# pump at max dSNR
+pumpATmaxDSNR=pump_maxdsnr(dsnr, dfps, daps)
+print(f'max Avg dSNR at fp={np.round((p_lo+p_if+pumpATmaxDSNR[0][0])*1e-9,3)}GHz,Pp={node.parameters.pumpline_attenuation+dBm(full_scale_power_dbm,pumpATmaxDSNR[0][1])}')
+operation_point={'fp':np.round((p_lo+p_if+pumpATmaxDSNR[0][0]),3), 'Pp': node.parameters.pumpline_attenuation+dBm(full_scale_power_dbm,pumpATmaxDSNR[0][1])}
 node.results["pumping point"] = operation_point
-
 # %% {Plotting}
 # resonator
 ncols = 2
@@ -270,9 +256,9 @@ fig, axes = plt.subplots(nrows, ncols, figsize=(6, 8))
 axes = axes.flatten() 
 for i, ax in enumerate(axes):
     if i < len(qubits):  # only plot existing qubits
-        ax.plot(RF_freq[i]*1e-9, pumpoff_resspec[i], label='pumpoff',color='black')
-        ax.plot(RF_freq[i]*1e-9, pumpon_resspec_maxG[i], label='pump @ maxG',color='red')
-        ax.plot(RF_freq[i]*1e-9, pumpon_resspec_maxDsnr[i], label='pump @ maxDsnr',color='blue')
+        ax.plot(RF_freq[i]*1e-9, ds.IQ_abs_signal.values[i].mean(axis=(0,1)), label='pumpoff',color='black')
+        ax.plot(RF_freq[i]*1e-9,ds_.IQ_abs_signal.values[i][pumpATmaxG[1][1]][pumpATmaxG[1][2]], label='pump @ maxG',color='red')
+        ax.plot(RF_freq[i]*1e-9, ds_.IQ_abs_signal.values[i][pumpATmaxDSNR[1][1]][pumpATmaxDSNR[1][2]], label='pump @ maxDsnr',color='blue')
 
         ax.set_title(f'{qubits[i].name}', fontsize=14)
         ax.set_xlabel('Res.freq [GHz]', fontsize=12)
@@ -293,12 +279,11 @@ indices_=np.linspace(0, len(pump_power)-1,10, dtype=int)
 selected_powers=np.round(pump_power[indices_],2)
 xtick_pos = np.linspace(0, len(daps)-1, len(selected_powers))
 # 
-gain_dsnr_avg=np.mean(gain_dsnr,axis=0)
-data_gain = gain_dsnr_avg[:, :, 0] 
-data_dSNR = gain_dsnr_avg[:, :, 1]  
+gain_avg=np.mean(Gain,axis=0)
+dsnr_avg=np.mean(dsnr,axis=0)
 fig, axs = plt.subplots(1, 2, figsize=(12, 5))
 # plot gain vs pump
-im0 = axs[0].imshow(data_gain, origin='lower', aspect='auto',
+im0 = axs[0].imshow(gain_avg, origin='lower', aspect='auto',
                     extent=[0, len(daps)-1, 0, len(dfps)-1])
 axs[0].set_xticks(xtick_pos)
 axs[0].set_xticklabels(selected_powers,rotation=90)
@@ -310,7 +295,7 @@ axs[0].set_ylabel('pump frequency[GHz]', fontsize=20)
 cbar0 = fig.colorbar(im0, ax=axs[0])
 cbar0.set_label('Avg Gain [dB]', fontsize=14)
 # plot dSNR vs pump
-im1 = axs[1].imshow(data_dSNR, origin='lower', aspect='auto',
+im1 = axs[1].imshow(dsnr_avg, origin='lower', aspect='auto',
                     extent=[0, len(daps)-1, 0, len(dfps)-1])
 axs[1].set_xticks(xtick_pos)
 axs[1].set_xticklabels(selected_powers,rotation=90)

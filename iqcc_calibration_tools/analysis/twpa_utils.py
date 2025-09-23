@@ -17,23 +17,6 @@ def dBm(full_scale_power_dbm,daps):
     p_w=(v**2)/50
     dbm=10*np.log10(p_w*1000)-10
     return dbm +5.68 #5.68 calibrated through SA on 14/09
-
-def mvTOdbm(mv):
-    v=mv*1e-3
-    rms_v=v/np.sqrt(2)
-    p_watt=((rms_v)**2)/50
-    dbm=10*np.log10(p_watt*1000)
-    return dbm
-def snr():
-    noise=np.zeros((len(qubits),len(dfps),len(daps),1))
-    signal=np.zeros((len(qubits),len(dfps),len(daps),1))
-    for i in range(len(qubits)):
-        for j in range(len(dfps)):
-            for k in range(len(daps)):
-                noise[i,j,k]=mvTOdbm(np.mean(ds.IQ_abs_noise.values[i][j][k]))
-                signal[i,j,k]=mvTOdbm(ds.IQ_abs_signal.values[i][j][k][len(ds.IQ_abs_signal.values[i][j][k])//2])
-    return signal-noise
-
 ## pumpon
 def pumpoon_maxgain_res_spec(IQ_abs, qubits,  dfps, daps,dfs): #ok
     sumresult=np.mean(pump_signal_snr(IQ_abs,qubits, dfps, daps, dfs),axis=0) # get avg on all qubit result
@@ -55,15 +38,6 @@ def pumpoon_maxdsnr_res_spec(IQ_abs, qubits,  dfps, daps,dfs): #ok
         spec.append(val)
     specs = np.array(spec)
     return specs 
-# def pump_signal_snr(IQ_abs,qubits, dfps, daps): #ok
-#     pump_s_snr=np.zeros((len(qubits),len(dfps),len(daps),2))
-#     for i in range(len(qubits)):
-#         for j in range(len(dfps)):
-#             for k in range(len(daps)):
-#                 spec=IQ_abs.values[i][j][k]
-#                 pump_s_snr[i,j,k,0]=np.mean(voltTOdbm(spec))   
-#                 pump_s_snr[i,j,k,1]=res_snr(spec) 
-#     return pump_s_snr
 def pump_signal_snr(IQ_abs,qubits, dfps, daps, dfs): #0909
     pumpoff_resspec = pumpoff_res_spec_per_qubit(IQ_abs, qubits, dfs, dfps)
     pump_s_snr=np.zeros((len(qubits),len(dfps),len(daps),2))
@@ -100,17 +74,51 @@ def pumpzero_signal_snr(IQ_abs, dfs, qubits, dfps, daps): #ok 0910
                 pumpoff_s_snr[i,j,k,1]=res_snr(pumpoff_resspec[i])
     return pumpoff_s_snr
 ### get optimized pump point
-def pump_maxgain(pumpon_signal_snr,dfps,daps):
-    sumresult=np.mean(pumpon_signal_snr,axis=0)
-    signal=sumresult[:,:,0]
-    maxsignal=np.unravel_index(np.argmax(signal),signal.shape)
-    maxgain_pump=np.array(np.array([dfps[maxsignal[0]],daps[maxsignal[1]]]))
-    return maxgain_pump
-def pump_maxdsnr(pumpon_signal_snr,dfps,daps):
-    sumresult=np.mean(pumpon_signal_snr,axis=0)
-    snr=sumresult[:,:,1]
-    maxsnr=np.unravel_index(np.argmax(snr),snr.shape)
-    maxsnr_pump=np.array(np.array([dfps[maxsnr[0]],daps[maxsnr[1]]]))
-    return maxsnr_pump
+# def pump_maxgain(pumpon_signal_snr,dfps,daps):
+#     sumresult=np.mean(pumpon_signal_snr,axis=0)
+#     signal=sumresult[:,:,0]
+#     maxsignal=np.unravel_index(np.argmax(signal),signal.shape)
+#     maxgain_pump=np.array(np.array([dfps[maxsignal[0]],daps[maxsignal[1]]]))
+#     return maxgain_pump
+# def pump_maxdsnr(pumpon_signal_snr,dfps,daps):
+#     sumresult=np.mean(pumpon_signal_snr,axis=0)
+#     snr=sumresult[:,:,1]
+#     maxsnr=np.unravel_index(np.argmax(snr),snr.shape)
+#     maxsnr_pump=np.array(np.array([dfps[maxsnr[0]],daps[maxsnr[1]]]))
+#     return maxsnr_pump
 
-
+################ 250922 V2 #####################################
+def pump_maxgain(gain, dfps, daps):
+    avg_gain=np.mean(gain,axis=0)
+    max_gain_idx=np.unravel_index(np.argmax(avg_gain), avg_gain.shape)
+    max_gain_pump=np.array(np.array([dfps[max_gain_idx[1]],daps[max_gain_idx[2]]]))
+    return max_gain_pump, max_gain_idx
+def pump_maxdsnr(dsnr, dfps, daps):
+    avg_dsnr=np.mean(dsnr,axis=0)
+    max_dsnr_idx=np.unravel_index(np.argmax(avg_dsnr), avg_dsnr.shape)
+    max_dsnr_pump=np.array(np.array([dfps[max_dsnr_idx[1]],daps[max_dsnr_idx[2]]]))
+    return max_dsnr_pump, max_dsnr_idx
+def mvTOdbm(mv):
+    v=mv*1e-3
+    rms_v=v/np.sqrt(2)
+    p_watt=((rms_v)**2)/50
+    dbm=10*np.log10(p_watt*1000)
+    return dbm
+def snr(ds, qubits, dfps, daps):
+    noise=np.zeros((len(qubits),len(dfps),len(daps),1))
+    signal=np.zeros((len(qubits),len(dfps),len(daps),1))
+    for i in range(len(qubits)):
+        for j in range(len(dfps)):
+            for k in range(len(daps)):
+                noise[i,j,k]=mvTOdbm(np.mean(ds.IQ_abs_noise.values[i][j][k]))
+                signal[i,j,k]=mvTOdbm(ds.IQ_abs_signal.values[i][j][k][len(ds.IQ_abs_signal.values[i][j][k])//2])
+    return signal-noise
+def gain(ds_pumpoff,ds_pumpon, qubits, dfps, daps):
+    signal_pumpoff=np.zeros((len(qubits),len(dfps),len(daps),1))
+    signal_pumpon=np.zeros((len(qubits),len(dfps),len(daps),1))
+    for i in range(len(qubits)):
+        for j in range(len(dfps)):
+            for k in range(len(daps)):
+                signal_pumpoff[i,j,k]=mvTOdbm(ds_pumpoff.IQ_abs_signal.values[i][j][k][len(ds_pumpoff.IQ_abs_signal.values[i][j][k])//2])
+                signal_pumpon[i,j,k]=mvTOdbm(ds_pumpon.IQ_abs_signal.values[i][j][k][len(ds_pumpon.IQ_abs_signal.values[i][j][k])//2])
+    return signal_pumpon-signal_pumpoff
