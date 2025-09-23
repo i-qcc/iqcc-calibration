@@ -15,6 +15,8 @@ class NodeSpecificParameters(RunnableParameters):
     """Number of averages. Default is 20."""
     max_circuit_depth: int = 1000
     """Maximum circuit depth (number of Clifford gates). Default is 1000."""
+    log_scale: bool = True
+    """Use log scale for the circuit depth. Default is True."""
     delta_clifford: int = 20
     """Delta clifford (number of Clifford gates between the RB sequences). Default is 20."""
     seed: Optional[int] = None

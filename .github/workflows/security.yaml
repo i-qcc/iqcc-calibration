@@ -1,0 +1,62 @@
+name: Basic tests
+
+on:
+  push:
+  release:
+    types: [published]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+
+    - name: Set up Python
+      run: |
+        uv python install
+        uv sync --all-extras --dev
+
+    - name: Check linter and formating
+      run: uvx ruff check
+
+    - name: Secret Scanning
+      uses: trufflesecurity/trufflehog@v3.90.6
+      with:
+        extra_args: --results=verified,unknown
+
+    - name: Generate Trivy Vulnerability Report
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: "fs"
+        output: trivy-report.json
+        format: json
+        scan-ref: .
+        exit-code: 0
+
+    - name: Upload Vulnerability Scan Results
+      uses: actions/upload-artifact@v4
+      with:
+        name: trivy-report
+        path: trivy-report.json
+        retention-days: 30
+
+    - name: Fail build on High/Criticial Vulnerabilities
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: "fs"
+        format: table
+        scan-ref: .
+        severity: HIGH,CRITICAL
+        ignore-unfixed: true
+        exit-code: 1
+        # On a subsequent call to the action we know trivy is already installed so can skip this
+        skip-setup-trivy: true
+

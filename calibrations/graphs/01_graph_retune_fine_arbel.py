@@ -36,8 +36,10 @@ g = QualibrationGraph(
         "ramsey_flux_calibration": library.nodes["09_ramsey_vs_flux_calibration"].copy(
             multiplexed=multiplexed, 
             name="ramsey_flux_calibration",
-            num_shots = 300,
+            num_shots = 250,
             flux_span = 0.02,
+            max_wait_time_in_ns = 500,
+            wait_time_step_in_ns = 5,
             flux_num = 11,
             frequency_detuning_in_mhz = 4
         ),
@@ -56,7 +58,8 @@ g = QualibrationGraph(
         "single_qubit_randomized_benchmarking": library.nodes["11d_Single_Qubit_Randomized_Benchmarking_legacy"].copy(
             flux_point_joint_or_independent=flux_point, 
             multiplexed=True, 
-            num_random_sequences=500,
+            num_averages = 1,
+            num_random_sequences=300,
             log_scale=True,
             reset_type_thermal_or_active=reset_type_thermal_or_active,
             name="single_qubit_randomized_benchmarking"
