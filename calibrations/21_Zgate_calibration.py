@@ -31,7 +31,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from qualang_tools.multi_user import qm_session
 from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
-from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset, save_node
+from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray
 from scipy.optimize import curve_fit
 import xarray as xr
 from iqcc_calibration_tools.quam_config.lib import guess
@@ -42,6 +42,7 @@ class Parameters(NodeParameters):
     num_averages: int = 1000
     ref_frequnecy_MHz: float = 0.0
     num_points: int = 100
+    z_pulse_duration_ns: Optional[int] = None
     flux_point_joint_or_independent: Literal['joint', 'independent'] = "joint"
     simulate: bool = False
     reset_type: Literal['active', 'thermal'] = "active"
@@ -53,7 +54,6 @@ node = QualibrationNode(
     name="21_Zgate_calibration",
     parameters=Parameters()
 )
-
 
 # %% {Utility_functions}
 
@@ -103,7 +103,6 @@ def find_maximum_cosine(A, f, xmin, xmax):
         return x_max, max_value
     else:
         return None, None
-# %%
 
 # %% {Initialize_QuAM_and_QOP}
 
@@ -122,8 +121,6 @@ if node.parameters.qubits is None:
 else:
     qubits = [machine.qubits[q] for q in node.parameters.qubits]
 
-# for qubit in qubits[3:]:
-#     qubit.xy.operations['x90'].amplitude = 0
 # Generate the OPX and Octave configurations
 config = machine.generate_config()
 octave_config = machine.get_octave_config()
@@ -139,7 +136,12 @@ quad_terms = {qubit.name: qubit.freq_vs_flux_01_quad_term for qubit in qubits}
 
 flux_point = node.parameters.flux_point_joint_or_independent  # 'independent' or 'joint'
 
-frequencies = {qubit.name: 1e9*np.linspace(0, 1.5 / qubit.xy.operations['x180'].length, node.parameters.num_points) + node.parameters.ref_frequnecy_MHz*1e6 for qubit in qubits}
+if node.parameters.z_pulse_duration_ns is not None:
+    z_pulse_duration = {qubit.name: node.parameters.z_pulse_duration_ns for qubit in qubits}
+else:
+    z_pulse_duration = {qubit.name: qubit.xy.operations['x180'].length for qubit in qubits}
+
+frequencies = {qubit.name: 1e9*np.linspace(0, 1.5 / z_pulse_duration[qubit.name], node.parameters.num_points) + node.parameters.ref_frequnecy_MHz*1e6 for qubit in qubits}
 
 fluxes = {qubit.name: np.sqrt(-frequencies[qubit.name]/quad_terms[qubit.name]) for qubit in qubits}
 reset_type = node.parameters.reset_type
@@ -179,7 +181,7 @@ with program() as ramsey:
                 
                 qubit.align()
                 wait(10, qubit.z.name)
-                qubit.z.play("const", amplitude_scale = flux[i] / qubit.z.operations['const'].amplitude, duration=qubit.xy.operations['x180'].length // 4)
+                qubit.z.play("const", amplitude_scale = flux[i] / qubit.z.operations['const'].amplitude, duration=z_pulse_duration[qubit.name] // 4)
                 wait(10, qubit.z.name)
                 qubit.align()
                 
@@ -322,7 +324,7 @@ if not node.parameters.simulate:
             return -1e-6 * (flux/1e3)**2 * machine.qubits[qubit['qubit']].freq_vs_flux_01_quad_term
 
         # Create secondary axis with the transformation functions
-        ax2 = ax.secondary_xaxis('top', functions=(flux_to_detuning, detuning_to_flux))
+        ax2 = ax.secondary_xaxis('top', functions=(detuning_to_flux, flux_to_detuning))
         ax2.set_xlabel('Flux (mV)')
 
         ax.set_title(qubit['qubit'])
@@ -341,13 +343,15 @@ if not node.parameters.simulate:
         with node.record_state_updates():
             for qubit in qubits:
                 qubit.z.operations['z0'] = SquarePulse(
-                    length=qubit.xy.operations['x180'].length,
+                    length=z_pulse_duration[qubit.name],
                     amplitude=np.sqrt(-1e6*fit_data[qubit.name]['Z_id']/qubit.freq_vs_flux_01_quad_term)
                 )
-                qubit.z.operations['z90'] = SquarePulse(length=qubit.xy.operations['x180'].length, amplitude=np.sqrt(-1e6*fit_data[qubit.name]['Z_90']/qubit.freq_vs_flux_01_quad_term))
-                qubit.z.operations['z180'] = SquarePulse(length=qubit.xy.operations['x180'].length, amplitude=np.sqrt(-1e6*fit_data[qubit.name]['Z_180']/qubit.freq_vs_flux_01_quad_term))
-                qubit.z.operations['-z90'] = SquarePulse(length=qubit.xy.operations['x180'].length, amplitude=np.sqrt(-1e6*fit_data[qubit.name]['Z_270']/qubit.freq_vs_flux_01_quad_term))
+                qubit.z.operations['z90'] = SquarePulse(length=z_pulse_duration[qubit.name], amplitude=np.sqrt(-1e6*fit_data[qubit.name]['Z_90']/qubit.freq_vs_flux_01_quad_term))
+                qubit.z.operations['z180'] = SquarePulse(length=z_pulse_duration[qubit.name], amplitude=np.sqrt(-1e6*fit_data[qubit.name]['Z_180']/qubit.freq_vs_flux_01_quad_term))
+                qubit.z.operations['-z90'] = SquarePulse(length=z_pulse_duration[qubit.name], amplitude=np.sqrt(-1e6*fit_data[qubit.name]['Z_270']/qubit.freq_vs_flux_01_quad_term))
+                print(f"{qubit.name}  Z90: {np.sqrt(-1e6*fit_data[qubit.name]['Z_90']/qubit.freq_vs_flux_01_quad_term)}")
                 print(f"{qubit.name}  Z180: {np.sqrt(-1e6*fit_data[qubit.name]['Z_180']/qubit.freq_vs_flux_01_quad_term)}")
+                print(f"{qubit.name}  Z270: {np.sqrt(-1e6*fit_data[qubit.name]['Z_270']/qubit.freq_vs_flux_01_quad_term)}")
     # %%
 
     node.results['initial_parameters'] = node.parameters.model_dump()
