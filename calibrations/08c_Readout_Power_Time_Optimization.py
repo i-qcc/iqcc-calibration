@@ -443,7 +443,7 @@ if not node.parameters.simulate:
                 qubit.resonator.operations["readout"].amplitude = float(node.results["results"][qubit.name]["best_amp"])
                 qubit.resonator.confusion_matrix = node.results["results"][qubit.name]["confusion_matrix"].tolist()
                 
-                qubit.resonator.operations["readout"].length = float(node.results["results"][qubit.name]["best_readout_length"])
+                qubit.resonator.operations["readout"].length = int(node.results["results"][qubit.name]["best_readout_length"])
 
 
         # %% {Save_results}
