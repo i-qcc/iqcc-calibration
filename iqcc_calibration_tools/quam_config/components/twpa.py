@@ -24,8 +24,8 @@ class TWPA(QuamComponent):
 
     pump: IQChannel = None
 
-    gain: float = None
-    snr_improvement: float = None
+    max_gain: float = None
+    max_snr_improvement: float = None
     p_saturation: float = None
 
     dispersive_feature: float = None
