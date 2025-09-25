@@ -360,7 +360,7 @@ if not node.parameters.simulate:
             for q in qubits:
                 if fit_results[q.name]["fit_successful"]:
                     # Update frequency
-                    q.xy.intermediate_frequency += float(result.position.sel(qubit=q.name).values)
+                    q.xy.RF_frequency += float(result.position.sel(qubit=q.name).values)
 
                     # Update readout amplitude and angle
                     q.resonator.operations["readout"].amplitude = optimal_ro_amps[q.name]

@@ -98,7 +98,6 @@ class Parameters(NodeParameters):
 
 
 node = QualibrationNode(name="97b_Pi_vs_flux_time", parameters=Parameters())
-node_id = 1
 
 # %% {Initialize_QuAM_and_QOP}
 # Class containing tools to help handling units and conversions.
@@ -355,7 +354,7 @@ for ax, qubit in grid_iter(grid):
     # Add colorbar showing qubit state
     cbar = grid.fig.colorbar(im, ax=ax)
     cbar.set_label("Qubit State")
-grid.fig.suptitle(f"Qubit spectroscopy vs time after flux pulse \n {date_time} #{node_id}")
+grid.fig.suptitle(f"Qubit spectroscopy vs time after flux pulse \n {date_time} #{node.node_id}")
 
 plt.tight_layout()
 plt.show()
@@ -371,7 +370,7 @@ for ax, qubit in grid_iter(grid):
     ax.set_ylabel("Freq (GHz)")
     ax.set_xlabel("Time (ns)")
     ax.set_title(qubit["qubit"])
-grid.fig.suptitle(f"Qubit frequency shift vs time after flux pulse \n {date_time} #{node_id}")
+grid.fig.suptitle(f"Qubit frequency shift vs time after flux pulse \n {date_time} #{node.node_id}")
 
 plt.tight_layout()
 plt.show()
@@ -405,7 +404,7 @@ for ax, qubit in grid_iter(grid):
     ax.set_xlabel("Time (ns)")
     ax.set_title(qubit["qubit"])
     ax.grid(True)
-grid.fig.suptitle(f"Flux response vs time \n {date_time} #{node_id}")
+grid.fig.suptitle(f"Flux response vs time \n {date_time} #{node.node_id}")
 
 plt.tight_layout()
 plt.show()
@@ -421,7 +420,7 @@ for ax, qubit in grid_iter(grid):
     ax.set_title(qubit["qubit"])
     ax.set_xscale('log')
     ax.grid(True)
-grid.fig.suptitle(f"Qubit frequency shift vs time after flux pulse \n {date_time} #{node_id}")
+grid.fig.suptitle(f"Qubit frequency shift vs time after flux pulse \n {date_time} #{node.node_id}")
 
 plt.tight_layout()
 plt.show()
@@ -449,7 +448,7 @@ for ax, qubit in grid_iter(grid):
     ax.set_title(qubit["qubit"])
     ax.grid(True)
     ax.set_xscale('log')
-grid.fig.suptitle(f"Flux response vs time \n {date_time} #{node_id}")
+grid.fig.suptitle(f"Flux response vs time \n {date_time} #{node.node_id}")
 
 plt.tight_layout()
 plt.show()

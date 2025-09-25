@@ -60,16 +60,10 @@ g = QualibrationGraph(
         simulate=simulate),
         "readout_power_optimization": library.nodes["07c_Readout_Power_Optimization"].copy(name="readout_power_optimization",
         simulate=simulate),
-        # "IQ_blobs": library.nodes["07b_IQ_Blobs"].copy(
-        #     flux_point_joint_or_independent=flux_point,
-        #     multiplexed=multiplexed,
-        #     name="IQ_blobs",
-        #     reset_type_thermal_or_active="thermal",
-        # ),
         "drag_calibration": library.nodes["09b_DRAG_Calibration_180_minus_180"].copy(name="drag_calibration", 
         min_amp_factor=-1.99,
         max_amp_factor=1.99,
-        reset_type_thermal_or_active=reset_type_thermal_or_active,
+        reset_type=reset_type_thermal_or_active,
         multiplexed=multiplexed,
         simulate=simulate),
         
