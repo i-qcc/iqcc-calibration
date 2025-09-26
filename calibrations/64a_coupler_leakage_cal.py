@@ -65,11 +65,11 @@ class Parameters(NodeParameters):
     simulate: bool = False
     timeout: int = 100
     load_data_id: Optional[int] = None
-    coupler_flux_min : float = -0.025  # relative to the coupler set point
-    coupler_flux_max : float = -0.015 # relative to the coupler set point
+    coupler_flux_min : float = 0.02  # relative to the coupler set point
+    coupler_flux_max : float = 0.04 # relative to the coupler set point
     coupler_flux_step : float = 0.0001
     qubit_flux_min : float = 0.00 # relative to the qubit pair detuning
-    qubit_flux_max : float = 0.003 # relative to the qubit pair detuning
+    qubit_flux_max : float = 0.001 # relative to the qubit pair detuning
     qubit_flux_step : float = 0.0001  
     use_state_discrimination: bool = True
     pulse_duration_ns: int = 100   
@@ -361,8 +361,8 @@ if not node.parameters.simulate:
         values_to_plot.assign_coords({"flux_qubit_mV": 1e3*values_to_plot.flux_qubit_full, "flux_coupler_mV": 1e3*values_to_plot.flux_coupler_full}).plot(ax = ax, cmap = 'viridis', x = 'flux_qubit_mV', y = 'flux_coupler_mV')
         qubit_pair = machine.qubit_pairs[qp['qubit']]
         ax.set_title(f"{qp['qubit']}, coupler set point: {qubit_pair.coupler.decouple_offset}", fontsize = 10)
-        ax.axhline(1e3*node.results["results"][qp["qubit"]]["flux_coupler_Cz"], color = 'red', lw = 0.5, ls = '--')
-        ax.axvline(1e3*node.results["results"][qp["qubit"]]["flux_qubit_Cz"], color = 'red', lw =0.5, ls = '--')
+        # ax.axhline(1e3*node.results["results"][qp["qubit"]]["flux_coupler_Cz"], color = 'red', lw = 0.5, ls = '--')
+        # ax.axvline(1e3*node.results["results"][qp["qubit"]]["flux_qubit_Cz"], color = 'red', lw =0.5, ls = '--')
         quad = qubit_pair.qubit_control.freq_vs_flux_01_quad_term if node.parameters.pulsed_qubit == "control" else qubit_pair.qubit_target.freq_vs_flux_01_quad_term
 
         def detuning_to_flux(det, quad = quad):
@@ -387,8 +387,8 @@ if not node.parameters.simulate:
         values_to_plot.assign_coords({"flux_qubit_mV": 1e3*values_to_plot.flux_qubit_full, "flux_coupler_mV": 1e3*values_to_plot.flux_coupler_full}).plot(ax = ax, cmap = 'viridis', x = 'flux_qubit_mV', y = 'flux_coupler_mV')
         qubit_pair = machine.qubit_pairs[qp['qubit']]
         ax.set_title(f"{qp['qubit']}, coupler set point: {qubit_pair.coupler.decouple_offset}", fontsize = 10)
-        ax.axhline(1e3*node.results["results"][qp["qubit"]]["flux_coupler_Cz"], color = 'red', lw = 0.5, ls = '--')
-        ax.axvline(1e3*node.results["results"][qp["qubit"]]["flux_qubit_Cz"], color = 'red', lw =0.5, ls = '--')
+        # ax.axhline(1e3*node.results["results"][qp["qubit"]]["flux_coupler_Cz"], color = 'red', lw = 0.5, ls = '--')
+        # ax.axvline(1e3*node.results["results"][qp["qubit"]]["flux_qubit_Cz"], color = 'red', lw =0.5, ls = '--')
         # Create a secondary x-axis for detuning
         quad = qubit_pair.qubit_control.freq_vs_flux_01_quad_term if node.parameters.pulsed_qubit == "control" else qubit_pair.qubit_target.freq_vs_flux_01_quad_term
 
@@ -415,8 +415,8 @@ if not node.parameters.simulate:
         values_to_plot.assign_coords({"flux_qubit_mV": 1e3*values_to_plot.flux_qubit_full, "flux_coupler_mV": 1e3*values_to_plot.flux_coupler_full}).plot(ax = ax, cmap = 'viridis', x = 'flux_qubit_mV', y = 'flux_coupler_mV')
         qubit_pair = machine.qubit_pairs[qp['qubit']]
         ax.set_title(f"{qp['qubit']}, coupler set point: {qubit_pair.coupler.decouple_offset}", fontsize = 10)
-        ax.axhline(1e3*node.results["results"][qp["qubit"]]["flux_coupler_Cz"], color = 'red', lw = 0.5, ls = '--')
-        ax.axvline(1e3*node.results["results"][qp["qubit"]]["flux_qubit_Cz"], color = 'red', lw =0.5, ls = '--')
+        # ax.axhline(1e3*node.results["results"][qp["qubit"]]["flux_coupler_Cz"], color = 'red', lw = 0.5, ls = '--')
+        # ax.axvline(1e3*node.results["results"][qp["qubit"]]["flux_qubit_Cz"], color = 'red', lw =0.5, ls = '--')
         quad = qubit_pair.qubit_control.freq_vs_flux_01_quad_term if node.parameters.pulsed_qubit == "control" else qubit_pair.qubit_target.freq_vs_flux_01_quad_term
 
         def detuning_to_flux(det, quad = quad):
@@ -441,8 +441,8 @@ if not node.parameters.simulate:
         values_to_plot.assign_coords({"flux_qubit_mV": 1e3*values_to_plot.flux_qubit_full, "flux_coupler_mV": 1e3*values_to_plot.flux_coupler_full}).plot(ax = ax, cmap = 'viridis', x = 'flux_qubit_mV', y = 'flux_coupler_mV')
         qubit_pair = machine.qubit_pairs[qp['qubit']]
         ax.set_title(f"{qp['qubit']}, coupler set point: {qubit_pair.coupler.decouple_offset}", fontsize = 10)
-        ax.axhline(1e3*node.results["results"][qp["qubit"]]["flux_coupler_Cz"], color = 'red', lw = 0.5, ls = '--')
-        ax.axvline(1e3*node.results["results"][qp["qubit"]]["flux_qubit_Cz"], color = 'red', lw =0.5, ls = '--')
+        # ax.axhline(1e3*node.results["results"][qp["qubit"]]["flux_coupler_Cz"], color = 'red', lw = 0.5, ls = '--')
+        # ax.axvline(1e3*node.results["results"][qp["qubit"]]["flux_qubit_Cz"], color = 'red', lw =0.5, ls = '--')
         # Create a secondary x-axis for detuning
         quad = qubit_pair.qubit_control.freq_vs_flux_01_quad_term if node.parameters.pulsed_qubit == "control" else qubit_pair.qubit_target.freq_vs_flux_01_quad_term
 
@@ -469,8 +469,8 @@ if not node.parameters.simulate:
         values_to_plot.assign_coords({"flux_qubit_mV": 1e3*values_to_plot.flux_qubit_full, "flux_coupler_mV": 1e3*values_to_plot.flux_coupler_full}).plot(ax = ax, cmap = 'viridis', x = 'flux_qubit_mV', y = 'flux_coupler_mV')
         qubit_pair = machine.qubit_pairs[qp['qubit']]
         ax.set_title(f"{qp['qubit']}, coupler set point: {qubit_pair.coupler.decouple_offset}", fontsize = 10)
-        ax.axhline(1e3*node.results["results"][qp["qubit"]]["flux_coupler_Cz"], color = 'red', lw = 0.5, ls = '--')
-        ax.axvline(1e3*node.results["results"][qp["qubit"]]["flux_qubit_Cz"], color = 'red', lw =0.5, ls = '--')
+        # ax.axhline(1e3*node.results["results"][qp["qubit"]]["flux_coupler_Cz"], color = 'red', lw = 0.5, ls = '--')
+        # ax.axvline(1e3*node.results["results"][qp["qubit"]]["flux_qubit_Cz"], color = 'red', lw =0.5, ls = '--')
         quad = qubit_pair.qubit_control.freq_vs_flux_01_quad_term if node.parameters.pulsed_qubit == "control" else qubit_pair.qubit_target.freq_vs_flux_01_quad_term
 
         def detuning_to_flux(det, quad = quad):
@@ -495,8 +495,8 @@ if not node.parameters.simulate:
         values_to_plot.assign_coords({"flux_qubit_mV": 1e3*values_to_plot.flux_qubit_full, "flux_coupler_mV": 1e3*values_to_plot.flux_coupler_full}).plot(ax = ax, cmap = 'viridis', x = 'flux_qubit_mV', y = 'flux_coupler_mV')
         qubit_pair = machine.qubit_pairs[qp['qubit']]
         ax.set_title(f"{qp['qubit']}, coupler set point: {qubit_pair.coupler.decouple_offset}", fontsize = 10)
-        ax.axhline(1e3*node.results["results"][qp["qubit"]]["flux_coupler_Cz"], color = 'red', lw = 0.5, ls = '--')
-        ax.axvline(1e3*node.results["results"][qp["qubit"]]["flux_qubit_Cz"], color = 'red', lw =0.5, ls = '--')
+        # ax.axhline(1e3*node.results["results"][qp["qubit"]]["flux_coupler_Cz"], color = 'red', lw = 0.5, ls = '--')
+        # ax.axvline(1e3*node.results["results"][qp["qubit"]]["flux_qubit_Cz"], color = 'red', lw =0.5, ls = '--')
         # Create a secondary x-axis for detuning
         quad = qubit_pair.qubit_control.freq_vs_flux_01_quad_term if node.parameters.pulsed_qubit == "control" else qubit_pair.qubit_target.freq_vs_flux_01_quad_term
 
@@ -517,13 +517,13 @@ if not node.parameters.simulate:
     node.results['figure_G_target'] = grid.fig
 
 # %% {Update_state}
-if not node.parameters.simulate:
-    if not node.parameters.simulate:
-        with node.record_state_updates():
-            for qp in qubit_pairs:
-                qp.extras["CZ_coupler_flux"] = node.results["results"][qp.name]["flux_coupler_Cz"]
-                qp.extras["CZ_qubit_flux"] = node.results["results"][qp.name]["flux_qubit_Cz"]
-                qp.extras["CZ_time"] = node.parameters.pulse_duration_ns
+# if not node.parameters.simulate:
+#     if not node.parameters.simulate:
+#         with node.record_state_updates():
+#             for qp in qubit_pairs:
+#                 qp.extras["CZ_coupler_flux"] = node.results["results"][qp.name]["flux_coupler_Cz"]
+#                 qp.extras["CZ_qubit_flux"] = node.results["results"][qp.name]["flux_qubit_Cz"]
+#                 qp.extras["CZ_time"] = node.parameters.pulse_duration_ns
 
 # %% {Save_results}
 if not node.parameters.simulate:    

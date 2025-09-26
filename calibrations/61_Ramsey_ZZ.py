@@ -34,7 +34,7 @@ Outcomes:
 
 # %% {Imports}
 from datetime import datetime, timezone, timedelta
-from analysis.fit import extract_dominant_frequencies
+from iqcc_calibration_tools.analysis.fit import extract_dominant_frequencies
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
 from iqcc_calibration_tools.quam_config.components import Quam
 from iqcc_calibration_tools.quam_config.macros import active_reset, readout_state, readout_state_gef, active_reset_gef, active_reset_simple
@@ -69,7 +69,7 @@ class Parameters(NodeParameters):
     load_data_id: Optional[int] = None
     
     coupler_flux_min : float = -0.0 #relative to the coupler set point
-    coupler_flux_max : float = 0.03 #relative to the coupler set point
+    coupler_flux_max : float = 0.05 #relative to the coupler set point
     coupler_flux_step : float = 0.0005
     
     qubit_flux_min : float = 0.0 # relative to the known/calculated detuning between the qubits
@@ -230,7 +230,6 @@ if not node.parameters.simulate:
 
 ds.state_target.plot()
 # %%
-from iqcc_calibration_tools.analysis.fit import extract_dominant_frequencies
 
 
 ds['dominant_frequency'] = extract_dominant_frequencies(ds.state_target)

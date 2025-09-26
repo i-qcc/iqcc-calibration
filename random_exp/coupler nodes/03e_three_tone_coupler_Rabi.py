@@ -45,9 +45,10 @@ class Parameters(NodeParameters):
 
     qubit_pairs: Optional[List[str]] = None
     qubits: Optional[List[str]] = None
-    num_averages: int = 10000
-    frequency_span_in_mhz: float = 220
-    frequency_step_in_mhz: float = 0.5
+    num_averages: int = 20000
+    amp_start: float = 0.0
+    amp_end: float = 2.0
+    amp_step: float = 0.02
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
     
     simulate: bool = False
@@ -56,7 +57,7 @@ class Parameters(NodeParameters):
     load_data_id: Optional[int] = None
     
     reset_type: Literal['active', 'thermal'] = "active"
-    RF_frequency_startpoint: Optional[float] = 6.89e9
+    pulse_duration: int = 16
 
 node = QualibrationNode(name="03d_Three_Tone_Coupler_Spectroscopy", parameters=Parameters())
 
@@ -93,13 +94,10 @@ if node.parameters.load_data_id is None:
 n_avg = node.parameters.num_averages  # The number of averages
 
 # The frequency sweep around the resonator resonance frequency
-span = node.parameters.frequency_span_in_mhz * u.MHz
-step = node.parameters.frequency_step_in_mhz * u.MHz
-dfs = np.arange(-span / 2, +span / 2, step)
+amps = np.arange(node.parameters.amp_start, node.parameters.amp_end, node.parameters.amp_step)
 
 flux_point = node.parameters.flux_point_joint_or_independent  # 'independent' or 'joint'
-coupler_RFs = {qp.name: node.parameters.RF_frequency_startpoint if node.parameters.RF_frequency_startpoint is not None else qp.coupler.RF_frequency for qp in qubit_pairs}
-coupler_IFs = {qp.name: coupler_RFs[qp.name] - qp.qubit_control.xy.opx_output.upconverter_frequency for qp in qubit_pairs}
+coupler_IFs = {qp.name: qp.coupler.RF_frequency - qp.qubit_control.xy.opx_output.upconverter_frequency for qp in qubit_pairs}
 
 with program() as multi_res_spec_vs_flux:
     # Declare 'I' and 'Q' and the corresponding streams for the two resonators.
@@ -108,7 +106,7 @@ with program() as multi_res_spec_vs_flux:
     state_target = [declare(int) for _ in range(num_qubit_pairs)]
     state_stream_target = [declare_stream() for _ in range(num_qubit_pairs)]
     dc = declare(fixed)  # QUA variable for the flux bias
-    df = declare(int)  # QUA variable for the readout frequency
+    amp = declare(fixed)  # QUA variable for the readout frequency
 
     if flux_point == "joint":
         # Bring the active qubits to the desired frequency point
@@ -118,7 +116,7 @@ with program() as multi_res_spec_vs_flux:
     with for_(n, 0, n < n_avg, n + 1):
         save(n, n_st)
         for i, qp in enumerate(qubit_pairs):
-            with for_(*from_array(df, dfs)):  # type: ignore
+            with for_(*from_array(amp, amps)):  # type: ignore
                 # Qubit initialization
                 qubit_control = qp.qubit_control
                 qubit_target = qp.qubit_target
@@ -135,14 +133,14 @@ with program() as multi_res_spec_vs_flux:
                     qp.align()
                 
                 #update the frequency of the control qubit
-                qubit_control.xy.update_frequency(df + coupler_IFs[qp.name])
+                qubit_control.xy.update_frequency(coupler_IFs[qp.name])
 
                 # Qubit manipulation
                 # Apply saturation pulse to all qubits
                 qubit_control.xy.play(
                     "x180_Square",
-                        amplitude_scale=1.0,
-                        duration=16
+                        amplitude_scale=amp,
+                        duration=node.parameters.pulse_duration
                     )
                 qp.align()
                 # qubit_target.xy.play("saturation",duration=1000)
@@ -160,7 +158,7 @@ with program() as multi_res_spec_vs_flux:
     with stream_processing():
         n_st.save("n")
         for i in range(num_qubit_pairs):
-            state_stream_target[i].buffer(len(dfs)).buffer(num_qubit_pairs).average().save(f"state{i + 1}")
+            state_stream_target[i].buffer(len(amps)).buffer(num_qubit_pairs).average().save(f"state{i + 1}")
 
 
 # %% {Simulate_or_execute}
@@ -198,23 +196,17 @@ if not node.parameters.simulate:
         node = node.load_from_id(node.parameters.load_data_id)
         ds = node.results["ds"]
     else:
-        ds = fetch_results_as_xarray(job.result_handles, qubit_pairs, {"freq": dfs,  "qp": qubit_pair_names})
+        ds = fetch_results_as_xarray(job.result_handles, qubit_pairs, {"amp": amps,  "qp": qubit_pair_names})
         # Convert IQ data into volts
         # ds = convert_IQ_to_V(ds, qubit_pairs)
         # Derive the amplitude IQ_abs = sqrt(I**2 + Q**2)
         # Add the resonator RF frequency axis of each qubit to the dataset coordinates for plotting
-        RF_freq = np.array([dfs + coupler_RFs[qp.name] for qp in qubit_pairs])
-        ds = ds.assign_coords({"freq_full_control": (["qp", "freq"], RF_freq)})
-        ds.freq_full_control.attrs["long_name"] = "Frequency"
-        ds.freq_full_control.attrs["units"] = "GHz"
+
     # Add the dataset to the node
     node.results = {"ds": ds}
 
     # %% {Data_analysis}
     
-    # Find the frequency for which ds.IQ_abs is minimum using xarray's reduction methods
-    min_idx = ds.state.argmin(dim="freq")
-    min_freqs = ds.freq_full_control.isel(freq=min_idx)
 
 
 
@@ -223,13 +215,12 @@ if not node.parameters.simulate:
     grid_names, qubit_pair_names = grid_pair_names(qubit_pairs)
     grid = QubitPairGrid(grid_names, qubit_pair_names)    
     for ax, qp in grid_iter(grid):
-        ds.assign_coords(freq_GHz=ds.freq_full_control / 1e9).sel(qubit=qp['qubit']).state.plot(
+        ds.assign_coords(amp=ds.amp).sel(qubit=qp['qubit']).state.plot(
             ax=ax,
-            x="freq_GHz"
+            x="amp"
         )
-        ax.axvline(1e-9*min_freqs.sel(qubit=qp['qubit']), color='red', linestyle='--', alpha=0.5)    
         ax.set_title(qp["qubit"] )
-        ax.set_xlabel("Frequency (GHz)")
+        ax.set_xlabel("Amplitude")
     
     plt.tight_layout()
     plt.show()    
@@ -238,8 +229,7 @@ if not node.parameters.simulate:
 
 
     # %% {Update_state}
-    for qp in qubit_pairs:
-        qp.coupler.RF_frequency = float(min_freqs.sel(qubit=qp.name))
+    
     # %% {Save_results}
     node.results["initial_parameters"] = node.parameters.model_dump()
     node.machine = machine
