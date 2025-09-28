@@ -35,7 +35,8 @@ dependencies = [
     "qualibrate-lab-notebook @ git+https://github.com/i-qcc/qualibrate-lab-notebook.git@main",
     "cloud-qualibrate-link @ git+https://github.com/i-qcc/cloud_qualibrate_link.git@main",
     "quam-builder@git+https://github.com/qua-platform/quam-builder.git",
-    "qualibration-libs@git+https://github.com/qua-platform/qualibration-libs.git"
+    "qualibration-libs@git+https://github.com/qua-platform/qualibration-libs.git",
+    "pydantic<=2.11.9" # (running a qualibrate graph as script fails with pydantic 2.12.0a1)
 ]
 
 [build-system]
