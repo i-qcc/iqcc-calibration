@@ -46,13 +46,13 @@ import math
 # %% {Node_parameters}
 class Parameters(NodeParameters):
     twpas: Optional[List[str]] = ['twpa1']
-    num_averages: int = 10
+    num_averages: int = 100
     amp_min: float =  0.15
     amp_max: float =  0.26
-    frequency_span_in_mhz: float = 4
-    frequency_step_in_mhz: float = 0.1
+    frequency_span_in_mhz: float = 5
+    frequency_step_in_mhz: float = 1#0.1
     p_frequency_span_in_mhz: float = 50
-    p_frequency_step_in_mhz: float =0.4
+    p_frequency_step_in_mhz: float =10#0.4
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
     simulate: bool = False
     simulation_duration_ns: int = 4000
@@ -96,7 +96,7 @@ full_scale_power_dbm=twpas[0].pump.opx_output.full_scale_power_dbm
 amp_max = node.parameters.amp_max
 amp_min = node.parameters.amp_min
 amp_step = int((dBm(full_scale_power_dbm, amp_max)-dBm(full_scale_power_dbm, amp_min))/0.2)
-daps = np.linspace(amp_min, amp_max, 40)
+daps = np.linspace(amp_min, amp_max, 3)#40)
 # daps = np.arange(amp_min, amp_max, 0.01)
 
 span_p = node.parameters.p_frequency_span_in_mhz * u.MHz
@@ -104,17 +104,14 @@ step_p = node.parameters.p_frequency_step_in_mhz * u.MHz
 dfps = np.arange(-span_p / 2, +span_p / 2, step_p)
 # pump duration should be able to cover the resonator spectroscopy which takes #(dfs) (as we are multiplexing qubit number doesnt matter) 
 pump_duration = (10*len(dfs)*(machine.qubits[twpas[0].qubits[0]].resonator.operations["readout"].length+machine.qubits[twpas[0].qubits[0]].resonator.depletion_time))/4#(n_avg*len(dfs)*(machine.qubits[twpas[0].qubits[0]].resonator.operations["readout"].length+machine.qubits[twpas[0].qubits[0]].resonator.depletion_time))/4
-with program() as twpa_pump_off:    
+with program() as twpa_pump_off_n:    
     I, I_st, Q, Q_st,n,n_st = qua_declaration(num_qubits=len(qubits))
-    I_, I_st_, Q_, Q_st_,n_,n_st_ = qua_declaration(num_qubits=len(qubits))
     dp = declare(int)  # QUA variable for the pump frequency
     da = declare(float)# QUA variable for the pump amplitude
-    df = declare(int)  # QUA variable for the readout frequency
 # ### test for checking pump with SA
 #     with infinite_loop_():
 #         update_frequency(twpas[0].pump.name,  2e6+ twpas[0].pump.intermediate_frequency)
 #         twpas[0].pump.play('pump', amplitude_scale=0.63, duration=pump_duration)
-
 # TWPA off
     with for_(n, 0, n < n_avg, n + 1):  
         save(n, n_st)
@@ -124,43 +121,26 @@ with program() as twpa_pump_off:
                 twpas[0].pump.play('pump', amplitude_scale=0, duration=pump_duration)#+250)
                 wait(250) #1000/4 wait 1us for pump to settle before readout
 # measure readout responses around readout resonators without pump
-                with for_(*from_array(df, dfs)):
-                    for i, rr in enumerate(resonators):
-                        # Update the resonator frequencies for all resonators
-                        update_frequency(rr.name, df + rr.intermediate_frequency)
-                        # Measure the resonator
-                        rr.measure("readout",amplitude_scale=0, qua_vars=(I[i], Q[i]))
-                        # wait for the resonator to relax
-                        rr.wait(rr.depletion_time * u.ns)
-                        # save data
-                        save(I[i], I_st[i])
-                        save(Q[i], Q_st[i]) 
-                with for_(*from_array(df, dfs)):
-                    for i, rr in enumerate(resonators):
-                        # Update the resonator frequencies for all resonators
-                        update_frequency(rr.name, df + rr.intermediate_frequency)
-                        # Measure the resonator
-                        rr.measure("readout",  qua_vars=(I_[i], Q_[i]))
-                        # wait for the resonator to relax
-                        rr.wait(rr.depletion_time * u.ns)
-                        # save data
-                        save(I_[i], I_st_[i])
-                        save(Q_[i], Q_st_[i])
-                align()  
+                for i, rr in enumerate(resonators):
+                    # Update the resonator frequencies for all resonators
+                    update_frequency(rr.name,  rr.intermediate_frequency)
+                    # Measure the resonator
+                    rr.measure("readout", qua_vars=(I[i], Q[i]))
+                    # wait for the resonator to relax
+                    rr.wait(rr.depletion_time * u.ns)
+                    # save data
+                    save(I[i], I_st[i])
+                    save(Q[i], Q_st[i]) 
+            align()  
     with stream_processing():
         n_st.save("n")
         for i in range(len(qubits)):
-            I_st[i].buffer(len(dfs)).buffer(len(daps)).buffer(len(dfps)).average().save(f"I{i + 1}")
-            Q_st[i].buffer(len(dfs)).buffer(len(daps)).buffer(len(dfps)).average().save(f"Q{i + 1}")
-            I_st_[i].buffer(len(dfs)).buffer(len(daps)).buffer(len(dfps)).average().save(f"I_{i + 1}")
-            Q_st_[i].buffer(len(dfs)).buffer(len(daps)).buffer(len(dfps)).average().save(f"Q_{i + 1}") 
-### TWPA on
-with program() as twpa_pump_on:    
+            I_st[i].buffer(len(daps)).buffer(len(dfps)).buffer(n_avg).save(f"I{i + 1}")
+            Q_st[i].buffer(len(daps)).buffer(len(dfps)).buffer(n_avg).save(f"Q{i + 1}")
+with program() as twpa_pump_on_n:    
     I, I_st, Q, Q_st,n,n_st = qua_declaration(num_qubits=len(qubits))
-    I_, I_st_, Q_, Q_st_,n_,n_st_ = qua_declaration(num_qubits=len(qubits))
     dp = declare(int)  # QUA variable for the pump frequency
     da = declare(float)# QUA variable for the pump amplitude
-    df = declare(int)  # QUA variable for the readout frequency
     with for_(n, 0, n < n_avg, n + 1):  
         save(n, n_st)
         with for_(*from_array(dp, dfps)):  
@@ -168,37 +148,80 @@ with program() as twpa_pump_on:
             with for_each_(da, daps):  
                 twpas[0].pump.play('pump', amplitude_scale=da, duration=pump_duration)#+250)
                 wait(250) #1000/4 wait 1us for pump to settle before readout
-# measure readout responses around readout resonators with pump
-                with for_(*from_array(df, dfs)):
-                    for i, rr in enumerate(resonators):
-                        # Update the resonator frequencies for all resonators
-                        update_frequency(rr.name, df + rr.intermediate_frequency)
-                        # Measure the resonator, amp=0 -> see the noise level
-                        rr.measure("readout",amplitude_scale=0, qua_vars=(I[i], Q[i]))
-                        # wait for the resonator to relax
-                        rr.wait(rr.depletion_time * u.ns)
-                        # save data
-                        save(I[i], I_st[i])
-                        save(Q[i], Q_st[i]) 
-                with for_(*from_array(df, dfs)):
-                    for i, rr in enumerate(resonators):
-                        # Update the resonator frequencies for all resonators
-                        update_frequency(rr.name, df + rr.intermediate_frequency)
-                        # Measure the resonator, amp, see the signal level
-                        rr.measure("readout", qua_vars=(I_[i], Q_[i]))
-                        # wait for the resonator to relax
-                        rr.wait(rr.depletion_time * u.ns)
-                        # save data
-                        save(I_[i], I_st_[i])
-                        save(Q_[i], Q_st_[i])
-                align()  
+                for i, rr in enumerate(resonators):
+                    # Update the resonator frequencies for all resonators
+                    update_frequency(rr.name,  rr.intermediate_frequency)
+                    rr.measure("readout", qua_vars=(I[i], Q[i]))
+                    # wait for the resonator to relax
+                    rr.wait(rr.depletion_time * u.ns)
+                    # save data
+                    save(I[i], I_st[i])
+                    save(Q[i], Q_st[i]) 
+            align()  
     with stream_processing():
         n_st.save("n")
         for i in range(len(qubits)):
-            I_st[i].buffer(len(dfs)).buffer(len(daps)).buffer(len(dfps)).average().save(f"I{i + 1}")
-            Q_st[i].buffer(len(dfs)).buffer(len(daps)).buffer(len(dfps)).average().save(f"Q{i + 1}")
-            I_st_[i].buffer(len(dfs)).buffer(len(daps)).buffer(len(dfps)).average().save(f"I_{i + 1}")
-            Q_st_[i].buffer(len(dfs)).buffer(len(daps)).buffer(len(dfps)).average().save(f"Q_{i + 1}") 
+            I_st[i].buffer(len(daps)).buffer(len(dfps)).buffer(n_avg).save(f"I{i + 1}")
+            Q_st[i].buffer(len(daps)).buffer(len(dfps)).buffer(n_avg).save(f"Q{i + 1}")
+with program() as twpa_pump_off_s:    
+    I, I_st, Q, Q_st,n,n_st = qua_declaration(num_qubits=len(qubits))
+    dp = declare(int)  # QUA variable for the pump frequency
+    da = declare(float)# QUA variable for the pump amplitude
+# ### test for checking pump with SA
+#     with infinite_loop_():
+#         update_frequency(twpas[0].pump.name,  2e6+ twpas[0].pump.intermediate_frequency)
+#         twpas[0].pump.play('pump', amplitude_scale=0.63, duration=pump_duration)
+# TWPA off
+    with for_(n, 0, n < n_avg, n + 1):  
+        save(n, n_st)
+        with for_(*from_array(dp, dfps)):  
+            update_frequency(twpas[0].pump.name, dp + twpas[0].pump.intermediate_frequency)
+            with for_each_(da, daps):  
+                twpas[0].pump.play('pump', amplitude_scale=0, duration=pump_duration)#+250)
+                wait(250) #1000/4 wait 1us for pump to settle before readout
+# measure readout responses around readout resonators without pump
+                for i, rr in enumerate(resonators):
+                    # Update the resonator frequencies for all resonators
+                    update_frequency(rr.name,  rr.intermediate_frequency)
+                    # Measure the resonator
+                    rr.measure("readout", qua_vars=(I[i], Q[i]))
+                    # wait for the resonator to relax
+                    rr.wait(rr.depletion_time * u.ns)
+                    # save data
+                    save(I[i], I_st[i])
+                    save(Q[i], Q_st[i]) 
+            align()  
+    with stream_processing():
+        n_st.save("n")
+        for i in range(len(qubits)):
+            I_st[i].buffer(len(daps)).buffer(len(dfps)).buffer(n_avg).save(f"I{i + 1}")
+            Q_st[i].buffer(len(daps)).buffer(len(dfps)).buffer(n_avg).save(f"Q{i + 1}")
+with program() as twpa_pump_on_s:    
+    I, I_st, Q, Q_st,n,n_st = qua_declaration(num_qubits=len(qubits))
+    dp = declare(int)  # QUA variable for the pump frequency
+    da = declare(float)# QUA variable for the pump amplitude
+    with for_(n, 0, n < n_avg, n + 1):  
+        save(n, n_st)
+        with for_(*from_array(dp, dfps)):  
+            update_frequency(twpas[0].pump.name, dp + twpas[0].pump.intermediate_frequency)
+            with for_each_(da, daps):  
+                twpas[0].pump.play('pump', amplitude_scale=da, duration=pump_duration)#+250)
+                wait(250) #1000/4 wait 1us for pump to settle before readout
+                for i, rr in enumerate(resonators):
+                    # Update the resonator frequencies for all resonators
+                    update_frequency(rr.name,  rr.intermediate_frequency)
+                    rr.measure("readout", qua_vars=(I[i], Q[i]))
+                    # wait for the resonator to relax
+                    rr.wait(rr.depletion_time * u.ns)
+                    # save data
+                    save(I[i], I_st[i])
+                    save(Q[i], Q_st[i]) 
+            align()  
+    with stream_processing():
+        n_st.save("n")
+        for i in range(len(qubits)):
+            I_st[i].buffer(len(daps)).buffer(len(dfps)).buffer(n_avg).save(f"I{i + 1}")
+            Q_st[i].buffer(len(daps)).buffer(len(dfps)).buffer(n_avg).save(f"Q{i + 1}")
 # %% {Simulate_or_execute}
 if node.parameters.simulate:
     # Simulates the QUA program for the specified duration
@@ -231,22 +254,18 @@ elif node.parameters.load_data_id is None:
             n_ = results_.fetch_all()[0]
 # %% {Data_fetching_and_dataset_creation}
 #data for pump off
-ds = fetch_results_as_xarray(job.result_handles, qubits, {"freq": dfs, "pump_amp": daps, "pump_freq" : dfps})
+ds = fetch_results_as_xarray(job.result_handles, qubits, {"pump_amp": daps, "pump_freq" : dfps, "n" : np.arange(n_avg)})
 # Convert IQ data into volts
 ds = convert_IQ_to_V(ds, qubits)
 # Derive the amplitude IQ_abs = sqrt(I**2 + Q**2)
-ds = ds.assign({"IQ_abs_noise": 1e3*np.sqrt(ds["I"] ** 2 + ds["Q"] ** 2)})
-ds = ds.assign({"IQ_abs_signal": 1e3*np.sqrt(ds["I_"] ** 2 + ds["Q_"] ** 2)})
-pumpoff_snr = snr(ds, qubits, dfps, daps)
+ds = ds.assign({"IQ_abs": 1e3*np.sqrt(ds["I"] ** 2 + ds["Q"] ** 2)})
 
 #data for pump on
-ds_ = fetch_results_as_xarray(job_.result_handles, qubits, {"freq": dfs, "pump_amp": daps, "pump_freq" : dfps})
+ds_ = fetch_results_as_xarray(job_.result_handles, qubits, { "pump_amp": daps, "pump_freq" : dfps,"n" : np.arange(n_avg)})
 # Convert IQ data into volts
 ds_ = convert_IQ_to_V(ds_, qubits)
 # Derive the amplitude IQ_abs = sqrt(I**2 + Q**2)
-ds_ = ds_.assign({"IQ_abs_noise": 1e3*np.sqrt(ds_["I"] ** 2 + ds_["Q"] ** 2)})
-ds_ = ds_.assign({"IQ_abs_signal": 1e3*np.sqrt(ds_["I_"] ** 2 + ds_["Q_"] ** 2)})
-pumpon_snr = snr(ds_, qubits, dfps, daps)
+ds_ = ds_.assign({"IQ_abs": 1e3*np.sqrt(ds_["I"] ** 2 + ds_["Q"] ** 2)})
 # %% {Data Analysis}
 # SNR improvement & Gain
 RF_freq = np.array([dfs + q.resonator.RF_frequency for q in qubits])
