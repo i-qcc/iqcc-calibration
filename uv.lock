@@ -7,9 +7,6 @@ resolution-markers = [
     "python_full_version < '3.11'",
 ]
 
-[options]
-prerelease-mode = "allow"
-
 [[package]]
 name = "a2wsgi"
 version = "1.10.10"
@@ -1066,12 +1063,12 @@ name = "iqcc-calibration-tools"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "betterproto" },
     { name = "cloud-qualibrate-link" },
     { name = "ipykernel" },
     { name = "iqcc-cloud-client" },
     { name = "lmfit" },
     { name = "more-itertools" },
-    { name = "pydantic" },
     { name = "pylatexenc" },
     { name = "qiskit" },
     { name = "qm-qua" },
@@ -1088,12 +1085,12 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "betterproto", specifier = ">=2.0.0b7" },
     { name = "cloud-qualibrate-link", git = "https://github.com/i-qcc/cloud_qualibrate_link.git?rev=main" },
     { name = "ipykernel", specifier = ">=6.29.3,<7.0.0" },
     { name = "iqcc-cloud-client" },
     { name = "lmfit" },
     { name = "more-itertools" },
-    { name = "pydantic", specifier = "<=2.11.9" },
     { name = "pylatexenc" },
     { name = "qiskit", specifier = "==2.0.0" },
     { name = "qm-qua", specifier = "==1.2.3" },
@@ -1331,59 +1328,59 @@ wheels = [
 
 [[package]]
 name = "kiwisolver"
-version = "1.4.10rc0"
+version = "1.4.9"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/bf/de/354c903d772c1cc0a9310344e077b31c6c893cc5a664019b907a04997099/kiwisolver-1.4.10rc0.tar.gz", hash = "sha256:d321718aaa2583577be9836e8cc0ed9fd0863e57a85b1b73b328aac063bc9903", size = 97614 }
+sdist = { url = "https://files.pythonhosted.org/packages/5c/3c/85844f1b0feb11ee581ac23fe5fce65cd049a200c1446708cc1b7f922875/kiwisolver-1.4.9.tar.gz", hash = "sha256:c3b22c26c6fd6811b0ae8363b95ca8ce4ea3c202d3d0975b2914310ceb1bcc4d", size = 97564 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/79/e4/a8a745c843865bdb2adf10dbcec1966c10f6956e2d8055ddb50a7d37542b/kiwisolver-1.4.10rc0-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:bca23882e53a06719b22ae731fb98c57e588aff5c87059a761d2e64e02f940dd", size = 124261 },
-    { url = "https://files.pythonhosted.org/packages/1f/ae/bdd748341f71f0844b0cd7390c0996d6a716a0d7231f45ab9314ec9f5d73/kiwisolver-1.4.10rc0-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:7c62967106046e2c01b816498a35f6f8172531a957afe7371475b5d8177bc4fe", size = 66650 },
-    { url = "https://files.pythonhosted.org/packages/a6/6e/f2c3df90fb1c613eb7255ab7b0b379a9aacf89d887540c9f31fc7cb1457f/kiwisolver-1.4.10rc0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:97d9710fe97a009c000dbbddd533b7851ab2f71a2ab0f9698d5297b265cd7485", size = 65391 },
-    { url = "https://files.pythonhosted.org/packages/e2/c9/fd88472bfa7354d1eb7e0c1e0c0b22f0f2c75ea84ad6a602e5f9aef84b5f/kiwisolver-1.4.10rc0-cp310-cp310-manylinux_2_12_x86_64.manylinux2010_x86_64.whl", hash = "sha256:7d9e6c3fc8b1afa66d2cef430ce54f29897013416fa311a6d1381d7fbd8c53d7", size = 1628528 },
-    { url = "https://files.pythonhosted.org/packages/07/d2/770964640a6f846eb6f0bb079a98a246dda44f760d1566cca8533f5953d7/kiwisolver-1.4.10rc0-cp310-cp310-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:dab2a4fc2218bc409d77481fe31f5bbd02ae6f777c355beeeaa4a6ccccb53a88", size = 1225698 },
-    { url = "https://files.pythonhosted.org/packages/b9/2c/3ec4f36b7f7aa38abb1f24235d034d98cd12f6b182228209e5eaf60080ac/kiwisolver-1.4.10rc0-cp310-cp310-manylinux_2_24_ppc64le.manylinux_2_28_ppc64le.whl", hash = "sha256:67b9cf30a9cf6baff099f43a6737ecc6fcfe173f83d12fb2582745e2b29177ad", size = 1244148 },
-    { url = "https://files.pythonhosted.org/packages/48/50/c0265366841732328816c80f761e230cf9b6e9e0aa7eefc10ed36dbc1049/kiwisolver-1.4.10rc0-cp310-cp310-manylinux_2_24_s390x.manylinux_2_28_s390x.whl", hash = "sha256:f1ecf4a287e7eeb1e4305d26e088382885ec5472d7afadd1fe79783bcfe0801b", size = 1293096 },
-    { url = "https://files.pythonhosted.org/packages/49/14/f2517326ce34e0ad068502935c079031b74616ea9fe89bc1a744f65428e2/kiwisolver-1.4.10rc0-cp310-cp310-musllinux_1_2_aarch64.whl", hash = "sha256:c86c04d1aa38b6d0911ea4e4f08eb7d22264bb8336aa0f783c7510fef3cb3e52", size = 2175391 },
-    { url = "https://files.pythonhosted.org/packages/f0/54/3ffcc282ec9b0cc0d9647473f1f6fff5adc177a61260c01ce2f0345fb3e4/kiwisolver-1.4.10rc0-cp310-cp310-musllinux_1_2_ppc64le.whl", hash = "sha256:ee139ea8544142722d256164d3274e692b3497dd4a5ead35a0ff95031c4f1d79", size = 2271004 },
-    { url = "https://files.pythonhosted.org/packages/c0/2d/c388fa5bd211f4e659816ffb0373d4d92afd91fd5f3ba9cede5a7087a6fd/kiwisolver-1.4.10rc0-cp310-cp310-musllinux_1_2_s390x.whl", hash = "sha256:7b2519accbb2e54dd7477e84713452f07164bbb62533c9caae24a1c4ffcab620", size = 2440551 },
-    { url = "https://files.pythonhosted.org/packages/97/d4/dcdb0f1a5ccfbe02a530a92f1f57184954e9f7a792b74f8001a085429275/kiwisolver-1.4.10rc0-cp310-cp310-musllinux_1_2_x86_64.whl", hash = "sha256:e1867906e0fad1164dec3f3d0f070484a3f0c21357310b2f9a222925876bf9fd", size = 2246858 },
-    { url = "https://files.pythonhosted.org/packages/81/ee/b006d7a5e40a273ffdef59e451e1c60d6318d86b4c04edabff4c6f51ec0c/kiwisolver-1.4.10rc0-cp310-cp310-win_amd64.whl", hash = "sha256:a121b1329385b952e5d3825ebafb0650dec6aa69fca1e2024068aa2ac5913826", size = 73773 },
-    { url = "https://files.pythonhosted.org/packages/91/8e/8978b7a8750b569295116deb774aa0e5afb31cddb7eaf3a486c3dadd5928/kiwisolver-1.4.10rc0-cp310-cp310-win_arm64.whl", hash = "sha256:1aa25492271566984dfd8feb2566a8a0ebaed2e8b158935ead1cc52fb2e2a314", size = 65078 },
-    { url = "https://files.pythonhosted.org/packages/cc/21/019c64c58655e6a3b3783197238c92edf8090e30d094d9c2770e50312c85/kiwisolver-1.4.10rc0-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:7cc57b12496996be722d18b93fb145098c98b7f49cbe06eb92f1a8839fec851f", size = 124257 },
-    { url = "https://files.pythonhosted.org/packages/07/c5/a1459a96995a804ffcb587fa53006b4f598bd2b757e60811cc3538829852/kiwisolver-1.4.10rc0-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:ed726e9bf4ab6d8bf63f214189a080b1ccc2236de8f69a65518ec2e08792d809", size = 66646 },
-    { url = "https://files.pythonhosted.org/packages/f8/0f/6312411778e5d84df581bc67036e5da913013169d3e819ff3fde02766fa9/kiwisolver-1.4.10rc0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:22954717039cdf96df76c2583be41fc211a87375e4d32eb2bbdbd071d2ce0dbb", size = 65386 },
-    { url = "https://files.pythonhosted.org/packages/a3/03/5e917f0bbfcabcab2d46f22da2eda240fb18a15098e1ff75cc4242dc6807/kiwisolver-1.4.10rc0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:6d1c2b921dcb8dd3c8b8caeb942e8dde2f9efbb4cce5a7cc4ecb119156dc6f63", size = 1435659 },
-    { url = "https://files.pythonhosted.org/packages/5c/92/e47df418bf28fb7371fd6cc716ac3765b6048010c3f79ca46c97b4f67631/kiwisolver-1.4.10rc0-cp311-cp311-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:8655f912cf62c65176ca04e15b937c03c41da59090fb177885a9aa413f3e27c0", size = 1246594 },
-    { url = "https://files.pythonhosted.org/packages/b2/f8/ff201f9d0a620f830fa624808376a502cd7ab70f3db75e8f0bef8e22854a/kiwisolver-1.4.10rc0-cp311-cp311-manylinux_2_24_ppc64le.manylinux_2_28_ppc64le.whl", hash = "sha256:0a6487724ff217c96fcd072289a5b9e48b88ded72d48cfa48105382ac5cae7b6", size = 1263691 },
-    { url = "https://files.pythonhosted.org/packages/af/6b/1fa0c58baa765b93e50809c6d05d451592e23b4b1f3ed7c3aa84e5043543/kiwisolver-1.4.10rc0-cp311-cp311-manylinux_2_24_s390x.manylinux_2_28_s390x.whl", hash = "sha256:fc089ea753b3d23063c5791cfbf781049a885372d8090ed3176f14aa95e8b133", size = 1317497 },
-    { url = "https://files.pythonhosted.org/packages/11/82/7be342e8384ed7efb91c1a568190d64eab42456619266121047d82da802e/kiwisolver-1.4.10rc0-cp311-cp311-musllinux_1_2_aarch64.whl", hash = "sha256:0ef8610afeec79ae3cbd9cfa36d4520c672fe0615a2a0ddbce235a510736b35d", size = 2195834 },
-    { url = "https://files.pythonhosted.org/packages/d8/e9/d8a0fd5c4aa341f06258d544ac568f9fcdf4f67ee662b9475e72b42c8808/kiwisolver-1.4.10rc0-cp311-cp311-musllinux_1_2_ppc64le.whl", hash = "sha256:481e143b69de966593116e54e5033ee1fbf6d0c08d557b45fd4319b2011773ba", size = 2290888 },
-    { url = "https://files.pythonhosted.org/packages/a4/1f/5d4abbceee0facefb7a90ab4fec6966886448323143bd967518c45c92e79/kiwisolver-1.4.10rc0-cp311-cp311-musllinux_1_2_s390x.whl", hash = "sha256:f339d6f008fe5a175908e2c5d1a7204bfce3da4250f9bf70df5a60a4b16a8760", size = 2461638 },
-    { url = "https://files.pythonhosted.org/packages/86/d8/9c5f0bc3222ae58674b24ce8262206f59f79aecaf0b1583ff5fe495e9ff0/kiwisolver-1.4.10rc0-cp311-cp311-musllinux_1_2_x86_64.whl", hash = "sha256:f80f88fa20f14817018eab0f3db70e93da4719434f5c16a0058bde6544c26675", size = 2268133 },
-    { url = "https://files.pythonhosted.org/packages/ec/d1/82c1e2964bb1b11160afcc692d932be95ebdfe2bc0756cd1f8dee79a2346/kiwisolver-1.4.10rc0-cp311-cp311-win_amd64.whl", hash = "sha256:ef95d952120e64a55d633a1f2973392acd42bced2e7bf3b76816f7dcca5a88a6", size = 73888 },
-    { url = "https://files.pythonhosted.org/packages/61/a2/d4867a3ae81e2fe28de05f25266d5a6e0f4950e63f050d3cd78cb48bdfb4/kiwisolver-1.4.10rc0-cp311-cp311-win_arm64.whl", hash = "sha256:9453be53a21f813c0472db8a5cea26e8cadc315c5002aa9882fad8bf5212483e", size = 65199 },
-    { url = "https://files.pythonhosted.org/packages/dc/87/3df31abf12db3ccabfa52a96dc49e6defe233d8ffca1361091a1ea3a109c/kiwisolver-1.4.10rc0-cp312-cp312-macosx_10_13_universal2.whl", hash = "sha256:1cb9ae443b2dba2229ac3b8a771420ee76bfce56f610dcb4998676cebed79346", size = 123742 },
-    { url = "https://files.pythonhosted.org/packages/7b/62/fc9adfd88082b95971969736d777762f7940f3d49f5ffae37c439699156d/kiwisolver-1.4.10rc0-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:2727d842ff63050315d2a69334d64ed4ada261c04155c09d9534fd4033d38641", size = 66522 },
-    { url = "https://files.pythonhosted.org/packages/7d/d1/3802735c705ffa861bbb568ed4226936fcfc917a179bf3998fdf97e48e57/kiwisolver-1.4.10rc0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:f9563b4c98c23f52d98e15be40cbf0c215c824e7268d5222e9ad1803e8c1156d", size = 65016 },
-    { url = "https://files.pythonhosted.org/packages/72/76/29b4d717f5614fc91cb4542cd67f42b5bcb6c946201a9cf9d4a34231efc2/kiwisolver-1.4.10rc0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:75cef7209e3c71dc81d1d5bc8d5eb1b34be7a8d2cd94b83f0eb15533512a45ef", size = 1474820 },
-    { url = "https://files.pythonhosted.org/packages/f1/9b/828761ad3841b0e7d464514939a980eef7547b5952fb9a33232b17ed1540/kiwisolver-1.4.10rc0-cp312-cp312-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:374c11179eaacd3b8bfef677aa28a0a6d703b3474ea399f3b08b8e4d67522016", size = 1276468 },
-    { url = "https://files.pythonhosted.org/packages/92/6d/cb780c0ebad56e2b7b3c2c0376e9d5c25e90680d2b3b254afaec2507a62f/kiwisolver-1.4.10rc0-cp312-cp312-manylinux_2_24_ppc64le.manylinux_2_28_ppc64le.whl", hash = "sha256:9abc647f46a322fd19e0564ce59fcc0f14b9934540ddc7404ed7f3eea54d0d11", size = 1294484 },
-    { url = "https://files.pythonhosted.org/packages/55/70/44814b447c4e38da6f466b6a3e992d330c3e2c1c9c29731c436997b78f68/kiwisolver-1.4.10rc0-cp312-cp312-manylinux_2_24_s390x.manylinux_2_28_s390x.whl", hash = "sha256:f7e3c788da96b50e60f484d9dd790554a80800c22a468cd059b9a7a9c753d273", size = 1343677 },
-    { url = "https://files.pythonhosted.org/packages/5c/54/44eee9dc53be9c4c6ac3b099aedc482f1a1a6b193d0f258ccfa955c291df/kiwisolver-1.4.10rc0-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:468814c0e8f41b8f7b537da0c77a05a70f89aa4b7cfff96aa47f7936e57add9b", size = 2225010 },
-    { url = "https://files.pythonhosted.org/packages/50/5e/e05e24f858352e6985ace1f9ab8ece32b0962f4c5074ddb38fc91617809a/kiwisolver-1.4.10rc0-cp312-cp312-musllinux_1_2_ppc64le.whl", hash = "sha256:aa62a0aa711b1f94f80f1407a668362718c64f27e176ac6952d983ec1a5cd745", size = 2321356 },
-    { url = "https://files.pythonhosted.org/packages/f1/a7/1d21b9aa468bdbd4be190043d73ad07756c078003e43fdc4af5ccb3df75a/kiwisolver-1.4.10rc0-cp312-cp312-musllinux_1_2_s390x.whl", hash = "sha256:6e8697067105c536bcc14a33f5c9c0f0c155cf909818d01475f45d012ac441c1", size = 2488062 },
-    { url = "https://files.pythonhosted.org/packages/88/9b/17512a47070d022499f19078b980531b7be5d50eb9990dfc4ec29aa554ca/kiwisolver-1.4.10rc0-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:4c168de06cd8a4947a8af1e49d63341face78aca8e9e6b7685625701147ab22d", size = 2291890 },
-    { url = "https://files.pythonhosted.org/packages/85/c1/084d9b537e33555d8bf5d41ffaee88cf0ee49fa42587fdee181d31a40b61/kiwisolver-1.4.10rc0-cp312-cp312-win_amd64.whl", hash = "sha256:0b8bb7b6b3964d0454f8504e003097f2ae628679a1054ecb63578feeb7671cab", size = 73949 },
-    { url = "https://files.pythonhosted.org/packages/ff/fa/538442202d639add2f52a814bdfc58207ee6fbb6d1ecd1a6e867f48ec1af/kiwisolver-1.4.10rc0-cp312-cp312-win_arm64.whl", hash = "sha256:44cd6dfea8a6c2becac4f3d60ebdcfe4fed858bbf7fe9cd38ffea7b58df66435", size = 65077 },
-    { url = "https://files.pythonhosted.org/packages/ef/82/7e66ec85c26f0c55a383b3eb85cdfc8609b9cc43c22c5280bef9a14bf76b/kiwisolver-1.4.10rc0-pp310-pypy310_pp73-macosx_10_15_x86_64.whl", hash = "sha256:64543d48847a2397ce1346235c66db1dfafd4bce3fe98082a23bb845cbd6939a", size = 60235 },
-    { url = "https://files.pythonhosted.org/packages/92/49/0f5ffd7a05284548301f238bbc6cb2702c9fe9478d32834984e7c223972e/kiwisolver-1.4.10rc0-pp310-pypy310_pp73-macosx_11_0_arm64.whl", hash = "sha256:93c21e1e6e7e41a8588579aae13df2e29b12831dc2ddedc77ec3de33f322372d", size = 58730 },
-    { url = "https://files.pythonhosted.org/packages/aa/28/560b484bda4977a4f6c318f9437e4fd87290e62411767817ca09491beea7/kiwisolver-1.4.10rc0-pp310-pypy310_pp73-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:bdaea1b4d72988b8629de626c7eb01f4143faa3d43e7d99601d116a852b093c6", size = 80329 },
-    { url = "https://files.pythonhosted.org/packages/ec/1b/34d6ff502cab316de61f49520862badbd7db47019850d9649eb2921c2fd3/kiwisolver-1.4.10rc0-pp310-pypy310_pp73-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:4b4be858f37e6cedd31c1d58d6eb74a7f5c932f94ac742405d2e4c8707507f95", size = 78044 },
-    { url = "https://files.pythonhosted.org/packages/88/03/fd1e4fc0097f89eb08d84ae1e07340711ba37b4068912cb2e738a7e1ae18/kiwisolver-1.4.10rc0-pp310-pypy310_pp73-win_amd64.whl", hash = "sha256:2f200dd20e7c0637894c882e33c8945473e6de5415cbdebd2dce54c2a86bae28", size = 73793 },
-    { url = "https://files.pythonhosted.org/packages/bb/31/93f123de35b4e62a9debc1d4f35e20e5da42cc8b99824a13b670beaf426e/kiwisolver-1.4.10rc0-pp311-pypy311_pp73-macosx_10_15_x86_64.whl", hash = "sha256:81b5d3e873fed82e9ff7b45311c5fa961a191dda6f19898fce6385ecc82ea65e", size = 60156 },
-    { url = "https://files.pythonhosted.org/packages/bd/92/2777e966406f0ba01e3f7faae07a79d7a0cc530937fdb2883679a5d10eed/kiwisolver-1.4.10rc0-pp311-pypy311_pp73-macosx_11_0_arm64.whl", hash = "sha256:c5645e473af736949870d303d51d6edf2925afcd56ad5779b29bf7e5c620dc86", size = 58657 },
-    { url = "https://files.pythonhosted.org/packages/86/90/3b73b9a069cf64bd761c12ffd53b93e212a82f7fd36057ad1b8ef0a27399/kiwisolver-1.4.10rc0-pp311-pypy311_pp73-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:81c6204ddf60b409e384a9dfd12f70980bd98556e9c46f681ea40c90201ac236", size = 80335 },
-    { url = "https://files.pythonhosted.org/packages/42/0e/08307c00313e305336f1faa8c332b8042877670bbf950535643b3310f7d1/kiwisolver-1.4.10rc0-pp311-pypy311_pp73-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:b52feaf694434ba3aea0cfb9515b72d5cbe8c555473f14fc5dba121ced58d73d", size = 78068 },
-    { url = "https://files.pythonhosted.org/packages/26/05/ed2ad330b22530772f0498431d6f589a18c5eb3bd858da577f1b2ef5980e/kiwisolver-1.4.10rc0-pp311-pypy311_pp73-win_amd64.whl", hash = "sha256:7b4aa27204cb091a4ef96438773c9609f24f217fb3cd53612c41394f39b0d8b6", size = 73983 },
+    { url = "https://files.pythonhosted.org/packages/c6/5d/8ce64e36d4e3aac5ca96996457dcf33e34e6051492399a3f1fec5657f30b/kiwisolver-1.4.9-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:b4b4d74bda2b8ebf4da5bd42af11d02d04428b2c32846e4c2c93219df8a7987b", size = 124159 },
+    { url = "https://files.pythonhosted.org/packages/96/1e/22f63ec454874378175a5f435d6ea1363dd33fb2af832c6643e4ccea0dc8/kiwisolver-1.4.9-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:fb3b8132019ea572f4611d770991000d7f58127560c4889729248eb5852a102f", size = 66578 },
+    { url = "https://files.pythonhosted.org/packages/41/4c/1925dcfff47a02d465121967b95151c82d11027d5ec5242771e580e731bd/kiwisolver-1.4.9-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:84fd60810829c27ae375114cd379da1fa65e6918e1da405f356a775d49a62bcf", size = 65312 },
+    { url = "https://files.pythonhosted.org/packages/d4/42/0f333164e6307a0687d1eb9ad256215aae2f4bd5d28f4653d6cd319a3ba3/kiwisolver-1.4.9-cp310-cp310-manylinux_2_12_x86_64.manylinux2010_x86_64.whl", hash = "sha256:b78efa4c6e804ecdf727e580dbb9cba85624d2e1c6b5cb059c66290063bd99a9", size = 1628458 },
+    { url = "https://files.pythonhosted.org/packages/86/b6/2dccb977d651943995a90bfe3495c2ab2ba5cd77093d9f2318a20c9a6f59/kiwisolver-1.4.9-cp310-cp310-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:d4efec7bcf21671db6a3294ff301d2fc861c31faa3c8740d1a94689234d1b415", size = 1225640 },
+    { url = "https://files.pythonhosted.org/packages/50/2b/362ebd3eec46c850ccf2bfe3e30f2fc4c008750011f38a850f088c56a1c6/kiwisolver-1.4.9-cp310-cp310-manylinux_2_24_ppc64le.manylinux_2_28_ppc64le.whl", hash = "sha256:90f47e70293fc3688b71271100a1a5453aa9944a81d27ff779c108372cf5567b", size = 1244074 },
+    { url = "https://files.pythonhosted.org/packages/6f/bb/f09a1e66dab8984773d13184a10a29fe67125337649d26bdef547024ed6b/kiwisolver-1.4.9-cp310-cp310-manylinux_2_24_s390x.manylinux_2_28_s390x.whl", hash = "sha256:8fdca1def57a2e88ef339de1737a1449d6dbf5fab184c54a1fca01d541317154", size = 1293036 },
+    { url = "https://files.pythonhosted.org/packages/ea/01/11ecf892f201cafda0f68fa59212edaea93e96c37884b747c181303fccd1/kiwisolver-1.4.9-cp310-cp310-musllinux_1_2_aarch64.whl", hash = "sha256:9cf554f21be770f5111a1690d42313e140355e687e05cf82cb23d0a721a64a48", size = 2175310 },
+    { url = "https://files.pythonhosted.org/packages/7f/5f/bfe11d5b934f500cc004314819ea92427e6e5462706a498c1d4fc052e08f/kiwisolver-1.4.9-cp310-cp310-musllinux_1_2_ppc64le.whl", hash = "sha256:fc1795ac5cd0510207482c3d1d3ed781143383b8cfd36f5c645f3897ce066220", size = 2270943 },
+    { url = "https://files.pythonhosted.org/packages/3d/de/259f786bf71f1e03e73d87e2db1a9a3bcab64d7b4fd780167123161630ad/kiwisolver-1.4.9-cp310-cp310-musllinux_1_2_s390x.whl", hash = "sha256:ccd09f20ccdbbd341b21a67ab50a119b64a403b09288c27481575105283c1586", size = 2440488 },
+    { url = "https://files.pythonhosted.org/packages/1b/76/c989c278faf037c4d3421ec07a5c452cd3e09545d6dae7f87c15f54e4edf/kiwisolver-1.4.9-cp310-cp310-musllinux_1_2_x86_64.whl", hash = "sha256:540c7c72324d864406a009d72f5d6856f49693db95d1fbb46cf86febef873634", size = 2246787 },
+    { url = "https://files.pythonhosted.org/packages/a2/55/c2898d84ca440852e560ca9f2a0d28e6e931ac0849b896d77231929900e7/kiwisolver-1.4.9-cp310-cp310-win_amd64.whl", hash = "sha256:ede8c6d533bc6601a47ad4046080d36b8fc99f81e6f1c17b0ac3c2dc91ac7611", size = 73730 },
+    { url = "https://files.pythonhosted.org/packages/e8/09/486d6ac523dd33b80b368247f238125d027964cfacb45c654841e88fb2ae/kiwisolver-1.4.9-cp310-cp310-win_arm64.whl", hash = "sha256:7b4da0d01ac866a57dd61ac258c5607b4cd677f63abaec7b148354d2b2cdd536", size = 65036 },
+    { url = "https://files.pythonhosted.org/packages/6f/ab/c80b0d5a9d8a1a65f4f815f2afff9798b12c3b9f31f1d304dd233dd920e2/kiwisolver-1.4.9-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:eb14a5da6dc7642b0f3a18f13654847cd8b7a2550e2645a5bda677862b03ba16", size = 124167 },
+    { url = "https://files.pythonhosted.org/packages/a0/c0/27fe1a68a39cf62472a300e2879ffc13c0538546c359b86f149cc19f6ac3/kiwisolver-1.4.9-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:39a219e1c81ae3b103643d2aedb90f1ef22650deb266ff12a19e7773f3e5f089", size = 66579 },
+    { url = "https://files.pythonhosted.org/packages/31/a2/a12a503ac1fd4943c50f9822678e8015a790a13b5490354c68afb8489814/kiwisolver-1.4.9-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:2405a7d98604b87f3fc28b1716783534b1b4b8510d8142adca34ee0bc3c87543", size = 65309 },
+    { url = "https://files.pythonhosted.org/packages/66/e1/e533435c0be77c3f64040d68d7a657771194a63c279f55573188161e81ca/kiwisolver-1.4.9-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:dc1ae486f9abcef254b5618dfb4113dd49f94c68e3e027d03cf0143f3f772b61", size = 1435596 },
+    { url = "https://files.pythonhosted.org/packages/67/1e/51b73c7347f9aabdc7215aa79e8b15299097dc2f8e67dee2b095faca9cb0/kiwisolver-1.4.9-cp311-cp311-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:8a1f570ce4d62d718dce3f179ee78dac3b545ac16c0c04bb363b7607a949c0d1", size = 1246548 },
+    { url = "https://files.pythonhosted.org/packages/21/aa/72a1c5d1e430294f2d32adb9542719cfb441b5da368d09d268c7757af46c/kiwisolver-1.4.9-cp311-cp311-manylinux_2_24_ppc64le.manylinux_2_28_ppc64le.whl", hash = "sha256:cb27e7b78d716c591e88e0a09a2139c6577865d7f2e152488c2cc6257f460872", size = 1263618 },
+    { url = "https://files.pythonhosted.org/packages/a3/af/db1509a9e79dbf4c260ce0cfa3903ea8945f6240e9e59d1e4deb731b1a40/kiwisolver-1.4.9-cp311-cp311-manylinux_2_24_s390x.manylinux_2_28_s390x.whl", hash = "sha256:15163165efc2f627eb9687ea5f3a28137217d217ac4024893d753f46bce9de26", size = 1317437 },
+    { url = "https://files.pythonhosted.org/packages/e0/f2/3ea5ee5d52abacdd12013a94130436e19969fa183faa1e7c7fbc89e9a42f/kiwisolver-1.4.9-cp311-cp311-musllinux_1_2_aarch64.whl", hash = "sha256:bdee92c56a71d2b24c33a7d4c2856bd6419d017e08caa7802d2963870e315028", size = 2195742 },
+    { url = "https://files.pythonhosted.org/packages/6f/9b/1efdd3013c2d9a2566aa6a337e9923a00590c516add9a1e89a768a3eb2fc/kiwisolver-1.4.9-cp311-cp311-musllinux_1_2_ppc64le.whl", hash = "sha256:412f287c55a6f54b0650bd9b6dce5aceddb95864a1a90c87af16979d37c89771", size = 2290810 },
+    { url = "https://files.pythonhosted.org/packages/fb/e5/cfdc36109ae4e67361f9bc5b41323648cb24a01b9ade18784657e022e65f/kiwisolver-1.4.9-cp311-cp311-musllinux_1_2_s390x.whl", hash = "sha256:2c93f00dcba2eea70af2be5f11a830a742fe6b579a1d4e00f47760ef13be247a", size = 2461579 },
+    { url = "https://files.pythonhosted.org/packages/62/86/b589e5e86c7610842213994cdea5add00960076bef4ae290c5fa68589cac/kiwisolver-1.4.9-cp311-cp311-musllinux_1_2_x86_64.whl", hash = "sha256:f117e1a089d9411663a3207ba874f31be9ac8eaa5b533787024dc07aeb74f464", size = 2268071 },
+    { url = "https://files.pythonhosted.org/packages/3b/c6/f8df8509fd1eee6c622febe54384a96cfaf4d43bf2ccec7a0cc17e4715c9/kiwisolver-1.4.9-cp311-cp311-win_amd64.whl", hash = "sha256:be6a04e6c79819c9a8c2373317d19a96048e5a3f90bec587787e86a1153883c2", size = 73840 },
+    { url = "https://files.pythonhosted.org/packages/e2/2d/16e0581daafd147bc11ac53f032a2b45eabac897f42a338d0a13c1e5c436/kiwisolver-1.4.9-cp311-cp311-win_arm64.whl", hash = "sha256:0ae37737256ba2de764ddc12aed4956460277f00c4996d51a197e72f62f5eec7", size = 65159 },
+    { url = "https://files.pythonhosted.org/packages/86/c9/13573a747838aeb1c76e3267620daa054f4152444d1f3d1a2324b78255b5/kiwisolver-1.4.9-cp312-cp312-macosx_10_13_universal2.whl", hash = "sha256:ac5a486ac389dddcc5bef4f365b6ae3ffff2c433324fb38dd35e3fab7c957999", size = 123686 },
+    { url = "https://files.pythonhosted.org/packages/51/ea/2ecf727927f103ffd1739271ca19c424d0e65ea473fbaeea1c014aea93f6/kiwisolver-1.4.9-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:f2ba92255faa7309d06fe44c3a4a97efe1c8d640c2a79a5ef728b685762a6fd2", size = 66460 },
+    { url = "https://files.pythonhosted.org/packages/5b/5a/51f5464373ce2aeb5194508298a508b6f21d3867f499556263c64c621914/kiwisolver-1.4.9-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:4a2899935e724dd1074cb568ce7ac0dce28b2cd6ab539c8e001a8578eb106d14", size = 64952 },
+    { url = "https://files.pythonhosted.org/packages/70/90/6d240beb0f24b74371762873e9b7f499f1e02166a2d9c5801f4dbf8fa12e/kiwisolver-1.4.9-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:f6008a4919fdbc0b0097089f67a1eb55d950ed7e90ce2cc3e640abadd2757a04", size = 1474756 },
+    { url = "https://files.pythonhosted.org/packages/12/42/f36816eaf465220f683fb711efdd1bbf7a7005a2473d0e4ed421389bd26c/kiwisolver-1.4.9-cp312-cp312-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:67bb8b474b4181770f926f7b7d2f8c0248cbcb78b660fdd41a47054b28d2a752", size = 1276404 },
+    { url = "https://files.pythonhosted.org/packages/2e/64/bc2de94800adc830c476dce44e9b40fd0809cddeef1fde9fcf0f73da301f/kiwisolver-1.4.9-cp312-cp312-manylinux_2_24_ppc64le.manylinux_2_28_ppc64le.whl", hash = "sha256:2327a4a30d3ee07d2fbe2e7933e8a37c591663b96ce42a00bc67461a87d7df77", size = 1294410 },
+    { url = "https://files.pythonhosted.org/packages/5f/42/2dc82330a70aa8e55b6d395b11018045e58d0bb00834502bf11509f79091/kiwisolver-1.4.9-cp312-cp312-manylinux_2_24_s390x.manylinux_2_28_s390x.whl", hash = "sha256:7a08b491ec91b1d5053ac177afe5290adacf1f0f6307d771ccac5de30592d198", size = 1343631 },
+    { url = "https://files.pythonhosted.org/packages/22/fd/f4c67a6ed1aab149ec5a8a401c323cee7a1cbe364381bb6c9c0d564e0e20/kiwisolver-1.4.9-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:d8fc5c867c22b828001b6a38d2eaeb88160bf5783c6cb4a5e440efc981ce286d", size = 2224963 },
+    { url = "https://files.pythonhosted.org/packages/45/aa/76720bd4cb3713314677d9ec94dcc21ced3f1baf4830adde5bb9b2430a5f/kiwisolver-1.4.9-cp312-cp312-musllinux_1_2_ppc64le.whl", hash = "sha256:3b3115b2581ea35bb6d1f24a4c90af37e5d9b49dcff267eeed14c3893c5b86ab", size = 2321295 },
+    { url = "https://files.pythonhosted.org/packages/80/19/d3ec0d9ab711242f56ae0dc2fc5d70e298bb4a1f9dfab44c027668c673a1/kiwisolver-1.4.9-cp312-cp312-musllinux_1_2_s390x.whl", hash = "sha256:858e4c22fb075920b96a291928cb7dea5644e94c0ee4fcd5af7e865655e4ccf2", size = 2487987 },
+    { url = "https://files.pythonhosted.org/packages/39/e9/61e4813b2c97e86b6fdbd4dd824bf72d28bcd8d4849b8084a357bc0dd64d/kiwisolver-1.4.9-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:ed0fecd28cc62c54b262e3736f8bb2512d8dcfdc2bcf08be5f47f96bf405b145", size = 2291817 },
+    { url = "https://files.pythonhosted.org/packages/a0/41/85d82b0291db7504da3c2defe35c9a8a5c9803a730f297bd823d11d5fb77/kiwisolver-1.4.9-cp312-cp312-win_amd64.whl", hash = "sha256:f68208a520c3d86ea51acf688a3e3002615a7f0238002cccc17affecc86a8a54", size = 73895 },
+    { url = "https://files.pythonhosted.org/packages/e2/92/5f3068cf15ee5cb624a0c7596e67e2a0bb2adee33f71c379054a491d07da/kiwisolver-1.4.9-cp312-cp312-win_arm64.whl", hash = "sha256:2c1a4f57df73965f3f14df20b80ee29e6a7930a57d2d9e8491a25f676e197c60", size = 64992 },
+    { url = "https://files.pythonhosted.org/packages/a2/63/fde392691690f55b38d5dd7b3710f5353bf7a8e52de93a22968801ab8978/kiwisolver-1.4.9-pp310-pypy310_pp73-macosx_10_15_x86_64.whl", hash = "sha256:4d1d9e582ad4d63062d34077a9a1e9f3c34088a2ec5135b1f7190c07cf366527", size = 60183 },
+    { url = "https://files.pythonhosted.org/packages/27/b1/6aad34edfdb7cced27f371866f211332bba215bfd918ad3322a58f480d8b/kiwisolver-1.4.9-pp310-pypy310_pp73-macosx_11_0_arm64.whl", hash = "sha256:deed0c7258ceb4c44ad5ec7d9918f9f14fd05b2be86378d86cf50e63d1e7b771", size = 58675 },
+    { url = "https://files.pythonhosted.org/packages/9d/1a/23d855a702bb35a76faed5ae2ba3de57d323f48b1f6b17ee2176c4849463/kiwisolver-1.4.9-pp310-pypy310_pp73-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:0a590506f303f512dff6b7f75fd2fd18e16943efee932008fe7140e5fa91d80e", size = 80277 },
+    { url = "https://files.pythonhosted.org/packages/5a/5b/5239e3c2b8fb5afa1e8508f721bb77325f740ab6994d963e61b2b7abcc1e/kiwisolver-1.4.9-pp310-pypy310_pp73-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:e09c2279a4d01f099f52d5c4b3d9e208e91edcbd1a175c9662a8b16e000fece9", size = 77994 },
+    { url = "https://files.pythonhosted.org/packages/f9/1c/5d4d468fb16f8410e596ed0eac02d2c68752aa7dc92997fe9d60a7147665/kiwisolver-1.4.9-pp310-pypy310_pp73-win_amd64.whl", hash = "sha256:c9e7cdf45d594ee04d5be1b24dd9d49f3d1590959b2271fb30b5ca2b262c00fb", size = 73744 },
+    { url = "https://files.pythonhosted.org/packages/a3/0f/36d89194b5a32c054ce93e586d4049b6c2c22887b0eb229c61c68afd3078/kiwisolver-1.4.9-pp311-pypy311_pp73-macosx_10_15_x86_64.whl", hash = "sha256:720e05574713db64c356e86732c0f3c5252818d05f9df320f0ad8380641acea5", size = 60104 },
+    { url = "https://files.pythonhosted.org/packages/52/ba/4ed75f59e4658fd21fe7dde1fee0ac397c678ec3befba3fe6482d987af87/kiwisolver-1.4.9-pp311-pypy311_pp73-macosx_11_0_arm64.whl", hash = "sha256:17680d737d5335b552994a2008fab4c851bcd7de33094a82067ef3a576ff02fa", size = 58592 },
+    { url = "https://files.pythonhosted.org/packages/33/01/a8ea7c5ea32a9b45ceeaee051a04c8ed4320f5add3c51bfa20879b765b70/kiwisolver-1.4.9-pp311-pypy311_pp73-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:85b5352f94e490c028926ea567fc569c52ec79ce131dadb968d3853e809518c2", size = 80281 },
+    { url = "https://files.pythonhosted.org/packages/da/e3/dbd2ecdce306f1d07a1aaf324817ee993aab7aee9db47ceac757deabafbe/kiwisolver-1.4.9-pp311-pypy311_pp73-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:464415881e4801295659462c49461a24fb107c140de781d55518c4b80cb6790f", size = 78009 },
+    { url = "https://files.pythonhosted.org/packages/da/e9/0d4add7873a73e462aeb45c036a2dead2562b825aa46ba326727b3f31016/kiwisolver-1.4.9-pp311-pypy311_pp73-win_amd64.whl", hash = "sha256:fb940820c63a9590d31d88b815e7a3aa5915cad3ce735ab45f0c730b39547de1", size = 73929 },
 ]
 
 [[package]]
@@ -2231,12 +2228,9 @@ wheels = [
 
 [[package]]
 name = "pylatexenc"
-version = "3.0a33"
+version = "2.10"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/97/6c/37cf2bfa76f122885acec21d62018fd9503ece009a05ea5d32dd348133e2/pylatexenc-3.0a33.tar.gz", hash = "sha256:087c9d6d280ba1242e01caf0a6436b18e9790e07148eb9430aeaa51b68d2c114", size = 205228 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/c6/43/0a8a0b4b42b9b38f01f255b777bd4697099eb75ea7201444b528794a2a4f/pylatexenc-3.0a33-py3-none-any.whl", hash = "sha256:71221905d8e731c0600cde10af08f16f539723b6ffe17f478e56f5c0208c507a", size = 267673 },
-]
+sdist = { url = "https://files.pythonhosted.org/packages/5d/ab/34ec41718af73c00119d0351b7a2531d2ebddb51833a36448fc7b862be60/pylatexenc-2.10.tar.gz", hash = "sha256:3dd8fd84eb46dc30bee1e23eaab8d8fb5a7f507347b23e5f38ad9675c84f40d3", size = 162597 }
 
 [[package]]
 name = "pyparsing"
@@ -2527,7 +2521,7 @@ wheels = [
 
 [[package]]
 name = "qualibrate-app"
-version = "0.3.6a2"
+version = "0.3.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
@@ -2539,9 +2533,9 @@ dependencies = [
     { name = "tomli-w" },
     { name = "uvicorn" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/24/b3/411474616dcb665c4ade351014f31cf11d1b3b92106ae8d1ee395bafd28f/qualibrate_app-0.3.6a2.tar.gz", hash = "sha256:5e9f6222af84ddfd7a62b198fe91b76584f11fe38c4f940ffba84c059609742c", size = 4307894 }
+sdist = { url = "https://files.pythonhosted.org/packages/6e/29/7235894c8f3d93d8562d731f18ee3efe731b46e27f1853659c878510960c/qualibrate_app-0.3.5.tar.gz", hash = "sha256:4bb0be2f6b1f31d34f063f1384aefaf562ed627dd4edd7e413c136b2f3cc4050", size = 4241223 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/94/92/91ddfda5582df71aba0aa48b012fa0fd722f00e850c9bcaf4f82d384f0f6/qualibrate_app-0.3.6a2-py3-none-any.whl", hash = "sha256:ec08ee610f21a14a5cf859ad53f8a0e1d87dc0931feff71f1e6390d7b83abb05", size = 4977602 },
+    { url = "https://files.pythonhosted.org/packages/6a/bd/2f2c69eb9a1795549f61e077015797a933dce91d73b461963c246367fde7/qualibrate_app-0.3.5-py3-none-any.whl", hash = "sha256:f8a4542c802aaab9bf21f2bf4aa1cec49db6c12351819cf8761bc04bcee7c64d", size = 4910127 },
 ]
 
 [[package]]

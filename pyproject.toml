@@ -36,7 +36,8 @@ dependencies = [
     "cloud-qualibrate-link @ git+https://github.com/i-qcc/cloud_qualibrate_link.git@main",
     "quam-builder@git+https://github.com/qua-platform/quam-builder.git",
     "qualibration-libs@git+https://github.com/qua-platform/qualibration-libs.git",
-    "pydantic<=2.11.9" # (running a qualibrate graph as script fails with pydantic 2.12.0a1)
+    "betterproto>=2.0.0b7", # becuase qua 1.2.3 requires this pre-release version 
+
 ]
 
 [build-system]
@@ -49,5 +50,5 @@ allow-direct-references = true
 [tool.hatch.build.targets.wheel]
 packages = ["iqcc_calibration_tools"]
 
-[tool.uv]
-prerelease = "allow"
+# [tool.uv]
+# prerelease = "allow"
