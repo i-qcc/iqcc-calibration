@@ -8,10 +8,10 @@ import matplotlib.pyplot as plt
 #     noise=np.std(base)
 #     snr=20*np.log10((signalsize/noise))
 #     return snr
-# def voltTOdbm(volt):
-#     p_w=(volt**2)/50
-#     dbm=10*np.log10(p_w*1000)
-#     return dbm
+def voltTOdbm(volt):
+    p_w=(volt**2)/50
+    dbm=10*np.log10(p_w*1000)
+    return dbm
 # def dBm(full_scale_power_dbm,daps):
 #     v=np.sqrt((2*50*10**(full_scale_power_dbm/10))/1000)*daps*1 # 1 : twpa readout amplitude  #opx1000 documentation
 #     p_w=(v**2)/50
@@ -118,12 +118,42 @@ def snr(ds, qubits, dfps, daps):
                 noise[i,j,k]=mvTOdbm(np.mean(ds.IQ_abs_noise.values[i][j][k]))
                 signal[i,j,k]=mvTOdbm(ds.IQ_abs_signal.values[i][j][k][len(ds.IQ_abs_signal.values[i][j][k])//2])
     return signal-noise
+# def gain(ds_pumpoff,ds_pumpon, qubits, dfps, daps):
+#     signal_pumpoff=np.zeros((len(qubits),len(dfps),len(daps),1))
+#     signal_pumpon=np.zeros((len(qubits),len(dfps),len(daps),1))
+#     for i in range(len(qubits)):
+#         for j in range(len(dfps)):
+#             for k in range(len(daps)):
+#                 signal_pumpoff[i,j,k]=mvTOdbm(ds_pumpoff.IQ_abs_signal.values[i][j][k][len(ds_pumpoff.IQ_abs_signal.values[i][j][k])//2])
+#                 signal_pumpon[i,j,k]=mvTOdbm(ds_pumpon.IQ_abs_signal.values[i][j][k][len(ds_pumpon.IQ_abs_signal.values[i][j][k])//2])
+#     return signal_pumpon-signal_pumpoff
+################ 250928 V3 #####################################
 def gain(ds_pumpoff,ds_pumpon, qubits, dfps, daps):
     signal_pumpoff=np.zeros((len(qubits),len(dfps),len(daps),1))
     signal_pumpon=np.zeros((len(qubits),len(dfps),len(daps),1))
     for i in range(len(qubits)):
         for j in range(len(dfps)):
             for k in range(len(daps)):
-                signal_pumpoff[i,j,k]=mvTOdbm(ds_pumpoff.IQ_abs_signal.values[i][j][k][len(ds_pumpoff.IQ_abs_signal.values[i][j][k])//2])
-                signal_pumpon[i,j,k]=mvTOdbm(ds_pumpon.IQ_abs_signal.values[i][j][k][len(ds_pumpon.IQ_abs_signal.values[i][j][k])//2])
+                signal_pumpoff[i,j,k]=mvTOdbm(np.mean(ds_pumpoff.IQ_abs_signal.values[i][j][k]))
+                signal_pumpon[i,j,k]=mvTOdbm(np.mean(ds_pumpon.IQ_abs_signal.values[i][j][k]))
     return signal_pumpon-signal_pumpoff
+def signal(ds):
+    avg_signal=ds.IQ_abs_signal.values.mean(axis=-1, keepdims=True)
+    return voltTOdbm(avg_signal)
+def noise(ds, qubits, dfps, daps, n_avg):
+    I=np.zeros((len(qubits),len(dfps),len(daps),n_avg))
+    Q=np.zeros((len(qubits),len(dfps),len(daps),n_avg))
+    for i in range(len(qubits)):
+            for j in range(len(dfps)):
+                for k in range(len(daps)):
+                    for n in range(n_avg):
+                        I[i][j][k][n]=ds.I.values[i][n][j][k]
+                        Q[i][j][k][n]=ds.Q.values[i][n][j][k]
+    I_noise=np.zeros((len(qubits),len(dfps),len(daps),1))
+    Q_noise=np.zeros((len(qubits),len(dfps),len(daps),1))
+    for i in range(len(qubits)):
+            for j in range(len(dfps)):
+                for k in range(len(daps)):
+                    I_noise[i][j][k]=np.std(I[i][j][k])
+                    Q_noise[i][j][k]=np.std(I[i][j][k])
+    return (voltTOdbm(I_noise)+voltTOdbm(Q_noise))/2

@@ -28,6 +28,10 @@ class TWPA(QuamComponent):
     max_snr_improvement: float = None
     p_saturation: float = None
 
+    pump_frequency : float = None
+    pump_amplitude : float = None
+
+
     dispersive_feature: float = None
     qubits: list = None
 
