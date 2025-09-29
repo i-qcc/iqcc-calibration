@@ -8,24 +8,7 @@ from datetime import datetime, timezone, timedelta
 from qualang_tools.multi_user import qm_session
 from qualang_tools.results import fetching_tool, progress_counter
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
-from typing import Optional, Literal
-
-class Parameters(NodeParameters):
-    qubits: Optional[str] = None
-    num_averages: int = 100
-    # z_pulse_amplitude: float = 0.1  # defines how much you want to detune the qubit in frequency
-    delay_span: int = 50 # in clock cycles
-    flux_point_joint_or_independent: Literal['joint', 'independent'] = "joint"
-    reset_type_thermal_or_active: Literal['thermal', 'active'] = "thermal"
-    simulate: bool = False
-    timeout: int = 100
-
-
-node = QualibrationNode(
-    name="14b_XY_Z_delay_4nS",
-    parameters=Parameters()
-)
-
+from typing import List, Optional, Literal
 from qm.qua import *
 from qm import SimulationConfig
 from qualang_tools.units import unit
@@ -38,9 +21,22 @@ import numpy as np
 from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
 from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray
 
-# matplotlib.use("TKAgg")
+class Parameters(NodeParameters):
+    qubits: Optional[List[str]] = None
+    num_averages: int = 100
+    delay_span: int = 50 # in clock cycles
+    flux_point_joint_or_independent: Literal['joint', 'independent'] = "joint"
+    reset_type_thermal_or_active: Literal['thermal', 'active'] = "thermal"
+    simulate: bool = False
+    timeout: int = 100
 
 
+node = QualibrationNode(
+    name="14b_XY_Z_delay_4nS",
+    parameters=Parameters()
+)
+
+# %%
 ###################################################
 #  Load QuAM and open Communication with the QOP  #
 ###################################################
@@ -49,7 +45,7 @@ u = unit(coerce_to_integer=True)
 # Instantiate the QuAM class from the state file
 machine = Quam.load()
 # Generate the OPX and Octave configurations
-if node.parameters.qubits is None or node.parameters.qubits == '':
+if node.parameters.qubits is None or node.parameters.qubits == "":
     qubits = machine.active_qubits
 else:
     qubits = [machine.qubits[q] for q in node.parameters.qubits]
