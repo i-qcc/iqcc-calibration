@@ -7,7 +7,7 @@ from quam.components.pulses import ReadoutPulse, Pulse
 from quam.core import quam_dataclass
 from iqcc_calibration_tools.quam_config.components.transmon import Transmon
 from iqcc_calibration_tools.quam_config.components.readout_resonator import ReadoutResonatorIQ
-from qm.qua import declare, assign, fixed
+from qm.qua import declare, assign, fixed, wait
 from quam.utils.qua_types import QuaVariableBool
 
 __all__ = ["MeasureMacro", "ResetMacro", "VirtualZMacro", "CZMacro", "DelayMacro", "IdMacro"]
@@ -118,7 +118,9 @@ class CZMacro(QubitPairMacro):
     flux_pulse_qubit: Union[Pulse, str]
     coupler_flux_pulse: Pulse = None
     pulsed_qubit : Literal["control", "target"] = "control"
-
+    
+    flux_pulse_target: Pulse = None
+    
     pre_wait: int = 4
 
     phase_shift_control: float = 0.0
@@ -133,6 +135,12 @@ class CZMacro(QubitPairMacro):
         qubit = self.qubit_control if self.pulsed_qubit == "control" else self.qubit_target
         pulse = get_pulse(self.flux_pulse_qubit, qubit)
         return get_pulse_name(pulse)
+    
+    @property
+    def flux_pulse_target_label(self) -> str:
+        qubit = self.qubit_target if self.pulsed_qubit == "control" else self.qubit_control
+        pulse = get_pulse(self.flux_pulse_target, qubit)
+        return get_pulse_name(pulse)
 
     @property
     def coupler_flux_pulse_label(self) -> str:
@@ -142,20 +150,32 @@ class CZMacro(QubitPairMacro):
     def apply(
         self,
         *,
-        amplitude_scale=None,
+        amplitude_scale_qubit_control=None,
+        amplitude_scale_qubit_target=None,
+        amplitude_scale_coupler=None,
         phase_shift_control=None,
         phase_shift_target=None,
         **kwargs,
     ) -> None:
         qubit = self.qubit_control if self.pulsed_qubit == "control" else self.qubit_target
+        stationary_qubit = self.qubit_target if self.pulsed_qubit == "control" else self.qubit_control
+        self.qubit_pair.align()
         qubit.z.play(
             self.flux_pulse_qubit_label,
             validate=False,
-            amplitude_scale=amplitude_scale,
+            amplitude_scale=amplitude_scale_qubit_control,
         )
+        if self.flux_pulse_target is not None:
+            stationary_qubit.z.play(
+                self.flux_pulse_target_label,
+                validate=False,
+                amplitude_scale=amplitude_scale_qubit_target,
+            )
 
         if self.coupler_flux_pulse is not None:
-            self.qubit_pair.coupler.play(self.coupler_flux_pulse_label, validate=False)
+            self.qubit_pair.coupler.play(self.coupler_flux_pulse_label, 
+                                         amplitude_scale=amplitude_scale_coupler,
+                                         validate=False)
 
         self.qubit_pair.align()
         if phase_shift_control is not None:
