@@ -22,11 +22,6 @@ import numpy as np
 from scipy import signal
 
 
-class AnalysisError(Exception):
-    """Exception raised for errors in analysis functions."""
-    pass
-
-
 def frequency(
     x: np.ndarray,
     y: np.ndarray,
@@ -268,7 +263,7 @@ def full_width_half_max(
         FWHM of the peak.
 
     Raises:
-        AnalysisError: When peak is too broad and line width is not found.
+        Exception: When peak is too broad and line width is not found.
     """
     y_ = np.abs(y)
     peak_height = y_[peak_index]
@@ -290,7 +285,7 @@ def full_width_half_max(
     elif l_bound:
         return 2 * (x[peak_index] - l_bound)
 
-    raise AnalysisError("FWHM of input curve was not found. Perhaps scanning range is too narrow.")
+    raise Exception("FWHM of input curve was not found. Perhaps scanning range is too narrow.")
 
 
 def constant_spectral_offset(
@@ -373,13 +368,13 @@ def rb_decay(
 
     .. math::
 
-        y'(x+dx) = a \alpha^x \alpha^{dx}.
+        y'(x+dx) = a \alpha^x \alpha^dx.
 
     By considering the ratio of y values at :math:`x+dx` to :math:`x`,
 
     .. math::
 
-        ry = \frac{y'(x+dx)}{y(x)} = \frac{a \alpha^x \alpha^{dx}}{a \alpha^x} = \alpha^{dx}.
+        ry = \frac{a \alpha^x \alpha^dx}{a \alpha^x} = \alpha^dx.
 
     From this relationship, we can estimate :math:`\alpha` as
 
