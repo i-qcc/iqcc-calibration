@@ -37,7 +37,7 @@ from iqcc_calibration_tools.qualibrate_config.qualibrate.node import Qualibratio
 from iqcc_calibration_tools.quam_config.components import Quam
 from iqcc_calibration_tools.quam_config.macros import active_reset, readout_state, readout_state_gef, active_reset_gef, active_reset_simple
 from iqcc_calibration_tools.analysis.plot_utils import QubitPairGrid, grid_iter, grid_pair_names
-from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset, save_node
+from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray
 from qualang_tools.results import progress_counter, fetching_tool
 from qualang_tools.loops import from_array
 from qualang_tools.multi_user import qm_session
@@ -49,7 +49,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import warnings
 from qualang_tools.bakery import baking
-from iqcc_calibration_tools.analysis.fit import fit_oscillation, oscillation, fix_oscillation_phi_2pi
+from iqcc_calibration_tools.quam_config.lib.fit import fit_oscillation, oscillation, fix_oscillation_phi_2pi
+# from qualibration_libs.analysis import fit_oscillation, oscillation, fix_oscillation_phi_2pi
 from iqcc_calibration_tools.analysis.plot_utils import QubitPairGrid, grid_iter, grid_pair_names
 from scipy.optimize import curve_fit
 from iqcc_calibration_tools.quam_config.components.gates.two_qubit_gates import CZGate
@@ -58,22 +59,23 @@ from iqcc_calibration_tools.quam_config.lib.pulses import FluxPulse
 # %% {Node_parameters}
 class Parameters(NodeParameters):
 
-    qubit_pairs: Optional[List[str]] = ["coupler_q1_q2"]
-    num_averages: int = 200
+    qubit_pairs: Optional[List[str]] = ["coupler_qA1_qA2"]
+    num_averages: int = 400
     flux_point_joint_or_independent_or_pairwise: Literal["joint", "independent", "pairwise"] = "joint"
     reset_type: Literal['active', 'thermal'] = "active"
     simulate: bool = False
     timeout: int = 100
     load_data_id: Optional[int] = None
-    coupler_flux_min : float = 0.235 # relative to the coupler set point 
-    coupler_flux_max : float = 0.25 # relative to the coupler set point
-    coupler_flux_step : float = 0.00015
-    qubit_flux_min : float = -0.073 # relative to the qubit pair detuning
-    qubit_flux_max : float = -0.065 # relative to the qubit pair detuning
-    qubit_flux_step : float = 0.00015 
+    coupler_flux_min : float = 0.017  # relative to the coupler set point
+    coupler_flux_max : float = 0.027 # relative to the coupler set point
+    coupler_flux_step : float = 0.0003
+    qubit_flux_min : float = -0.022 # relative to the qubit pair detuning
+    qubit_flux_max : float = -0.015 # relative to the qubit pair detuning
+    qubit_flux_step : float = 0.0003  
     use_state_discrimination: bool = True
-    pulse_duration_ns: int = 60
+    pulse_duration_ns: int = 48
     num_frames : int = 20
+    pulsed_qubit: Literal['control', 'target'] = "target"
     
     
 
@@ -190,7 +192,10 @@ with program() as CPhase_Oscillations:
                                 qp.qubit_control.xy.play("x180")
                             qp.qubit_target.xy.play("x90")
                             align()
-                            qp.qubit_control.z.play("const", amplitude_scale = comp_flux_qubit / qp.qubit_control.z.operations["const"].amplitude, duration = qua_pulse_duration)                
+                            if node.parameters.pulsed_qubit == "target":
+                                qp.qubit_target.z.play("const", amplitude_scale = comp_flux_qubit / qp.qubit_target.z.operations["const"].amplitude, duration = qua_pulse_duration)                
+                            else:
+                                qp.qubit_control.z.play("const", amplitude_scale = comp_flux_qubit / qp.qubit_control.z.operations["const"].amplitude, duration = qua_pulse_duration)                
                             qp.coupler.play("const", amplitude_scale = flux_coupler / qp.coupler.operations["const"].amplitude, duration = qua_pulse_duration)
                             qp.align()
                             frame_rotation_2pi(frame, qp.qubit_target.xy.name)
@@ -199,7 +204,7 @@ with program() as CPhase_Oscillations:
                             # readout
                             if node.parameters.use_state_discrimination:
                                 readout_state_gef(qp.qubit_control, state_control[i])
-                                readout_state(qp.qubit_target, state_target[i])
+                                readout_state_gef(qp.qubit_target, state_target[i])
                                 assign(leakage_control[i], Cast.to_fixed( state_control[i] == 2))
                                 save(state_control[i], state_st_control[i])
                                 save(state_target[i], state_st_target[i])
@@ -278,15 +283,21 @@ if not node.parameters.simulate:
     phase = fix_oscillation_phi_2pi(fit_data)
     phase_diff = phase.diff(dim="control_ax")
 
-
     # %%
     leak = ds.state_control_f.mean(dim = "frame").sel(control_ax = 1)
     # leak.plot()
     (((phase_diff+0.5 )% 1 -0.5)*360).plot()
+    plt.show()
+    leak.plot()
     # %%
+    ds.state_control.mean(dim = "frame").plot(col = "control_ax")
+    plt.show()
+    ds.state_target.mean(dim = "frame").plot(col = "control_ax")
+    plt.show()
+    
     # %%
 
-    mask = (np.abs((np.abs(phase_diff)-0.5))<0.02)
+    mask = (np.abs((np.abs(phase_diff)-0.5))<0.05)
     leak_mask = leak * mask + (1 - mask)
     min_value = leak_mask.min(dim=["flux_qubit", "flux_coupler","control_ax"])
     min_coords = {}
