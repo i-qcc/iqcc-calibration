@@ -251,16 +251,12 @@ if not node.parameters.simulate:
         
     node.results = {"ds": ds}
 # %%
-detuning_mode = "quadratic" # "cosine" or "quadratic"
 if not node.parameters.simulate:
     if reset_coupler_bias:
         flux_coupler_full = np.array([fluxes_coupler + qp.coupler.decouple_offset for qp in qubit_pairs])
     else:
         flux_coupler_full = np.array([fluxes_coupler for qp in qubit_pairs])
-    if detuning_mode == "quadratic":
-        detuning = np.array([-fluxes_qp[qp.name] ** 2 * qp.qubit_control.freq_vs_flux_01_quad_term  for qp in qubit_pairs])
-    elif detuning_mode == "cosine":
-        detuning = np.array([oscillation(fluxes_qubit, qp.qubit_control.extras['a'], qp.qubit_control.extras['f'], qp.qubit_control.extras['phi'], qp.qubit_control.extras['offset']) for qp in qubit_pairs])
+    detuning = np.array([-fluxes_qp[qp.name] ** 2 * qp.qubit_control.freq_vs_flux_01_quad_term  for qp in qubit_pairs])
     ds = ds.assign_coords({"flux_coupler_full": (["qubit", "flux_coupler"], flux_coupler_full)})
     ds = ds.assign_coords({"detuning": (["qubit", "flux_qubit"], detuning)})
     node.results = {"ds": ds}
@@ -351,7 +347,7 @@ if not node.parameters.simulate:
 if not node.parameters.simulate:
     with node.record_state_updates():
         for qp in qubit_pairs:
-            qp.coupler.decouple_offset = node.results["results"][qp.name]["flux_coupler_min"]
+            qp.coupler.decouple_offset += node.results["results"][qp.name]["flux_coupler_min"]
             qp.detuning = node.results["results"][qp.name]["flux_qubit_max"]
 
 # %% {Save_results}
