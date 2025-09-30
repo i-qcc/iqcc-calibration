@@ -69,6 +69,7 @@ class Parameters(NodeParameters):
     num_repeats: int = 8
     load_data_id: Optional[int] = None
     measure_leak : bool = True
+    cz_macro_name: str = "Cz_unipolar"
 
 
 node = QualibrationNode(
@@ -171,7 +172,7 @@ with program() as CPhase_Oscillations:
                             
                             with for_(count, 0, count < n_repeats, count + 1):
                                 #play the CZ gate
-                                qp.macros['Cz_unipolar'].apply(amplitude_scale_coupler = amp)
+                                qp.macros[node.parameters.cz_macro_name].apply(amplitude_scale_coupler = amp)
                                 qp.align()
                                 
 
@@ -230,7 +231,7 @@ if not node.parameters.simulate:
 # %% {Data_analysis}
 if not node.parameters.simulate:
     def abs_amp(qp, amp):
-        return amp * qp.macros['Cz_unipolar'].coupler_flux_pulse.amplitude
+        return amp * qp.macros[node.parameters.cz_macro_name].coupler_flux_pulse.amplitude
 
     #     def detuning(qp, amp):
     #         return -(amp * qp.gates['Cz'].flux_pulse_control.amplitude)**2 * qp.qubit_control.freq_vs_flux_01_quad_term
@@ -332,7 +333,7 @@ if not node.parameters.simulate:
     if node.parameters.load_data_id is None:
         with node.record_state_updates():
             for qp in qubit_pairs:
-                qp.macros['Cz_unipolar'].coupler_flux_pulse.amplitude = float(optimal_amps[qp.name].values)
+                qp.macros[node.parameters.cz_macro_name].coupler_flux_pulse.amplitude = float(optimal_amps[qp.name].values)
 
                 
 # %% {Save_results}
