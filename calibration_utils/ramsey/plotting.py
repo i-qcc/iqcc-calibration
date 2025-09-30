@@ -11,7 +11,7 @@ from quam_builder.architecture.superconducting.qubit import AnyTransmon
 u = unit(coerce_to_integer=True)
 
 
-def plot_raw_data_with_fit(ds: xr.Dataset, qubits: List[AnyTransmon], fits: xr.Dataset):
+def plot_raw_data_with_fit(ds: xr.Dataset, qubits: List[AnyTransmon], fits: xr.Dataset, fit_results: dict = None):
     """
     Plots the resonator spectroscopy amplitude IQ_abs with fitted curves for the given qubits.
 
@@ -36,7 +36,7 @@ def plot_raw_data_with_fit(ds: xr.Dataset, qubits: List[AnyTransmon], fits: xr.D
     """
     grid = QubitGrid(ds, [q.grid_location for q in qubits])
     for ax, qubit in grid_iter(grid):
-        plot_individual_data_with_fit(ax, ds, qubit, fits.sel(qubit=qubit["qubit"]))
+        plot_individual_data_with_fit(ax, ds, qubit, fits.sel(qubit=qubit["qubit"]), fit_results[qubit["qubit"]])
 
     grid.fig.suptitle("Qubit spectroscopy (rotated 'I' quadrature + fit)")
     grid.fig.set_size_inches(15, 9)
@@ -44,7 +44,7 @@ def plot_raw_data_with_fit(ds: xr.Dataset, qubits: List[AnyTransmon], fits: xr.D
     return grid.fig
 
 
-def plot_individual_data_with_fit(ax: Axes, ds: xr.Dataset, qubit: dict[str, str], fit: xr.Dataset = None):
+def plot_individual_data_with_fit(ax: Axes, ds: xr.Dataset, qubit: dict[str, str], fit: xr.Dataset = None, fit_results: dict = None):
     """
     Plots individual qubit data on a given axis with optional fit.
 
@@ -87,8 +87,8 @@ def plot_individual_data_with_fit(ax: Axes, ds: xr.Dataset, qubit: dict[str, str
 
     ax.set_xlabel("Idle time [ns]")
     ax.set_title(qubit["qubit"])
-    # if fit is not None:
-    #     add_fit_text(ax, fit)
+    if fit is not None:
+        add_fit_text(ax, fit_results)
     ax.legend()
 
 
@@ -126,14 +126,16 @@ def plot_transmission_amplitude(ax, ds, qubit, fitted=None):
         ax.plot(ds.idle_time, 1e3 * fitted.fit.sel(detuning_signs=-1), c="C1", ls="-", lw=1)
 
 
-def add_fit_text(ax, fit):
+def add_fit_text(ax, fit_results):
     """Add fit results text to the axis."""
     ax.text(
-        0.1,
         0.9,
-        f"T2* = {1e6 * fit.decay:.1f} ± {1e6 * fit.decay_error:.1f} µs",
+        0.9,
+        f"T2* = {1e6 * fit_results['decay']:.1f} ± {1e6 * fit_results['decay_error']:.1f} µs",
         transform=ax.transAxes,
         fontsize=10,
         verticalalignment="top",
+        horizontalalignment="right",
         bbox=dict(facecolor="white", alpha=0.5),
     )
+    ax.legend(loc='upper right', bbox_to_anchor=(1, 1), bbox_transform=ax.transAxes)
