@@ -51,11 +51,11 @@ from datetime import datetime, timezone, timedelta
 class Parameters(NodeParameters):
 
     qubits: Optional[List[str]] = None
-    num_averages: int = 200
+    num_averages: int = 400
     operation: str = "saturation"
-    operation_amplitude_factor: Optional[float] = 0.5
+    operation_amplitude_factor: Optional[float] = 1.0
     operation_len_in_ns: Optional[int] = None
-    frequency_span_in_mhz: float = 30
+    frequency_span_in_mhz: float = 120
     frequency_step_in_mhz: float = 0.5
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
     simulate: bool = False
@@ -121,7 +121,7 @@ with program() as qubit_spec:
             save(n, n_st)
             with for_(*from_array(df, dfs)):
                 qubit.align()
-                qubit.xy.wait(5*qubit.thermalization_time * u.ns)
+                qubit.xy.wait(qubit.thermalization_time * u.ns)
                 # Reset the qubit frequency
                 update_frequency(qubit.xy.name, qubit.xy.intermediate_frequency)
                 # Drive the qubit to the excited state

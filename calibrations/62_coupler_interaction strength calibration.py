@@ -37,7 +37,7 @@ from iqcc_calibration_tools.qualibrate_config.qualibrate.node import Qualibratio
 from iqcc_calibration_tools.quam_config.components import Quam
 from iqcc_calibration_tools.quam_config.macros import active_reset, readout_state, readout_state_gef, active_reset_gef, active_reset_simple
 from iqcc_calibration_tools.analysis.plot_utils import QubitPairGrid, grid_iter, grid_pair_names
-from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset, save_node
+from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray
 from qualang_tools.results import progress_counter, fetching_tool
 from qualang_tools.loops import from_array
 from qualang_tools.multi_user import qm_session
@@ -61,18 +61,18 @@ from iqcc_calibration_tools.quam_config.components.gates.two_qubit_gates import 
 # %% {Node_parameters}
 class Parameters(NodeParameters):
 
-    qubit_pairs: Optional[List[str]] =  ["coupler_q1_q2"]
-    num_averages: int = 100
+    qubit_pairs: Optional[List[str]] =  ["coupler_qA1_qA2"]
+    num_averages: int = 200
     flux_point_joint_or_independent_or_pairwise: Literal["joint", "independent", "pairwise"] = "joint"
     reset_type: Literal['active', 'thermal'] = "active"
     simulate: bool = False
     timeout: int = 100
     load_data_id: Optional[int] = None
-    coupler_flux_min : float = 0.1
-    coupler_flux_max : float = 0.25
+    coupler_flux_min : float = 0.02
+    coupler_flux_max : float = 0.1
     coupler_flux_step : float = 0.001
     idle_time_min : int = 16
-    idle_time_max : int = 2000
+    idle_time_max : int = 600
     idle_time_step : int = 4
     use_state_discrimination: bool = True
     
@@ -332,5 +332,5 @@ if not node.parameters.simulate:
     node.outcomes = {q.name: "successful" for q in qubit_pairs}
     node.results['initial_parameters'] = node.parameters.model_dump()
     node.machine = machine
-    node.save()
+    # node.save()
 # %%
