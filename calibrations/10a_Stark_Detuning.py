@@ -45,9 +45,10 @@ class Parameters(NodeParameters):
     qubits: Optional[List[str]] = None
     num_averages: int = 20
     operation: str = "x180"
+    update_X90: bool = True
     frequency_span_in_mhz: float = 10
-    frequency_step_in_mhz: float = 0.05
-    max_number_pulses_per_sweep: int = 20
+    frequency_step_in_mhz: float = 0.1
+    max_number_pulses_per_sweep: int = 50
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
     reset_type_thermal_or_active: Literal["thermal", "active"] = "thermal"
     DRAG_setpoint: Optional[float] = None
@@ -79,7 +80,7 @@ for q in qubits:
     with tracked_updates(q, auto_revert=False) as q:
         if node.parameters.DRAG_setpoint is not None:
             q.xy.operations["x180"].alpha = node.parameters.DRAG_setpoint
-        q.xy.operations[operation].detuning = 0
+        # q.xy.operations[operation].detuning = 0
         tracked_qubits.append(q)
 
 # Generate the OPX and Octave configurations
@@ -105,15 +106,16 @@ with program() as stark_detuning:
     I, I_st, Q, Q_st, n, n_st = qua_declaration(num_qubits=num_qubits)
     state = [declare(bool) for _ in range(num_qubits)]
     state_stream = [declare_stream() for _ in range(num_qubits)]
-    df = declare(int)  # QUA variable for the qubit drive amplitude pre-factor
-    npi = declare(int)  # QUA variable for the number of qubit pulses
-    count = declare(int)  # QUA variable for counting the qubit pulses
 
     if flux_point == "joint":
         # Bring the active qubits to the desired frequency point
         machine.set_all_fluxes(flux_point=flux_point, target=qubits[0])
     
     for i, qubit in enumerate(qubits):
+        df = declare(int)  # QUA variable for the qubit drive amplitude pre-factor
+        npi = declare(int)  # QUA variable for the number of qubit pulses
+        count = declare(int)  # QUA variable for counting the qubit pulses
+            
         # Bring the active qubits to the desired frequency point
         if flux_point != "joint":
             machine.set_all_fluxes(flux_point=flux_point, target=qubit)
@@ -131,14 +133,15 @@ with program() as stark_detuning:
 
                     # Update the qubit frequency after initialization for active reset
                     update_frequency(qubit.xy.name, df + qubit.xy.intermediate_frequency)
+                    qubit.xy.frame_rotation_2pi(0.5)
                     with for_(count, 0, count < npi, count + 1):
                         if operation == "x180":
                             qubit.xy.play(operation)
                             qubit.xy.play(operation, amplitude_scale=-1.0)
                         elif operation == "x90":
                             qubit.xy.play(operation)
-                            qubit.xy.play(operation)
-                            qubit.xy.play(operation, amplitude_scale=-1.0)
+                            # qubit.xy.play(operation)
+                            # qubit.xy.play(operation, amplitude_scale=-1.0)
                             qubit.xy.play(operation, amplitude_scale=-1.0)
 
                     # Update the qubit frequency back to the resonance frequency for active reset
@@ -236,7 +239,10 @@ if not node.parameters.simulate:
     if node.parameters.load_data_id is None:
         with node.record_state_updates():
             for qubit in qubits:
-                qubit.xy.operations[operation].detuning = float(fit_results[qubit.name]["detuning"])
+                new_detuning = qubit.xy.operations[operation].detuning + float(fit_results[qubit.name]["detuning"])
+                qubit.xy.operations[operation].detuning = new_detuning
+                if node.parameters.update_X90:
+                    qubit.xy.operations["x90"].detuning = new_detuning
                 if node.parameters.DRAG_setpoint is not None:
                     qubit.xy.operations["x180"].alpha = node.parameters.DRAG_setpoint
 
@@ -246,3 +252,5 @@ if not node.parameters.simulate:
         node.machine = machine
         node.save()
 
+
+# %%
