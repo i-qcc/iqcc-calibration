@@ -61,13 +61,13 @@ class Parameters(NodeParameters):
     reset_type: Literal['active', 'thermal'] = "active"
     simulate: bool = False
     timeout: int = 100
-    amp_range : float = 0.1
-    amp_step : float = 0.0025
+    amp_range : float = 0.06
+    amp_step : float = 0.001
     num_frames: int = 12
     load_data_id: Optional[int] = None # 92417 
     plot_raw : bool = False
     measure_leak : bool = True
-    pulsed_element: Literal["control", "target", "coupler"] = "control"
+    pulsed_element: Literal["control", "target", "coupler"] = "coupler"
 
 
 node = QualibrationNode(

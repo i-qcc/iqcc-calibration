@@ -66,12 +66,12 @@ class Parameters(NodeParameters):
     simulate: bool = False
     timeout: int = 100
     load_data_id: Optional[int] = None
-    coupler_flux_min : float = -0.026  # relative to the coupler set point
+    coupler_flux_min : float = -0.025  # relative to the coupler set point
     coupler_flux_max : float = -0.02 # relative to the coupler set point
-    coupler_flux_step : float = 0.0002
+    coupler_flux_step : float = 0.0001
     qubit_flux_min : float = 0.0000 # relative to the qubit pair detuning
     qubit_flux_max : float = 0.001 # relative to the qubit pair detuning
-    qubit_flux_step : float = 0.0005 
+    qubit_flux_step : float = 0.001 
     use_state_discrimination: bool = True
     pulse_duration_ns: int = 100
     num_frames : int = 20
