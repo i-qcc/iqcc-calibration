@@ -37,7 +37,7 @@ from iqcc_calibration_tools.qualibrate_config.qualibrate.node import Qualibratio
 from iqcc_calibration_tools.quam_config.components import Quam
 from iqcc_calibration_tools.quam_config.macros import active_reset, readout_state, readout_state_gef, active_reset_gef
 from iqcc_calibration_tools.analysis.plot_utils import QubitPairGrid, grid_iter, grid_pair_names
-from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset, save_node
+from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray
 from qualang_tools.results import progress_counter, fetching_tool
 from qualang_tools.loops import from_array
 from qualang_tools.multi_user import qm_session
@@ -49,7 +49,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import warnings
 from qualang_tools.bakery import baking
-from iqcc_calibration_tools.analysis.fit import fit_oscillation, oscillation, fix_oscillation_phi_2pi
+# from iqcc_calibration_tools.analysis.fit import fit_oscillation, oscillation, fix_oscillation_phi_2pi
 from iqcc_calibration_tools.analysis.plot_utils import QubitPairGrid, grid_iter, grid_pair_names
 from scipy.optimize import curve_fit
 from iqcc_calibration_tools.quam_config.components.gates.two_qubit_gates import CZGate
@@ -61,7 +61,7 @@ class Parameters(NodeParameters):
     qubit_pairs: Optional[List[str]] = None
     num_shots: int = 2000
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
-    reset_type: Literal['active', 'thermal'] = "active"
+    reset_type: Literal['active', 'thermal'] = "thermal"
     simulate: bool = False
     timeout: int = 100
     load_data_id: Optional[int] = None
@@ -138,13 +138,10 @@ with program() as CPhase_Oscillations:
             # Bell state
             qp.qubit_control.xy.play("y90")
             qp.qubit_target.xy.play("y90")
-            qp.gates['Cz'].execute()
+            qp.macros['Cz_unipolar'].apply()
             qp.qubit_control.xy.play("-y90")
             qp.align()
-            # readout
-            # qp.qubit_control.xy.play("x90")
-            # qp.qubit_target.xy.play("x90")
-            qp.align()            
+          
             
             readout_state(qp.qubit_control, state_control[i])
             readout_state(qp.qubit_target, state_target[i])
