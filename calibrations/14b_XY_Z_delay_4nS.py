@@ -13,10 +13,10 @@ from typing import Optional, Literal
 class Parameters(NodeParameters):
     qubits: Optional[str] = None
     num_averages: int = 100
-    delay_span: int = 70 # in clock cycles
+    delay_span: int = 50 # in clock cycles
     flux_point_joint_or_independent: Literal['joint', 'independent'] = "joint"
     reset_type_thermal_or_active: Literal['thermal', 'active'] = "thermal"
-    flux_amp: float = 0.1
+    flux_amp: float = 0.04
     simulate: bool = False
     timeout: int = 100
 
@@ -130,7 +130,9 @@ with program() as xy_z_delay_calibration:
                             qubit.xy.wait(qubit.xy.operations['x180'].length // 4)
                         qubit.z.wait(qubit.xy.operations['x180'].length // 4)
                         qubit.z.wait(node.parameters.delay_span)
-                        qubit.z.play("const", amplitude_scale=node.parameters.flux_amp/qubit.z.operations['const'].amplitude)
+                        qubit.z.play("const", 
+                                     amplitude_scale=node.parameters.flux_amp/qubit.z.operations['const'].amplitude, 
+                                     duration=qubit.xy.operations['x180'].length // 4)
                         qubit.xy.wait(node.parameters.delay_span + t)
                         qubit.xy.play("x180")
 
