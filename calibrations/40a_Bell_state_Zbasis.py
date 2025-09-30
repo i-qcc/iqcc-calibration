@@ -65,7 +65,7 @@ class Parameters(NodeParameters):
     simulate: bool = False
     timeout: int = 100
     load_data_id: Optional[int] = None
-
+    cz_macro_name: str = "Cz_unipolar"
 
 node = QualibrationNode(
     name="40a_Bell_state_Zbasis", parameters=Parameters()
@@ -138,7 +138,7 @@ with program() as CPhase_Oscillations:
             # Bell state
             qp.qubit_control.xy.play("y90")
             qp.qubit_target.xy.play("y90")
-            qp.macros['Cz_unipolar'].apply()
+            qp.macros[node.parameters.cz_macro_name].apply()
             qp.qubit_control.xy.play("-y90")
             qp.align()
           

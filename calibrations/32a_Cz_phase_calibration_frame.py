@@ -59,6 +59,7 @@ class Parameters(NodeParameters):
     num_averages: int = 500
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
     reset_type: Literal['active', 'thermal'] = "active"
+    cz_macro_name: str = "Cz_unipolar"
     simulate: bool = False
     timeout: int = 100
     amp_range : float = 0.06
@@ -162,11 +163,11 @@ with program() as CPhase_Oscillations:
 
                         #play the CZ gate
                         if node.parameters.pulsed_element == "coupler":
-                            qp.macros['Cz_unipolar'].apply(amplitude_scale_coupler = amp)
+                            qp.macros[node.parameters.cz_macro_name].apply(amplitude_scale_coupler = amp)
                         elif node.parameters.pulsed_element == "control":
-                            qp.macros['Cz_unipolar'].apply(amplitude_scale_control = amp)
+                            qp.macros[node.parameters.cz_macro_name].apply(amplitude_scale_control = amp)
                         elif node.parameters.pulsed_element == "target":
-                            qp.macros['Cz_unipolar'].apply(amplitude_scale_target = amp)
+                            qp.macros[node.parameters.cz_macro_name].apply(amplitude_scale_target = amp)
                         else:
                             raise ValueError(f"Invalid pulsed element: {node.parameters.pulsed_element}")
                         
@@ -232,10 +233,10 @@ if not node.parameters.simulate:
 # %% {Data_analysis}
 if not node.parameters.simulate:
     def abs_amp(qp, amp):
-        return amp * qp.macros['Cz_unipolar'].coupler_flux_pulse.amplitude
+        return amp * qp.macros[node.parameters.cz_macro_name].coupler_flux_pulse.amplitude
 
     def detuning(qp, amp):
-        return -(amp * qp.macros['Cz_unipolar'].coupler_flux_pulse.amplitude)**2 * qp.qubit_control.freq_vs_flux_01_quad_term
+        return -(amp * qp.macros[node.parameters.cz_macro_name].coupler_flux_pulse.amplitude)**2 * qp.qubit_control.freq_vs_flux_01_quad_term
     
     ds = ds.assign_coords(
         {"amp_full": (["qubit", "amp"], np.array([abs_amp(qp, ds.amp) for qp in qubit_pairs]))}
@@ -280,11 +281,11 @@ if not node.parameters.simulate:
         
         phase_diffs[qp.name] = phase_diff
         if node.parameters.pulsed_element == "coupler":
-            optimal_amps[qp.name] = optimal_amp * qp.macros['Cz_unipolar'].coupler_flux_pulse.amplitude
+            optimal_amps[qp.name] = optimal_amp * qp.macros[node.parameters.cz_macro_name].coupler_flux_pulse.amplitude
         elif node.parameters.pulsed_element == "control":
-            optimal_amps[qp.name] = optimal_amp * qp.macros['Cz_unipolar'].flux_pulse_qubit.amplitude
+            optimal_amps[qp.name] = optimal_amp * qp.macros[node.parameters.cz_macro_name].flux_pulse_qubit.amplitude
         elif node.parameters.pulsed_element == "target":
-            optimal_amps[qp.name] = optimal_amp * qp.macros['Cz_unipolar'].flux_pulse_target.amplitude
+            optimal_amps[qp.name] = optimal_amp * qp.macros[node.parameters.cz_macro_name].flux_pulse_target.amplitude
         else:
             raise ValueError(f"Invalid pulsed element: {node.parameters.pulsed_element}")
         
@@ -307,7 +308,7 @@ if not node.parameters.simulate:
         ax.axhline(y=0.5, color='red', linestyle='--',lw=0.5)
         ax.axvline(x=optimal_amps[qubit_pair['qubit']], color='red', linestyle='--',lw=0.5)
         # Add secondary x-axis for detuning in MHz
-        quad_term = qp.qubit_control.freq_vs_flux_01_quad_term if qp.macros["Cz_unipolar"].pulsed_qubit == "control" else qp.qubit_target.freq_vs_flux_01_quad_term
+        quad_term = qp.qubit_control.freq_vs_flux_01_quad_term if qp.macros[node.parameters.cz_macro_name].pulsed_qubit == "control" else qp.qubit_target.freq_vs_flux_01_quad_term
         def amp_to_detuning_MHz(amp):
             return -(amp**2) * quad_term / 1e6  # Convert Hz to MHz
 
@@ -335,7 +336,7 @@ if not node.parameters.simulate:
             ax.set_ylabel('Leak probability')
             
             # Add secondary x-axis for detuning in MHz
-            quad_term = qp.qubit_control.freq_vs_flux_01_quad_term if qp.macros["Cz_unipolar"].pulsed_qubit == "control" else qp.qubit_target.freq_vs_flux_01_quad_term
+            quad_term = qp.qubit_control.freq_vs_flux_01_quad_term if qp.macros[node.parameters.cz_macro_name].pulsed_qubit == "control" else qp.qubit_target.freq_vs_flux_01_quad_term
             def amp_to_detuning_MHz(amp):
                 return -(amp**2) * quad_term / 1e6  # Convert Hz to MHz
 
@@ -356,11 +357,11 @@ if not node.parameters.simulate:
         with node.record_state_updates():
             for qp in qubit_pairs:
                 if node.parameters.pulsed_element == "coupler":
-                    qp.macros['Cz_unipolar'].coupler_flux_pulse.amplitude = optimal_amps[qp.name]
+                    qp.macros[node.parameters.cz_macro_name].coupler_flux_pulse.amplitude = optimal_amps[qp.name]
                 elif node.parameters.pulsed_element == "control":
-                    qp.macros['Cz_unipolar'].flux_pulse_qubit.amplitude = optimal_amps[qp.name]
+                    qp.macros[node.parameters.cz_macro_name].flux_pulse_qubit.amplitude = optimal_amps[qp.name]
                 elif node.parameters.pulsed_element == "target":
-                    qp.macros['Cz_unipolar'].flux_pulse_target.amplitude = optimal_amps[qp.name]
+                    qp.macros[node.parameters.cz_macro_name].flux_pulse_target.amplitude = optimal_amps[qp.name]
                 else:
                     raise ValueError(f"Invalid pulsed element: {node.parameters.pulsed_element}")
                 

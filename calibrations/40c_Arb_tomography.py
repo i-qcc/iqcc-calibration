@@ -65,6 +65,7 @@ class Parameters(NodeParameters):
     simulate: bool = False
     timeout: int = 100
     load_data_id: Optional[int] = None
+    cz_macro_name: str = "Cz_unipolar"
     sequence: List[Literal["delay", "no_Cz","x","sx"]] = ["sx","x","Cz","delay","delay"]
 
 
@@ -253,7 +254,7 @@ with program() as CPhase_Oscillations:
                     qp.qubit_control.macros[node.parameters.sequence[0]].apply()
                     qp.qubit_target.macros[node.parameters.sequence[1]].apply()
                     if node.parameters.sequence[2] == "Cz":
-                        qp.macros['Cz_unipolar'].apply()
+                        qp.macros[node.parameters.cz_macro_name].apply()
                     qp.qubit_control.macros[node.parameters.sequence[3]].apply()
                     qp.qubit_target.macros[node.parameters.sequence[4]].apply()
                     

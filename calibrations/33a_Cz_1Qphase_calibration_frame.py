@@ -68,7 +68,7 @@ class Parameters(NodeParameters):
     load_data_id: Optional[int] = None
     plot_raw : bool = False
     measure_leak : bool = False
-
+    cz_macro_name: str = "Cz_unipolar"
 
 node = QualibrationNode(
     name="33a_Cz_1Qphase_calibration_frame", parameters=Parameters()
@@ -154,7 +154,7 @@ with program() as CPhase_Oscillations:
                     qubit.xy.play("x90")
                     
                     qp.align()
-                    qp.macros['Cz_unipolar'].apply()
+                    qp.macros[node.parameters.cz_macro_name].apply()
                     qubit.xy.frame_rotation_2pi(frame)
                     qubit.xy.play("x90")              
                     
@@ -277,9 +277,9 @@ if not node.parameters.simulate:
     if node.parameters.load_data_id is None:
         with node.record_state_updates():
             for qp in qubit_pairs:
-                qp.macros['Cz_unipolar'].phase_shift_control += (phases_control[qp.name] / 1.0)
+                qp.macros[node.parameters.cz_macro_name].phase_shift_control += (phases_control[qp.name] / 1.0)
                 # qp.gates['Cz'].phase_shift_control = qp.gates['Cz'].phase_shift_control  % (1.0)
-                qp.macros['Cz_unipolar'].phase_shift_target += (phases_target[qp.name]/ 1.0)
+                qp.macros[node.parameters.cz_macro_name].phase_shift_target += (phases_target[qp.name]/ 1.0)
                 # qp.gates['Cz'].phase_shift_target = qp.gates['Cz'].phase_shift_target  % (1.0)
                 
 # %% {Save_results}
