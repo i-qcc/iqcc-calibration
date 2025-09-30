@@ -115,8 +115,9 @@ class VirtualZMacro(QubitMacro):
 
 @quam_dataclass
 class CZMacro(QubitPairMacro):
-    flux_pulse_control: Union[Pulse, str]
+    flux_pulse_qubit: Union[Pulse, str]
     coupler_flux_pulse: Pulse = None
+    pulsed_qubit : Literal["control", "target"] = "control"
 
     pre_wait: int = 4
 
@@ -128,8 +129,9 @@ class CZMacro(QubitPairMacro):
         return self.qubit_pair.coupler
     
     @property
-    def flux_pulse_control_label(self) -> str:
-        pulse = get_pulse(self.flux_pulse_control, self.qubit_control)
+    def flux_pulse_qubit_label(self) -> str:
+        qubit = self.qubit_control if self.pulsed_qubit == "control" else self.qubit_target
+        pulse = get_pulse(self.flux_pulse_qubit, qubit)
         return get_pulse_name(pulse)
 
     @property
@@ -145,8 +147,9 @@ class CZMacro(QubitPairMacro):
         phase_shift_target=None,
         **kwargs,
     ) -> None:
-        self.qubit_control.z.play(
-            self.flux_pulse_control_label,
+        qubit = self.qubit_control if self.pulsed_qubit == "control" else self.qubit_target
+        qubit.z.play(
+            self.flux_pulse_qubit_label,
             validate=False,
             amplitude_scale=amplitude_scale,
         )
