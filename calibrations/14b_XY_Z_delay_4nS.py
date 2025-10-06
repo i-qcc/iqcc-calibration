@@ -8,24 +8,7 @@ from datetime import datetime, timezone, timedelta
 from qualang_tools.multi_user import qm_session
 from qualang_tools.results import fetching_tool, progress_counter
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
-from typing import Optional, Literal
-
-class Parameters(NodeParameters):
-    qubits: Optional[str] = None
-    num_averages: int = 100
-    delay_span: int = 50 # in clock cycles
-    flux_point_joint_or_independent: Literal['joint', 'independent'] = "joint"
-    reset_type_thermal_or_active: Literal['thermal', 'active'] = "thermal"
-    flux_amp: float = 0.04
-    simulate: bool = False
-    timeout: int = 100
-
-
-node = QualibrationNode(
-    name="14b_XY_Z_delay_4nS",
-    parameters=Parameters()
-)
-
+from typing import Optional, Literal, List
 from qm.qua import *
 from qm import SimulationConfig
 from qualang_tools.units import unit
@@ -34,16 +17,18 @@ from iqcc_calibration_tools.quam_config.macros import qua_declaration, active_re
 import matplotlib.pyplot as plt
 from qualang_tools.bakery import baking
 import numpy as np
-
 from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
 from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray
+from qualibrate import NodeParameters
+
 
 class Parameters(NodeParameters):
-    qubits: Optional[List[str]] = None
+    qubits: Optional[str] = None
     num_averages: int = 100
     delay_span: int = 50 # in clock cycles
     flux_point_joint_or_independent: Literal['joint', 'independent'] = "joint"
     reset_type_thermal_or_active: Literal['thermal', 'active'] = "thermal"
+    flux_amp: float = 0.04
     simulate: bool = False
     timeout: int = 100
 
