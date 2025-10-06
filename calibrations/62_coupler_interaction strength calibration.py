@@ -61,18 +61,18 @@ from iqcc_calibration_tools.quam_config.components.gates.two_qubit_gates import 
 # %% {Node_parameters}
 class Parameters(NodeParameters):
 
-    qubit_pairs: Optional[List[str]] =  ["coupler_qA1_qA2"]
+    qubit_pairs: Optional[List[str]] =  None
     num_averages: int = 200
     flux_point_joint_or_independent_or_pairwise: Literal["joint", "independent", "pairwise"] = "joint"
     reset_type: Literal['active', 'thermal'] = "active"
     simulate: bool = False
     timeout: int = 100
     load_data_id: Optional[int] = None
-    coupler_flux_min : float = -0.03
-    coupler_flux_max : float = 0.035
+    coupler_flux_min : float = -0.02
+    coupler_flux_max : float = 0.05
     coupler_flux_step : float = 0.001
     idle_time_min : int = 16
-    idle_time_max : int = 2000
+    idle_time_max : int = 1000
     idle_time_step : int = 4
     use_state_discrimination: bool = True
     
@@ -334,5 +334,5 @@ if not node.parameters.simulate:
     node.outcomes = {q.name: "successful" for q in qubit_pairs}
     node.results['initial_parameters'] = node.parameters.model_dump()
     node.machine = machine
-    # node.save()
+    node.save()
 # %%

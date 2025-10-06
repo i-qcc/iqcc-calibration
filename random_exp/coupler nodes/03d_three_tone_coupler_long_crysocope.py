@@ -46,22 +46,22 @@ class Parameters(NodeParameters):
 
     qubit_pairs: Optional[List[str]] = None
     qubits: Optional[List[str]] = None
-    num_averages: int = 200
-    frequency_span_in_mhz: float = 50
+    num_averages: int = 2000
+    frequency_span_in_mhz: float = 40
     frequency_step_in_mhz: float = 0.5
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
     
-    duration_in_ns: Optional[int] = 1000000
+    duration_in_ns: Optional[int] = 20000
     time_axis: Literal["linear", "log"] = "log"
-    time_step_in_ns: Optional[int] = 40 # for linear time axis
-    time_step_num: Optional[int] = 50 # for log time axis
-    min_wait_time_in_ns: Optional[int] = 16
+    time_step_in_ns: Optional[int] = 1000000 # for linear time axis
+    time_step_num: Optional[int] = 40 # for log time axis
+    min_wait_time_in_ns: Optional[int] = 40
     
-    flux_amp : float = 0.016
+    flux_amp : float = 0.022
     
     control_drive_operation: Literal["x180_Square", "x180"] = "x180_Square"
-    control_pulse_duration: int = 16 # clock cycles
-    control_pulse_amplitude: float = 1.0
+    control_pulse_duration: int = 20 # clock cycles
+    control_pulse_amplitude: float = 2.0
     
     simulate: bool = False
     simulation_duration_ns: int = 2500
@@ -69,8 +69,8 @@ class Parameters(NodeParameters):
     load_data_id: Optional[int] = None
     
     reset_type: Literal['active', 'thermal'] = "active"
-    coupler_detuning_in_MHz: Optional[float] = 360
-    wait_extra_time : Optional[bool] = False
+    coupler_detuning_in_MHz: Optional[float] = 400
+    wait_extra_time : Optional[bool] = True
 
 node = QualibrationNode(name="03d_Three_Tone_Coupler_Long_Cryoscope", parameters=Parameters())
 
@@ -462,7 +462,7 @@ if not node.parameters.simulate:
         t_data = flux_response_normalized.sel(qp=q.name).time.values[2:]
         y_data = flux_response_normalized.sel(qp=q.name).values[2:]
         fit_successful, best_fractions, best_components, best_a_dc, best_rms = optimize_start_fractions(
-            t_data, y_data, [0.4,0.2,0.01], bounds_scale=0.5
+            t_data, y_data, [0.8,0.2,0.1], bounds_scale=0.5
             )
 
         fit_results[q.name]["fit_successful"] = fit_successful
@@ -517,7 +517,7 @@ if not node.parameters.simulate:
             fit_text = f'a_dc = {best_a_dc:.3f}\n'
             for i, (amp, tau) in enumerate(fit_results[qp["qubit"]]["best_components"]):
                 y_fit += amp * np.exp(-t_offset/tau)
-                fit_text += f'a{i+1} = {amp / best_a_dc:.3f}, τ{i+1} = {tau:.0f}ns\n'
+                fit_text += f'a{i+1} = {amp / best_a_dc:.5f}, τ{i+1} = {tau:.0f}ns\n'
 
             ax.plot(t_data, y_fit, color='r', label='Full Fit', linewidth=2) # Plot full fit
             ax.text(0.02, 0.98, fit_text, transform=ax.transAxes, 

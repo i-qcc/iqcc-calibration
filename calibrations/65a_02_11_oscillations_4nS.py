@@ -54,14 +54,14 @@ from iqcc_calibration_tools.quam_config.components.gate_macros import CZMacro
 # %% {Node_parameters}
 class Parameters(NodeParameters):
 
-    qubit_pairs: Optional[List[str]] = ["coupler_qA1_qA2"]
+    qubit_pairs: Optional[List[str]] = None
     num_averages: int = 400
-    max_time_in_ns: int = 300
+    max_time_in_ns: int = 800
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
     reset_type: Literal['active', 'thermal'] = "active"
     simulate: bool = False
     timeout: int = 100
-    amp_range : float = 0.08
+    amp_range : float = 0.12
     amp_step : float = 0.003
     load_data_id: Optional[int] = None  
     pulsed_qubit: Literal["control", "target"] = "target"

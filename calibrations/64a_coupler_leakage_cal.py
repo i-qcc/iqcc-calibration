@@ -58,24 +58,24 @@ from iqcc_calibration_tools.quam_config.lib.pulses import FluxPulse
 # %% {Node_parameters}
 class Parameters(NodeParameters):
 
-    qubit_pairs: Optional[List[str]] = ["coupler_qA1_qA2"]
+    qubit_pairs: Optional[List[str]] = None
     num_averages: int = 100
     flux_point_joint_or_independent_or_pairwise: Literal["joint", "independent", "pairwise"] = "joint"
     reset_type: Literal['active', 'thermal'] = "active"
     simulate: bool = False
     timeout: int = 100
     load_data_id: Optional[int] = None
-    coupler_flux_min : float = 0.02  # relative to the coupler set point
-    coupler_flux_max : float = 0.04 # relative to the coupler set point
+    coupler_flux_min : float = 0.005  # relative to the coupler set point
+    coupler_flux_max : float = 0.025 # relative to the coupler set point
     coupler_flux_step : float = 0.0001
-    qubit_flux_min : float = 0.00 # relative to the qubit pair detuning
-    qubit_flux_max : float = 0.001 # relative to the qubit pair detuning
+    qubit_flux_min : float = 0.015 # relative to the qubit pair detuning
+    qubit_flux_max : float = 0.035 # relative to the qubit pair detuning
     qubit_flux_step : float = 0.0001  
     use_state_discrimination: bool = True
-    pulse_duration_ns: int = 100   
+    pulse_duration_ns: int = 80   
     pulsed_qubit: Literal['control', 'target'] = "target"
     flux_amp_target: float = 0.0
-    coupler_operation: Literal['slepian', 'const'] = "slepian"
+    coupler_operation: Literal['slepian', 'const'] = "const"
 
 node = QualibrationNode(
     name="64a_coupler_leakage_cal", parameters=Parameters()
@@ -192,7 +192,7 @@ with program() as CPhase_Oscillations:
                     else:
                         assign(comp_flux_qubit, flux_qubit)                    # setting both qubits ot the initial state
                     qp.qubit_control.xy.play("x180")
-                    # qp.qubit_target.xy.play("x180")
+                    qp.qubit_target.xy.play("x180")
                     qp.align()
                     coupler_operation = node.parameters.coupler_operation
                     pulsed_qubit = qp.qubit_target if node.parameters.pulsed_qubit == "target" else qp.qubit_control
@@ -530,5 +530,5 @@ if not node.parameters.simulate:
     node.outcomes = {q.name: "successful" for q in qubit_pairs}
     node.results['initial_parameters'] = node.parameters.model_dump()
     node.machine = machine
-    node.save()
+    # node.save()
 # %%

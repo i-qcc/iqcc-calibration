@@ -45,8 +45,8 @@ class Parameters(NodeParameters):
 
     qubit_pairs: Optional[List[str]] = None
     qubits: Optional[List[str]] = None
-    num_averages: int = 10000
-    frequency_span_in_mhz: float = 220
+    num_averages: int = 1000
+    frequency_span_in_mhz: float = 600
     frequency_step_in_mhz: float = 0.5
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
     
@@ -56,7 +56,7 @@ class Parameters(NodeParameters):
     load_data_id: Optional[int] = None
     
     reset_type: Literal['active', 'thermal'] = "active"
-    RF_frequency_startpoint: Optional[float] = 6.89e9
+    RF_frequency_startpoint: Optional[float] = 6.3e9
 
 node = QualibrationNode(name="03d_Three_Tone_Coupler_Spectroscopy", parameters=Parameters())
 
@@ -142,7 +142,7 @@ with program() as multi_res_spec_vs_flux:
                 qubit_control.xy.play(
                     "x180_Square",
                         amplitude_scale=1.0,
-                        duration=16
+                        duration=160
                     )
                 qp.align()
                 # qubit_target.xy.play("saturation",duration=1000)

@@ -59,7 +59,7 @@ from iqcc_calibration_tools.quam_config.lib.pulses import FluxPulse
 # %% {Node_parameters}
 class Parameters(NodeParameters):
 
-    qubit_pairs: Optional[List[str]] = ["coupler_qA1_qA2"]
+    qubit_pairs: Optional[List[str]] = None
     num_averages: int = 150
     flux_point_joint_or_independent_or_pairwise: Literal["joint", "independent", "pairwise"] = "joint"
     reset_type: Literal['active', 'thermal'] = "active"

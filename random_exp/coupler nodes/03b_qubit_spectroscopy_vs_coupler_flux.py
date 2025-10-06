@@ -42,7 +42,7 @@ from iqcc_calibration_tools.quam_config.macros import active_reset, readout_stat
 # %% {Node_parameters}
 class Parameters(NodeParameters):
 
-    qubit_pairs: Optional[List[str]] = ["coupler_qA1_qA2", "coupler_qA2_qA3"]
+    qubit_pairs: Optional[List[str]] = None
     qubits: Optional[List[str]] = None
     num_averages: int = 50
     min_flux_offset_in_v: float = -0.3
@@ -113,14 +113,14 @@ with program() as multi_res_spec_vs_flux:
     # Declare 'I' and 'Q' and the corresponding streams for the two resonators.
     # For instance, here 'I' is a python list containing two QUA fixed variables.
     I, I_st, Q, Q_st, n, n_st = qua_declaration(num_qubits=num_qubits)
-    dc = declare(fixed)  # QUA variable for the flux bias
-    df = declare(int)  # QUA variable for the readout frequency
 
     if flux_point == "joint":
         # Bring the active qubits to the desired frequency point
         machine.set_all_fluxes(flux_point=flux_point, target=qubits[0])
     
     for i, qubit in enumerate(qubits):
+        dc = declare(fixed)  # QUA variable for the flux bias
+        df = declare(int)  # QUA variable for the readout frequency
 
         if flux_point != "joint":
             machine.set_all_fluxes(flux_point=flux_point, target=qubit)   

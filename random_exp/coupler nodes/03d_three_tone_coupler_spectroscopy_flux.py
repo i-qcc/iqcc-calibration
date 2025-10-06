@@ -60,7 +60,7 @@ class Parameters(NodeParameters):
     load_data_id: Optional[int] = None
     
     reset_type: Literal['active', 'thermal'] = "active"
-    RF_frequency_startpoint: Optional[float] = 6.5e9
+    RF_frequency_startpoint: Optional[float] = 6.3e9
 
 node = QualibrationNode(name="03d_Three_Tone_Coupler_Spectroscopy", parameters=Parameters())
 
@@ -148,11 +148,11 @@ with program() as multi_res_spec_vs_flux:
                     # Qubit manipulation
                     # Apply saturation pulse to all qubits
                     qubit_control.xy.play(
-                        "saturation",
+                        "x180_Square",
                             amplitude_scale=1.0,
-                            duration=10000
+                            duration=160
                         )
-                    qp.coupler.play("const", amplitude_scale=flux_pulse / qp.coupler.operations["const"].amplitude, duration = 10000)
+                    qp.coupler.play("const", amplitude_scale=flux_pulse / qp.coupler.operations["const"].amplitude, duration = 1000)
                     qp.align()
                     # qubit_target.xy.play("saturation",duration=1000)
                     qubit_target.xy.play("x180")
@@ -225,7 +225,7 @@ if not node.parameters.simulate:
     min_idx = ds.state.argmin(dim="freq")
     min_freqs = ds.freq_full_control.isel(freq=min_idx)
 
-    ds.assign_coords(freq_GHz=ds.freq_full_control / 1e9).sel(qubit=qp.name, flux = 0.015).state.plot(
+    ds.assign_coords(freq_GHz=ds.freq_full_control / 1e9).isel(flux = 0).sel(qubit=qp.name).state.plot(
             x="freq_GHz"
         )
 
@@ -255,7 +255,7 @@ if not node.parameters.simulate:
     # %% {Save_results}
     node.results["initial_parameters"] = node.parameters.model_dump()
     node.machine = machine
-    node.save()
+    # node.save()
 
 
 

@@ -59,21 +59,21 @@ from iqcc_calibration_tools.quam_config.lib.pulses import FluxPulse
 # %% {Node_parameters}
 class Parameters(NodeParameters):
 
-    qubit_pairs: Optional[List[str]] = ["coupler_qA1_qA2"]
+    qubit_pairs: Optional[List[str]] = None
     num_averages: int = 500
     flux_point_joint_or_independent_or_pairwise: Literal["joint", "independent", "pairwise"] = "joint"
     reset_type: Literal['active', 'thermal'] = "active"
     simulate: bool = False
     timeout: int = 100
     load_data_id: Optional[int] = None
-    coupler_flux_min : float = -0.025  # relative to the coupler set point
-    coupler_flux_max : float = -0.02 # relative to the coupler set point
-    coupler_flux_step : float = 0.0001
-    qubit_flux_min : float = 0.0000 # relative to the qubit pair detuning
-    qubit_flux_max : float = 0.001 # relative to the qubit pair detuning
-    qubit_flux_step : float = 0.001 
+    coupler_flux_min : float = 0.01  # relative to the coupler set point
+    coupler_flux_max : float = 0.03 # relative to the coupler set point
+    coupler_flux_step : float = 0.0003
+    qubit_flux_min : float = 0.0# relative to the qubit pair detuning
+    qubit_flux_max : float = 0.035 # relative to the qubit pair detuning
+    qubit_flux_step : float = 0.0003 
     use_state_discrimination: bool = True
-    pulse_duration_ns: int = 100
+    pulse_duration_ns: int = 120
     num_frames : int = 20
     pulsed_qubit: Literal['control', 'target'] = "target"
     flux_amp_target: float = 0.0
@@ -426,14 +426,14 @@ if not node.parameters.simulate:
 
 
 # %% {Update_state}
-# if not node.parameters.simulate:
-#     if not node.parameters.simulate:
-#         with node.record_state_updates():
-#             for qp in qubit_pairs:
-#                 qp.extras["CZ_coupler_flux"] = node.results["results"][qp.name]["flux_coupler_Cz"]
-#                 qp.extras["CZ_qubit_flux"] = node.results["results"][qp.name]["flux_qubit_Cz"]
-#                 qp.extras["CZ_time"] = node.parameters.pulse_duration_ns
-#                 qp.extras["CZ_flux_pulse_target"] = node.parameters.flux_amp_target
+if not node.parameters.simulate:
+    if not node.parameters.simulate:
+        with node.record_state_updates():
+            for qp in qubit_pairs:
+                qp.extras["CZ_coupler_flux"] = node.results["results"][qp.name]["flux_coupler_Cz"]
+                qp.extras["CZ_qubit_flux"] = node.results["results"][qp.name]["flux_qubit_Cz"]
+                qp.extras["CZ_time"] = node.parameters.pulse_duration_ns
+                qp.extras["CZ_flux_pulse_target"] = node.parameters.flux_amp_target
 
 # %% {Save_results}
 if not node.parameters.simulate:    
