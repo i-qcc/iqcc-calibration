@@ -4,30 +4,23 @@
 """
 
 from datetime import datetime, timezone, timedelta
-from qm import QuantumMachinesManager
 from qm.qua import *
 from qm import SimulationConfig
-from scipy import signal
 import matplotlib.pyplot as plt
 from qualang_tools.results import fetching_tool, progress_counter
-from qualang_tools.plot import interrupt_on_close
 from qualang_tools.multi_user import qm_session
-from iqcc_calibration_tools.quam_config.macros import qua_declaration, multiplexed_readout, node_save, active_reset
+from iqcc_calibration_tools.quam_config.macros import qua_declaration, active_reset
 import numpy as np
 from qualang_tools.units import unit
 from iqcc_calibration_tools.quam_config.components import Quam
 from qualang_tools.bakery import baking
 from qualang_tools.loops import from_array
-
-import matplotlib
-from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
 from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray
-import xarray as xr
-from scipy.optimize import curve_fit, minimize
-from scipy.signal import deconvolve, lfilter, convolve
+from scipy.optimize import curve_fit 
+from scipy.signal import lfilter, convolve
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
 from typing import Optional, Literal, List
-from iqcc_calibration_tools.analysis.cryoscope_tools import cryoscope_frequency, estimate_fir_coefficients, two_expdecay, expdecay, savgol
+from iqcc_calibration_tools.analysis.cryoscope_tools import estimate_fir_coefficients, expdecay
 import time
 start = time.time()
 

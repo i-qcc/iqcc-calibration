@@ -103,9 +103,7 @@ flux_point = node.parameters.flux_point_joint_or_independent  # 'independent' or
 
 with program() as multi_qubit_spec_vs_flux:
     # Macro to declare I, Q, n and their respective streams for a given number of qubit (defined in macros.py)
-    I, I_st, Q, Q_st, n, n_st = qua_declaration(num_qubits=num_qubits)
-    df = declare(int)  # QUA variable for the qubit frequency
-    dc = declare(fixed)  # QUA variable for the flux dc level
+    I, I_st, Q, Q_st, _, n_st = qua_declaration(num_qubits=num_qubits)
 
     if flux_point == "joint":
         # Bring the active qubits to the desired frequency point
@@ -116,9 +114,13 @@ with program() as multi_qubit_spec_vs_flux:
         if flux_point != "joint":
             machine.set_all_fluxes(flux_point=flux_point, target=qubit)
 
+        n = declare(int)
+        df = declare(int)  # QUA variable for the qubit frequency
+        dc = declare(fixed)  # QUA variable for the flux dc level
+        
         with for_(n, 0, n < n_avg, n + 1):
             save(n, n_st)
-
+            
             with for_(*from_array(df, dfs)):
                 # Update the qubit frequency
                 qubit.xy.update_frequency(df + qubit.xy.intermediate_frequency)
