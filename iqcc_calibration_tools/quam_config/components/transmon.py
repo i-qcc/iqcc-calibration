@@ -17,7 +17,7 @@ class Transmon(FluxTunableTransmon):
     Optimized QuAM component for a transmon qubit, inheriting from FluxTunableTransmon.
     Only custom methods/fields not present in the base class are defined here.
     """
-    xy_SL: Union[XYDriveIQ, XYDriveMW] = None # Adding spin lockingon xy channel
+    # xy_SL: Union[XYDriveIQ, XYDriveMW] = None # Adding spin lockingon xy channel
     anharmonicity: float = 200e6 # default 200 MHz instead of None in base class
     extras: Dict[str, Any] = field(default_factory=dict)
 

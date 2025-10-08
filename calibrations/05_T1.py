@@ -213,7 +213,7 @@ def plot_data(node: QualibrationNode[Parameters, Quam]):
     # Store the generated figures
     node.results["figures"] = {"raw_fit": fig}
 
-
+'''
 # %% {Update_state}
 @node.run_action(skip_if=node.parameters.simulate)
 def update_state(node: QualibrationNode[Parameters, Quam]):
@@ -230,3 +230,4 @@ def update_state(node: QualibrationNode[Parameters, Quam]):
 @node.run_action()
 def save_results(node: QualibrationNode[Parameters, Quam]):
     node.save()
+'''
