@@ -43,13 +43,17 @@ def log_fitted_results(fit_results: Dict, log_callable=None):
     pass
 
 
-def process_raw_dataset(ds: xr.Dataset, node: QualibrationNode):
-    if not node.parameters.use_state_discrimination:
+def process_raw_dataset(ds: xr.Dataset, node: QualibrationNode, node_parameters=None):
+    if node_parameters is None:
+        node_parameters = node.parameters
+    if not node_parameters.use_state_discrimination:
         ds = convert_IQ_to_V(ds, node.namespace["qubits"])
     return ds
 
 
-def fit_raw_data(ds: xr.Dataset, node: QualibrationNode) -> Tuple[xr.Dataset, dict[str, FitParameters]]:
+def fit_raw_data(
+    ds: xr.Dataset, node: QualibrationNode, node_parameters=None
+) -> Tuple[xr.Dataset, dict[str, FitParameters]]:
     """
     Fit the qubit frequency and FWHM for each qubit in the dataset.
 
@@ -65,8 +69,10 @@ def fit_raw_data(ds: xr.Dataset, node: QualibrationNode) -> Tuple[xr.Dataset, di
     xr.Dataset
         Dataset containing the fit results.
     """
+    if node_parameters is None:
+        node_parameters = node.parameters
     ds_fit = ds
-    if node.parameters.use_state_discrimination:
+    if node_parameters.use_state_discrimination:
         ds_fit["averaged_data"] = 1 - ds.state.mean(dim="nb_of_sequences")
     else:
         ds_fit["averaged_data"] = 1 - ds.I.mean(dim="nb_of_sequences")
