@@ -1,3 +1,4 @@
+
 """ Jeongwon Kim, Akiva, Omrie, Wei  IQCC, 250924
 Sweep pump frequency and amplitude
 For each pumping point, calculate Gain, SNR improvement.
@@ -46,13 +47,13 @@ import math
 # %% {Node_parameters}
 class Parameters(NodeParameters):
     twpas: Optional[List[str]] = ['twpa1']
-    num_averages: int = 10
+    num_averages: int = 80
     amp_min: float =  0.15
     amp_max: float =  0.26
     frequency_span_in_mhz: float = 4
     frequency_step_in_mhz: float = 0.1
-    p_frequency_span_in_mhz: float = 50
-    p_frequency_step_in_mhz: float =0.4
+    p_frequency_span_in_mhz: float = 40
+    p_frequency_step_in_mhz: float =0.5
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
     simulate: bool = False
     simulation_duration_ns: int = 4000
@@ -61,6 +62,8 @@ class Parameters(NodeParameters):
     pumpline_attenuation: int = -50 #(-50: fridge atten(-30)+directional coupler(-20)/ room temp line(4m)~-5,)  #-5: fridge line # exclude for now
     
 node = QualibrationNode(name="twpa_calibration", parameters=Parameters())
+date_time = datetime.now(timezone(timedelta(hours=3))).strftime("%Y-%m-%d %H:%M:%S")
+
 # %% {Initialize_QuAM_and_QOP}
 # Class containing tools to help handling units and conversions.
 u = unit(coerce_to_integer=True)
@@ -119,10 +122,7 @@ with program() as twpa_pump_off:
     with for_(n, 0, n < n_avg, n + 1):  
         save(n, n_st)
         with for_(*from_array(dp, dfps)):  
-            update_frequency(twpas[0].pump.name, dp + twpas[0].pump.intermediate_frequency)
-            with for_each_(da, daps):  
-                twpas[0].pump.play('pump', amplitude_scale=0, duration=pump_duration)#+250)
-                wait(250) #1000/4 wait 1us for pump to settle before readout
+            with for_each_(da, daps): 
 # measure readout responses around readout resonators without pump
                 with for_(*from_array(df, dfs)):
                     for i, rr in enumerate(resonators):
@@ -135,6 +135,7 @@ with program() as twpa_pump_off:
                         # save data
                         save(I[i], I_st[i])
                         save(Q[i], Q_st[i]) 
+                #align() why it doesnt work if i add this 10.12
                 with for_(*from_array(df, dfs)):
                     for i, rr in enumerate(resonators):
                         # Update the resonator frequencies for all resonators
@@ -180,6 +181,7 @@ with program() as twpa_pump_on:
                         # save data
                         save(I[i], I_st[i])
                         save(Q[i], Q_st[i]) 
+                #align() doesnt work
                 with for_(*from_array(df, dfs)):
                     for i, rr in enumerate(resonators):
                         # Update the resonator frequencies for all resonators
@@ -262,7 +264,6 @@ pumpATmaxG=pump_maxgain(Gain, dfps, daps)
 print(f'max Avg Gain({np.round(np.max(np.mean(Gain,axis=0)))}dB) at fp={np.round((p_lo+p_if+pumpATmaxG[0][0])*1e-9,3)}GHz,Pp={np.round(node.parameters.pumpline_attenuation+dBm(full_scale_power_dbm,pumpATmaxG[0][1]),2)},Pamp={np.round(pumpATmaxG[0][1],3)}')
 # pump at max dSNR
 pumpATmaxDSNR=pump_maxdsnr(dsnr, dfps, daps)
-print(f'max Avg dSNR({np.round(np.max(np.mean(dsnr,axis=0)),2)}dB) at fp={np.round((p_lo+p_if+pumpATmaxDSNR[0][0])*1e-9,3)}GHz,Pp={np.round(node.parameters.pumpline_attenuation+dBm(full_scale_power_dbm,pumpATmaxDSNR[0][1]),2)},Pamp={np.round(pumpATmaxG[0][1],3)}')
 operation_point={'fp':np.round((p_lo+p_if+pumpATmaxDSNR[0][0]),3), 
                  'Pp': node.parameters.pumpline_attenuation+dBm(full_scale_power_dbm,pumpATmaxDSNR[0][1]),
                  'Pamp': np.round(pumpATmaxG[0][1],3)}
@@ -300,10 +301,12 @@ xtick_pos = np.linspace(0, len(daps)-1, len(selected_powers))
 # 
 gain_avg=np.mean(Gain,axis=0)
 dsnr_avg=np.mean(dsnr,axis=0)
-fig, axs = plt.subplots(1, 2, figsize=(12, 5))
+fig, axs = plt.subplots(1, 3, figsize=(12, 5))
+cmap = plt.cm.viridis.copy()
+cmap.set_under('gray')
 # plot gain vs pump
 im0 = axs[0].imshow(gain_avg, origin='lower', aspect='auto',
-                    extent=[0, len(daps)-1, 0, len(dfps)-1])
+                    extent=[0, len(daps)-1, 0, len(dfps)-1], cmap=cmap, vmin=0)
 axs[0].set_xticks(xtick_pos)
 axs[0].set_xticklabels(selected_powers,rotation=90)
 axs[0].set_yticks(ytick_pos)
@@ -313,9 +316,12 @@ axs[0].set_xlabel('pump power[dBm]', fontsize=20)
 axs[0].set_ylabel('pump frequency[GHz]', fontsize=20)
 cbar0 = fig.colorbar(im0, ax=axs[0])
 cbar0.set_label('Avg Gain [dB]', fontsize=14)
+
+print(f'max Avg dSNR({np.round(np.max(np.mean(dsnr,axis=0)),2)}dB) \n at fp={np.round((p_lo+p_if+pumpATmaxDSNR[0][0])*1e-9,3)}GHz,Pp={np.round(node.parameters.pumpline_attenuation+dBm(full_scale_power_dbm,pumpATmaxDSNR[0][1]),2)},Pamp={np.round(pumpATmaxG[0][1],3)} \n {date_time}')
 # plot dSNR vs pump
+
 im1 = axs[1].imshow(dsnr_avg, origin='lower', aspect='auto',
-                    extent=[0, len(daps)-1, 0, len(dfps)-1])
+                    extent=[0, len(daps)-1, 0, len(dfps)-1], cmap=cmap, vmin=0)
 axs[1].set_xticks(xtick_pos)
 axs[1].set_xticklabels(selected_powers,rotation=90)
 axs[1].set_yticks(ytick_pos)
@@ -326,6 +332,15 @@ axs[1].set_ylabel('pump frequency[GHz]', fontsize=20)
 cbar1 = fig.colorbar(im1, ax=axs[1])
 cbar1.set_label('Avg dSNR [dB]', fontsize=14)
 
+# plot gain, dsnr
+axs[2].scatter(gain_avg, dsnr_avg, s=4)
+axs[2].set_title('pump vs gain,dsnr', fontsize=20)
+axs[2].set_xlabel('Gain Average', fontsize=20)
+axs[2].set_ylabel('dSNR Average', fontsize=20)
+axs[2].set_xlim(0,20)
+axs[2].set_ylim(0,12)
+plt.tight_layout()
+plt.show()
 plt.tight_layout()
 plt.show()
 #%% {Update_state}

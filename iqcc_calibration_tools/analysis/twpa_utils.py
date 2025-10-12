@@ -134,8 +134,8 @@ def gain(ds_pumpoff,ds_pumpon, qubits, dfps, daps):
     for i in range(len(qubits)):
         for j in range(len(dfps)):
             for k in range(len(daps)):
-                signal_pumpoff[i,j,k]=mvTOdbm(np.mean(ds_pumpoff.IQ_abs_signal.values[i][j][k]))
-                signal_pumpon[i,j,k]=mvTOdbm(np.mean(ds_pumpon.IQ_abs_signal.values[i][j][k]))
+                signal_pumpoff[i,j,k]=voltTOdbm(np.mean(ds_pumpoff.IQ_abs_signal.values[i][j][k]))
+                signal_pumpon[i,j,k]=voltTOdbm(np.mean(ds_pumpon.IQ_abs_signal.values[i][j][k]))
     return signal_pumpon-signal_pumpoff
 def signal(ds):
     avg_signal=ds.IQ_abs_signal.values.mean(axis=-1, keepdims=True)
@@ -156,4 +156,4 @@ def noise(ds, qubits, dfps, daps, n_avg):
                 for k in range(len(daps)):
                     I_noise[i][j][k]=np.std(I[i][j][k])
                     Q_noise[i][j][k]=np.std(I[i][j][k])
-    return (voltTOdbm(I_noise)+voltTOdbm(Q_noise))/2
+    return (voltTOdbm(I_noise)+voltTOdbm(Q_noise))/2 #is it ok to define the noise as avg of IQ std
