@@ -37,7 +37,7 @@ from datetime import datetime
 from iqcc_calibration_tools.quam_config.macros import qua_declaration, active_reset, readout_state
 from qualang_tools.loops import from_array
 u = unit(coerce_to_integer=True)
-from scipy.signal import welch
+
 # %% {Extra functions for data fetching}
 
 def extract_string(input_string):
@@ -87,25 +87,26 @@ def fetch_results_as_xarray_arb_var(handles, qubits, measurement_axis, var_name 
 # %% {Node_parameters}
 class Parameters(NodeParameters):
     # Define which qubits to measure
-    qubits: Optional[List[str]] = None
+    qubits: Optional[List[str]] = ["Q5", "Q6"]
 
     # Experiment parameters
-    num_repetitions: int = 2000
+    num_repetitions: int = 15000
     detuning: int = 7 * u.MHz
     # min_wait_time_in_ns: int = 16
     min_wait_time_in_ns: int = 36
-    max_wait_time_in_ns: int = 8000
+    max_wait_time_in_ns: int = 4000
     wait_time_step_in_ns: int = 72
     
     physical_detuning: int = 5 * u.MHz
 
-    # Bayesian parameters - frequency should be between 0 and 8 MHz due to the limitation of fixed variables. Can be modified by chagning from MHz to 10MHz units.
-    
+    # Bayesian parameters
     f_min: float = 6.5 #MHz
     f_max: float = 7.5 #MHz
-    df: float = 0.02 #MHz
-    
-    keep_shot_data: bool = True
+    df: float = 0.005 #MHz
+
+    # Control parameters
+    reset_type: Literal["active", "thermal"] = "thermal"
+    use_state_discrimination: bool = True
 
     # Execution parameters
     simulate: bool = False
@@ -158,116 +159,112 @@ idle_times = np.arange(
 )
 detuning = node.parameters.detuning - node.parameters.physical_detuning
 
+
+def estimate_frequency(qubit, estimated_frequency):
+    t = declare(int)
+    phase = declare(fixed)
+    state = declare(int)
+    frequencies = declare(fixed, value=v_f.tolist())
+    Pf = declare(fixed, value=(np.ones(len(v_f)) / len(v_f)).tolist())
+    norm = declare(fixed)
+    t_sample = declare(fixed)
+    f_idx = declare(int)
+    C = declare(fixed)
+    rk = declare(fixed)
+    alpha = declare(fixed)
+    beta = declare(fixed)
+
+    # SPAM parameters from confusion matrix
+    assign(alpha, qubit.resonator.confusion_matrix[0][1] - qubit.resonator.confusion_matrix[1][0])
+    assign(beta, 1 - qubit.resonator.confusion_matrix[0][1] - qubit.resonator.confusion_matrix[1][0])
+
+    # Time sweep loop
+    with for_(*from_array(t, idle_times)):
+        assign(phase, Cast.mul_fixed_by_int(detuning * 1e-9, 4 * t))
+
+        qubit.xy.play("x90")
+        qubit.xy.frame_rotation_2pi(phase)
+        qubit.z.wait(duration=qubit.xy.operations["x180"].length // 4)
+        
+        qubit.xy.wait(t )
+        qubit.z.play("const", amplitude_scale=flux_shifts[qubit.name] / qubit.z.operations["const"].amplitude, 
+                        duration=t)
+        
+        qubit.xy.play("x90") 
+
+        # Measurement
+        readout_state(qubit, state)
+        # save(state[i], state_st[i])
+        qubit.align()
+        qubit.xy.play("x180", condition=Cast.to_bool(state))
+
+        
+        assign(rk, Cast.to_fixed(state) - 0.5) 
+        assign(t_sample, Cast.mul_fixed_by_int(1e-3, t * 4))
+        
+        f_idx = declare(int)
+
+        # Update P(f)
+        with for_(f_idx, 0, f_idx < len(v_f), f_idx + 1):
+            assign(C, Math.cos2pi(frequencies[f_idx] * t_sample))
+            assign(
+                Pf[f_idx],
+                (0.5 + rk * (alpha  + beta * C)*0.99)
+                * Pf[f_idx],
+            )
+            
+        # Normalize P(f)
+        assign(norm, Cast.to_fixed(0.01 / Math.sum(Pf)))
+        assign(norm, Math.abs(norm))
+        with for_(f_idx, 0, f_idx < len(v_f), f_idx + 1):                    
+            assign(Pf[f_idx], Cast.mul_fixed_by_int(norm *  Pf[f_idx], 100))
+
+        qubit.align()   
+            
+        reset_frame(qubit.xy.name)
+    
+    # Estimated frequency
+    # assign(estimated_frequency, Math.dot(frequencies, Pf))
+    assign(f_idx, Math.argmax(Pf))
+    assign(estimated_frequency, frequencies[f_idx])
+    
+
+    
+    # Reset P(f)
+    with for_(f_idx, 0, f_idx < len(v_f), f_idx + 1):
+            # save(Pf[f_idx], Pf_st[i])
+            assign(Pf[f_idx], 1 / len(v_f))
+    
+    
+            
+    # save(estimated_frequency, estimated_frequency_st[i])      
+
 # Define QUA program
 with program() as BayesFreq:
     # Declare variables
     I, I_st, Q, Q_st, n, n_st = qua_declaration(num_qubits=num_qubits)
 
-    state = [declare(int) for _ in range(num_qubits)]
-    state_st = [declare_stream() for _ in range(num_qubits)]
-
-    # Bayes variables
-    frequencies = declare(fixed, value=v_f.tolist())   
-    Pf_st = [declare_stream() for _ in range(num_qubits)]
+    estimated_frequency = declare(fixed) #in MHz
     estimated_frequency_st = [declare_stream() for _ in range(num_qubits)]
 
     # Main experiment loop
     for i, qubit in enumerate(qubits):
-        # align()
-        t = declare(int)
-        phase = declare(fixed)        
-        estimated_frequency = declare(fixed) #in MHz
-        Pf = declare(fixed, value=(np.ones(len(v_f)) / len(v_f)).tolist())
-        norm = declare(fixed)
-        s = declare(int)  # Variable for qubit state classification
-
-        t_sample = declare(fixed) #normalization for time in us
-        f = declare(fixed)
-        C = declare(fixed)
-        rk = declare(fixed)
-
-        # SPAM parameters
-        alpha = declare(fixed)
-        beta = declare(fixed)
-
-        # SPAM parameters from confusion matrix
-        assign(alpha, qubit.resonator.confusion_matrix[0][1] - qubit.resonator.confusion_matrix[1][0])
-        assign(beta, 1 - qubit.resonator.confusion_matrix[0][1] - qubit.resonator.confusion_matrix[1][0])
-
         # Set flux bias
         machine.set_all_fluxes(flux_point="joint", target=qubit)
 
         # Averaging loop
         with for_(n, 0, n < n_reps, n + 1):
             save(n, n_st)
-
-            # Time sweep loop
-            with for_(*from_array(t, idle_times)):
-                assign(phase, Cast.mul_fixed_by_int(detuning * 1e-9, 4 * t))
-
-                qubit.xy.play("x90")
-                qubit.xy.frame_rotation_2pi(phase)
-                qubit.z.wait(duration=qubit.xy.operations["x180"].length // 4)
-                
-                qubit.xy.wait(t )
-                qubit.z.play("const", amplitude_scale=flux_shifts[qubit.name] / qubit.z.operations["const"].amplitude, 
-                                duration=t)
-                
-                qubit.xy.play("x90") 
-
-
-                # Measurement
-                readout_state(qubit, state[i])
-                if node.parameters.keep_shot_data:
-                    save(state[i], state_st[i])
-                qubit.align()
-                qubit.xy.play("x180", condition=Cast.to_bool(state[i]))
-                
-                
-                assign(rk, Cast.to_fixed(state[i]) - 0.5) 
-                assign(t_sample, Cast.mul_fixed_by_int(1e-3, t * 4))
-                
-                f_idx = declare(int)
-
-                # Update P(f)
-                with for_(f_idx, 0, f_idx < len(v_f), f_idx + 1):
-                    assign(C, Math.cos2pi(frequencies[f_idx] * t_sample))
-                    assign(
-                        Pf[f_idx],
-                        (0.5 + rk * (alpha  + beta * C)*0.99)
-                        * Pf[f_idx],
-                    )
-                    
-                # Normalize P(f)
-                assign(norm, Cast.to_fixed(0.01 / Math.sum(Pf)))
-                assign(norm, Math.abs(norm))
-                with for_(f_idx, 0, f_idx < len(v_f), f_idx + 1):                    
-                    assign(Pf[f_idx], Cast.mul_fixed_by_int(norm *  Pf[f_idx], 100))
-
-                qubit.align()   
-                    
-                reset_frame(qubit.xy.name)
-            
-            # Estimated frequency
-            # assign(estimated_frequency, Math.dot(frequencies, Pf))
-            assign(f_idx, Math.argmax(Pf))
-            assign(estimated_frequency, frequencies[f_idx])
-            
-
+            estimate_frequency(qubit, estimated_frequency)
             qubit.xy.play("x90", amplitude_scale=0, duration = 4,  timestamp_stream=f'time_stamp{i+1}')
-            # Reset P(f)
-            with for_(f_idx, 0, f_idx < len(v_f), f_idx + 1):
-                    save(Pf[f_idx], Pf_st[i])
-                    assign(Pf[f_idx], 1 / len(v_f))
-                    
             save(estimated_frequency, estimated_frequency_st[i])                    
         # Stream processing
+    
     with stream_processing():
         n_st.save("n")
         for i in range(num_qubits):
-            Pf_st[i].buffer(n_reps,len(v_f)).save(f"Pf{i + 1}")
-            if node.parameters.keep_shot_data:
-                state_st[i].buffer(n_reps,len(idle_times)).save(f"state{i + 1}")
+            # Pf_st[i].buffer(n_reps,len(v_f)).save(f"Pf{i + 1}")
+            # state_st[i].buffer(n_reps,len(idle_times)).save(f"state{i + 1}")
             estimated_frequency_st[i].buffer(n_reps).save(f"estimated_frequency{i + 1}")
 # %% {Simulate_or_execute}
 if node.parameters.simulate:
@@ -284,27 +281,22 @@ elif node.parameters.load_data_id is None:
 
 # %% {Data_fetching_and_dataset_creation}
 if not node.parameters.simulate:
-    if node.parameters.keep_shot_data:
-        ds_single = fetch_results_as_xarray_arb_var(job.result_handles, qubits, {"t": idle_times*4, "repetition": np.arange(1,n_reps+1)}, "state")
-    else:
-        ds_single = None
-    ds_Pf = fetch_results_as_xarray_arb_var(job.result_handles, qubits, { "vf" : np.arange(node.parameters.f_min, node.parameters.f_max + 0.5 * node.parameters.df, node.parameters.df),"repetition": np.arange(1,n_reps+1)}, "Pf")
+    # ds_single = fetch_results_as_xarray_arb_var(job.result_handles, qubits, {"t": idle_times*4, "repetition": np.arange(1,n_reps+1)}, "state")
+    # ds_Pf = fetch_results_as_xarray_arb_var(job.result_handles, qubits, { "vf" : np.arange(node.parameters.f_min, node.parameters.f_max + 0.5 * node.parameters.df, node.parameters.df),"repetition": np.arange(1,n_reps+1)}, "Pf")
     ds_estimated_frequency = fetch_results_as_xarray_arb_var(job.result_handles, qubits, {"repetition": np.arange(1,n_reps+1)}, "estimated_frequency")
     ds_time_stamp = fetch_results_as_xarray_arb_var(job.result_handles, qubits, {"repetition": np.arange(1,n_reps+1)}, "time_stamp")
-
-    timestamp_values = ds_time_stamp.time_stamp.values
-
-    ds_time_stamp = ds_time_stamp.assign(time_stamp=(ds_time_stamp.time_stamp.dims, timestamp_values))
-    time_stamp = ((ds_time_stamp - ds_time_stamp.min(dim = "repetition"))*4e-9).time_stamp    
+    # ds = xr.merge([ds_single, ds_Pf / ds_Pf.Pf.sum(dim='vf')])
     
-    if node.parameters.keep_shot_data:
-        ds = xr.merge([ds_single, ds_Pf / ds_Pf.Pf.sum(dim='vf'), ds_estimated_frequency, time_stamp])
-    else:
-        ds = xr.merge([ds_Pf / ds_Pf.Pf.sum(dim='vf'), ds_estimated_frequency, ds_time_stamp])
-    
-    node.results = {"ds": ds}
+    # node.results = {"ds": ds}
+
+
 
     # %% {Data_analysis}
+    # Fix timestamp data - extract 'value' field from structured array
+    # timestamp_values = ds_time_stamp.time_stamp.values['value']
+    timestamp_values = ds_time_stamp.time_stamp.values
+    ds_time_stamp = ds_time_stamp.assign(time_stamp=(ds_time_stamp.time_stamp.dims, timestamp_values))
+    time_stamp = ((ds_time_stamp - ds_time_stamp.min(dim = "repetition"))*4e-6).time_stamp
 
     # Create DataArray of estimated frequency with 'qubit' and 'repetition' dimensions
     # Use the processed time_stamp for the time axis
@@ -317,6 +309,7 @@ if not node.parameters.simulate:
         },
         name="estimated_frequency"
     )
+    
 
     # Compute FFT along the 'repetition' axis for each qubit
     estimated_frequency = ds_estimated_frequency.estimated_frequency.values  # shape: (num_qubit, num_repetitions)
@@ -327,7 +320,7 @@ if not node.parameters.simulate:
     t_vals = time_stamp.values  # shape: (num_qubit, num_reps)
 
     # Frequency step (Hz) for each qubit (if constant sampling)
-    dt = np.mean(np.diff(t_vals, axis=1), axis=1)  # convert ms to s
+    dt = np.mean(np.diff(t_vals, axis=1), axis=1) * 1e-3  # convert ms to s
     # If sampling rate is irregular, ignore for now and use a representative dt
     # Take mean dt for all qubits
     mean_dt = np.mean(dt)
@@ -349,7 +342,7 @@ if not node.parameters.simulate:
     
     
     # Compute Welch's transform (Welch PSD) for each qubit and pack into an xarray
-
+    from scipy.signal import welch
 
     welch_freqs_list = []
     welch_psd_list = []
@@ -402,62 +395,17 @@ if not node.parameters.simulate:
         name="integrated_noise_density"
     )
 
-
     # %% {Plotting}
-
-    grid_bayes = QubitGrid(ds, [q.grid_location for q in qubits])
-    y_data_key = "Pf"
-
-    for ax, qubit in grid_iter(grid_bayes):
-        qubit_name = qubit["qubit"]
-        da = ds_Pf[y_data_key].sel(qubit=qubit_name)
-        X, Y = np.meshgrid(da.vf.values, time_stamp.sel(qubit=qubit_name).values)
-        # Robustify the plot: set vmin/vmax to 10th and 90th percentiles of the data (ignoring NaN)
-        data = da.values
-        vmin = np.nanpercentile(data, 1)
-        vmax = np.nanpercentile(data, 99)
-        pcm = ax.pcolormesh(X, Y, data, vmin=vmin, vmax=vmax)
-        ax.set_xlabel("frequency (MHz)")
-        ax.set_ylabel("time (s)")
-        ax.set_title(qubit_name)
-        grid_bayes.fig.colorbar(pcm, ax=ax, label=y_data_key)
-        ax.grid(False)
-
-    grid_bayes.fig.suptitle("Frequency Bayes distribution")
-    plt.tight_layout()
-    node.results["PF_figure"] = grid_bayes.fig
-
+  
     # Create qubit grid
-    if node.parameters.keep_shot_data:
-        grid_shot = QubitGrid(ds, [q.grid_location for q in qubits])
-        y_data_key = "state"
-        # Loop over grid axes and qubits
-        for ax, qubit in grid_iter(grid_shot):
-            qubit_name = qubit["qubit"]
-            t_vals = ds_single.t.values
-            y_vals = ds_single[y_data_key].sel(qubit=qubit_name).values
-
-            # Plot data with pcolormesh
-            X, Y = np.meshgrid(t_vals*1e-3, time_stamp.sel(qubit=qubit_name).values)
-            pcm = ax.pcolormesh(X, Y, y_vals)
-            ax.set_xlabel("time (µs)")
-            ax.set_ylabel("time (s)")
-            ax.set_title(qubit_name)
-            grid_shot.fig.colorbar(pcm, ax=ax, label=f"{y_data_key}")
-            ax.grid(False)
-
-        grid_shot.fig.suptitle("Single-shot data")
-        plt.tight_layout()
-        node.results["state_figure"] = grid_shot.fig
-    
-    # Create qubit grid
-    grid_freq = QubitGrid(ds, [q.grid_location for q in qubits])
+    grid_freq = QubitGrid(ds_estimated_frequency, [q.grid_location for q in qubits])
     y_data_key = "estimated_frequency"
     # Loop over grid axes and qubits
     for ax, qubit in grid_iter(grid_freq):
         qubit_name = qubit["qubit"]
-        y_vals = ds_estimated_frequency[y_data_key].sel(qubit=qubit_name).values
-        ax.plot(time_stamp.sel(qubit=qubit_name).values, y_vals, marker='o', linestyle='-', alpha=0.5)
+        # y_vals = ds_estimated_frequency[y_data_key].sel(qubit=qubit_name).values
+        # ax.plot(time_stamp.sel(qubit=qubit_name).values, y_vals, marker='o', linestyle='-', alpha=0.5)
+        estimated_frequency_xr.sel(qubit=qubit_name).plot(ax = ax, ls = "none", marker = "o", alpha = 0.5)
         ax.set_xlabel("time (ms)")
         ax.set_ylabel("Estimated Frequency (MHz)")
         ax.set_title(qubit_name)
@@ -466,17 +414,13 @@ if not node.parameters.simulate:
 
 
     grid_freq.fig.suptitle("Estimated Frequency")
-    plt.tight_layout()   
-    node.results["estimated_frequency_figure"] = grid_freq.fig
+    plt.tight_layout()    
     
     grid_freq = QubitGrid(ds_estimated_frequency_fft, [q.grid_location for q in qubits])
     y_data_key = "estimated_frequency_fft"
     for ax, qubit in grid_iter(grid_freq):
         qubit_name = qubit["qubit"]
-        # Get the frequency and value arrays, ignoring the first value
-        freqs = ds_estimated_frequency_fft.frequency.values[1:]
-        fft_vals = ds_estimated_frequency_fft.sel(qubit=qubit_name).values[1:]
-        ax.plot(freqs, fft_vals)
+        ds_estimated_frequency_fft.sel(qubit=qubit_name).plot(ax = ax)
         ax.set_xscale("log")
         ax.set_yscale("log")
         ax.set_xlabel("Frequency (Hz)")
@@ -486,7 +430,7 @@ if not node.parameters.simulate:
     
     grid_freq.fig.suptitle("Estimated Frequency FFT")
     plt.tight_layout()
-    node.results["estimated_frequency_fft_figure"] = grid_freq.fig
+    
     
     # Plot the Welch-transformed frequency (PSD) for each qubit
     grid_freq = QubitGrid(ds_estimated_frequency_fft, [q.grid_location for q in qubits])
@@ -502,7 +446,6 @@ if not node.parameters.simulate:
         ax.grid(False)
     grid_freq.fig.suptitle("Welch Power Spectral Density")
     plt.tight_layout()
-    node.results["welch_psd_figure"] = grid_freq.fig
     
     grid_freq = QubitGrid(ds_integrated_noise_density, [q.grid_location for q in qubits])
     y_data_key = "integrated_noise_density"
@@ -515,10 +458,9 @@ if not node.parameters.simulate:
         ax.set_ylabel("Integrated Noise Density")
         ax.set_title(qubit_name)
         ax.grid(False)
-    node.results["integrated_noise_density_figure"] = grid_freq.fig
+    
     grid_freq.fig.suptitle("Integrated Noise Density")
     plt.tight_layout()
-         
     # %%
 
     # %% {Update_state}
@@ -527,4 +469,6 @@ if not node.parameters.simulate:
     node.results["initial_parameters"] = node.parameters.model_dump()
     node.machine = machine
     node.save()
+
+
 # %%
