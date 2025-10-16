@@ -1,6 +1,6 @@
 [project]
 name = "iqcc_calibration_tools"
-version = "0.1.0"
+version = "0.1.1"
 description = "calibration, research and integration tools for IQCC"
 readme = "README.md"
 authors = [
@@ -26,16 +26,20 @@ dependencies = [
     "lmfit",
     "tqdm",
     "qualibrate>=0.2.0,<0.3.0",
-    "qm-qua==1.2.3",
+    "qm-qua>=1.2.3",
     "ipykernel>=6.29.3,<7.0.0",
     "more-itertools",
     "qiskit==2.0.0",
     "pylatexenc",
-    "iqcc-cloud-client", 
-    "qualibrate-lab-notebook @ git+https://github.com/i-qcc/qualibrate-lab-notebook.git@main",
-    "cloud-qualibrate-link @ git+https://github.com/i-qcc/cloud_qualibrate_link.git@main",
-    "quam-builder@git+https://github.com/qua-platform/quam-builder.git",
-    "qualibration-libs@git+https://github.com/qua-platform/qualibration-libs.git",
+    "iqcc-cloud-client",
+    "qualibrate_lab_notebook==0.1.0",
+    #"qualibrate-lab-notebook @ git+https://github.com/i-qcc/qualibrate-lab-notebook.git@main",
+    #"cloud-qualibrate-link @ git+https://github.com/i-qcc/cloud_qualibrate_link.git@main",
+    "cloud-qualibrate-link==0.1.1",
+    #"quam-builder@git+https://github.com/qua-platform/quam-builder.git",
+    "quam_builder==0.1.2",
+    #"qualibration-libs@git+https://github.com/qua-platform/qualibration-libs.git",
+    "qualibration_libs==0.2.1",
     "betterproto>=2.0.0b7", # becuase qua 1.2.3 requires this pre-release version 
 
 ]
@@ -50,5 +54,12 @@ allow-direct-references = true
 [tool.hatch.build.targets.wheel]
 packages = ["iqcc_calibration_tools"]
 
+[[tool.poetry.source]]
+name = "qm-pypi"
+url = "https://quantum-machines-439440158105.d.codeartifact.us-east-1.amazonaws.com/pypi/qm-pypi/simple/"
+priority = "supplemental"
+
+#[tool.uv]
+#extra-index-url = ["https://<username>:<password>@<index_url>"]
 # [tool.uv]
 # prerelease = "allow"
