@@ -121,7 +121,7 @@ with program() as qubit_spec:
             save(n, n_st)
             with for_(*from_array(df, dfs)):
                 qubit.align()
-                qubit.xy.wait(5*qubit.thermalization_time * u.ns)
+                qubit.xy.wait(qubit.thermalization_time * u.ns)
                 # Reset the qubit frequency
                 update_frequency(qubit.xy.name, qubit.xy.intermediate_frequency)
                 # Drive the qubit to the excited state
