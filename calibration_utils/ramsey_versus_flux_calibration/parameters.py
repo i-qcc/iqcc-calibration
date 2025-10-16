@@ -10,9 +10,9 @@ class NodeSpecificParameters(RunnableParameters):
     """Frequency detuning in MHz. Default is 4.0 MHz."""
     min_wait_time_in_ns: int = 16
     """Minimum wait time in nanoseconds. Default is 16."""
-    max_wait_time_in_ns: int = 2000
+    max_wait_time_in_ns: int = 500
     """Maximum wait time in nanoseconds. Default is 2000."""
-    wait_time_step_in_ns: int = 20
+    wait_time_step_in_ns: int = 4
     """Step size for the wait time scan in nanoseconds. Default is 20."""
     flux_span: float = 0.02
     """Span of flux values to sweep in volts. Default is 0.02 V."""

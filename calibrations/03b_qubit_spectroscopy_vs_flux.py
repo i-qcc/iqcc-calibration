@@ -99,16 +99,19 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
 
     with program() as node.namespace["qua_program"]:
         # Macro to declare I, Q, n and their respective streams for a given number of qubit
-        I, I_st, Q, Q_st, n, n_st = node.machine.declare_qua_variables()
-        df = declare(int)  # QUA variable for the qubit frequency
-        dc = declare(fixed)  # QUA variable for the flux dc level
-
+        I, I_st, Q, Q_st, _, n_st = node.machine.declare_qua_variables()
+            
         for multiplexed_qubits in qubits.batch():
             # Initialize the QPU in terms of flux points (flux tunable transmons and/or tunable couplers)
+            
             for qubit in multiplexed_qubits.values():
                 node.machine.initialize_qpu(target=qubit)
             align()
 
+            df = declare(int)  # QUA variable for the qubit frequency
+            dc = declare(fixed)  # QUA variable for the flux dc level
+            n = declare(int)
+            
             with for_(n, 0, n < n_avg, n + 1):
                 save(n, n_st)
                 with for_(*from_array(df, dfs)):

@@ -36,9 +36,9 @@ Outcomes:
 from datetime import datetime, timezone, timedelta
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
 from iqcc_calibration_tools.quam_config.components import Quam
-from iqcc_calibration_tools.quam_config.macros import active_reset, readout_state, readout_state_gef, active_reset_gef
+from iqcc_calibration_tools.quam_config.macros import active_reset, readout_state
 from iqcc_calibration_tools.analysis.plot_utils import QubitPairGrid, grid_iter, grid_pair_names
-from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, get_node_id, load_dataset, save_node
+from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset
 from qualang_tools.results import progress_counter, fetching_tool
 from qualang_tools.loops import from_array
 from qualang_tools.multi_user import qm_session
@@ -48,13 +48,7 @@ from qm.qua import *
 from typing import Literal, Optional, List
 import matplotlib.pyplot as plt
 import numpy as np
-import warnings
-from qualang_tools.bakery import baking
-from iqcc_calibration_tools.analysis.fit import fit_oscillation, oscillation, fix_oscillation_phi_2pi
 from iqcc_calibration_tools.analysis.plot_utils import QubitPairGrid, grid_iter, grid_pair_names
-from scipy.optimize import curve_fit
-from iqcc_calibration_tools.quam_config.components.gates.two_qubit_gates import CZGate
-from iqcc_calibration_tools.quam_config.lib.pulses import FluxPulse
 
 # %% {Node_parameters}
 class Parameters(NodeParameters):
@@ -73,7 +67,6 @@ class Parameters(NodeParameters):
 node = QualibrationNode(
     name="34_2Q_confusion_matrix", parameters=Parameters()
 )
-node_id = get_node_id()
 
 assert not (node.parameters.simulate and node.parameters.load_data_id is not None), "If simulate is True, load_data_id must be None, and vice versa."
 
@@ -232,7 +225,7 @@ if not node.parameters.simulate:
                     ax.text(i, j, f"{100 * conf[i][j]:.1f}%", ha="center", va="center", color="w")
         ax.set_ylabel('prepared')
         ax.set_xlabel('measured')
-        ax.set_title(f"Confusion matrix {qubit_pair['qubit']} \n {date_time} GMT+3 #{node_id} \n reset type = {node.parameters.reset_type}")
+        ax.set_title(f"Confusion matrix {qubit_pair['qubit']} \n {date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type}")
     plt.show()
     node.results["figure_confusion"] = grid.fig
 # %%

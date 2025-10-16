@@ -73,21 +73,26 @@ class Parameters(NodeParameters):
         reset_type_active_or_thermal (str): Reset method to use
     """
 
-    qubits: Optional[List[str]] = ["Q6"]
-    num_averages: int = 50
+    qubits: Optional[List[str]] = None
+    num_averages: int = 20
     operation: str = "x180"
     operation_amplitude_factor: Optional[float] = 1
-    duration_in_ns: Optional[int] = 120000
+    duration_in_ns: Optional[int] = 25000
     time_axis: Literal["linear", "log"] = "log"
     time_step_in_ns: Optional[int] = 48 # for linear time axis
-    time_step_num: Optional[int] = 50 # for log time axis
-    frequency_span_in_mhz: float = 160
+    time_step_num: Optional[int] = 100 # for log time axis
+    frequency_span_in_mhz: float = 250
     frequency_step_in_mhz: float = 0.4
-    flux_amp : float = 0.17
+    flux_amp : float = 0.075
+    update_lo: bool = False
+    fitting_base_fractions: List[float] = [0.4, 0.15, 0.02] # fraction of times from which to fit each exponential
+    update_state: bool = False
+    
+    flux_amp : float = 0.03
     update_lo: bool = True
     fitting_base_fractions: List[float] = [0.3, 0.02] # fraction of times from which to fit each exponential
-    num_fixed_taus: Optional[int] = 2
-    update_state: bool = False
+    num_fixed_taus: Optional[int] = None
+    update_state: bool = True
     fit_multiple_exponentials: bool = True
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
     simulate: bool = False

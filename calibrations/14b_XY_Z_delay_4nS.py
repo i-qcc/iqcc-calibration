@@ -2,13 +2,23 @@
 """
     XY-Z delay as describe in page 108 at https://web.physics.ucsb.edu/~martinisgroup/theses/Chen2018.pdf
 """
-import warnings
 
+import numpy as np
 from datetime import datetime, timezone, timedelta
 from qualang_tools.multi_user import qm_session
 from qualang_tools.results import fetching_tool, progress_counter
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
-from typing import Optional, Literal
+from typing import Optional, Literal, List
+from qm.qua import *
+from qm import SimulationConfig
+from qualang_tools.units import unit
+from iqcc_calibration_tools.quam_config.components import Quam
+from iqcc_calibration_tools.quam_config.macros import qua_declaration, active_reset, readout_state
+import matplotlib.pyplot as plt
+from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
+from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray
+from qualibrate import NodeParameters
+
 
 class Parameters(NodeParameters):
     qubits: Optional[str] = None
@@ -26,21 +36,7 @@ node = QualibrationNode(
     parameters=Parameters()
 )
 
-from qm.qua import *
-from qm import SimulationConfig
-from qualang_tools.units import unit
-from iqcc_calibration_tools.quam_config.components import Quam
-from iqcc_calibration_tools.quam_config.macros import qua_declaration, active_reset, readout_state
-import matplotlib.pyplot as plt
-from qualang_tools.bakery import baking
-import numpy as np
-
-from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
-from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray
-
-# matplotlib.use("TKAgg")
-
-
+# %%
 ###################################################
 #  Load QuAM and open Communication with the QOP  #
 ###################################################
@@ -49,7 +45,7 @@ u = unit(coerce_to_integer=True)
 # Instantiate the QuAM class from the state file
 machine = Quam.load()
 # Generate the OPX and Octave configurations
-if node.parameters.qubits is None or node.parameters.qubits == '':
+if node.parameters.qubits is None or node.parameters.qubits == "":
     qubits = machine.active_qubits
 else:
     qubits = [machine.qubits[q] for q in node.parameters.qubits]
