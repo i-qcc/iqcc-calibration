@@ -35,7 +35,7 @@ Outcomes:
 from datetime import datetime, timezone, timedelta
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
 from iqcc_calibration_tools.quam_config.components import Quam
-from iqcc_calibration_tools.quam_config.macros import active_reset, readout_state, readout_state_gef, active_reset_gef, active_reset_simple
+from iqcc_calibration_tools.quam_config.macros import active_reset, readout_state
 from iqcc_calibration_tools.analysis.plot_utils import QubitPairGrid, grid_iter, grid_pair_names
 from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset
 from qualang_tools.results import progress_counter, fetching_tool
@@ -47,14 +47,9 @@ from qm.qua import *
 from typing import Literal, Optional, List
 import matplotlib.pyplot as plt
 import numpy as np
-import warnings
-from qualang_tools.bakery import baking
-from iqcc_calibration_tools.quam_config.lib.fit import fit_oscillation, oscillation, fix_oscillation_phi_2pi
 from iqcc_calibration_tools.analysis.plot_utils import QubitPairGrid, grid_iter, grid_pair_names
-from scipy.optimize import curve_fit
-from iqcc_calibration_tools.quam_config.components.gates.two_qubit_gates import CZGate
-from iqcc_calibration_tools.quam_config.lib.pulses import FluxPulse
-
+from qualibration_libs.analysis import fit_oscillation, oscillation
+from iqcc_calibration_tools.analysis.fit import fix_oscillation_phi_2pi
 # %% {Node_parameters}
 class Parameters(NodeParameters):
 
@@ -73,7 +68,6 @@ class Parameters(NodeParameters):
 node = QualibrationNode(
     name="33a_Cz_1Qphase_calibration_frame", parameters=Parameters()
 )
-node_id = 1
 
 assert not (node.parameters.simulate and node.parameters.load_data_id is not None), "If simulate is True, load_data_id must be None, and vice versa."
 
@@ -142,9 +136,9 @@ with program() as CPhase_Oscillations:
                 for qubit, state_q, state_st in [(qp.qubit_control, state_control[i], state_st_control[i]), (qp.qubit_target, state_target[i], state_st_target[i])]:
                     # reset
                     if node.parameters.reset_type == "active":
-                            active_reset_simple(qp.qubit_control)
+                            active_reset(qp.qubit_control)
                             qp.align()
-                            active_reset_simple(qp.qubit_target)
+                            active_reset(qp.qubit_target)
                             qp.align()
                     else:
                         wait(qp.qubit_control.thermalization_time * u.ns)
@@ -251,7 +245,7 @@ if not node.parameters.simulate:
         ax.axvline(x = phases_target[qubit_pair['qubit']], color = 'C0', linestyle = '--')
         ax.axvline(x = phases_control[qubit_pair['qubit']], color = 'C1', linestyle = '--')
         ax.legend()
-    plt.suptitle(f'Cz single qubit phase calibration \n {date_time} GMT+3 #{node_id} \n reset type = {node.parameters.reset_type}')
+    plt.suptitle(f'Cz single qubit phase calibration \n {date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type}')
     plt.tight_layout()
     plt.show()
     node.results["figure_phase"] = grid.fig

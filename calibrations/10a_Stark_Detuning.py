@@ -140,8 +140,6 @@ with program() as stark_detuning:
                             qubit.xy.play(operation, amplitude_scale=-1.0)
                         elif operation == "x90":
                             qubit.xy.play(operation)
-                            # qubit.xy.play(operation)
-                            # qubit.xy.play(operation, amplitude_scale=-1.0)
                             qubit.xy.play(operation, amplitude_scale=-1.0)
 
                     # Update the qubit frequency back to the resonance frequency for active reset
