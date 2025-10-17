@@ -46,13 +46,13 @@ import math
 # %% {Node_parameters}
 class Parameters(NodeParameters):
     twpas: Optional[List[str]] = ['twpa1']
-    num_averages: int = 30
+    num_averages: int = 2
     amp_min: float =  0.15
     amp_max: float =  0.26
     frequency_span_in_mhz: float = 4
-    frequency_step_in_mhz: float = 0.1
+    frequency_step_in_mhz: float = 1#0.1
     p_frequency_span_in_mhz: float = 40
-    p_frequency_step_in_mhz: float =0.5
+    p_frequency_step_in_mhz: float =10#0.5
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
     simulate: bool = False
     simulation_duration_ns: int = 4000
@@ -98,7 +98,7 @@ full_scale_power_dbm=twpas[0].pump.opx_output.full_scale_power_dbm
 amp_max = node.parameters.amp_max
 amp_min = node.parameters.amp_min
 amp_step = int((dBm(full_scale_power_dbm, amp_max)-dBm(full_scale_power_dbm, amp_min))/0.2)
-daps = np.linspace(amp_min, amp_max, 40)#40)
+daps = np.linspace(amp_min, amp_max,3)#40)
 # daps = np.arange(amp_min, amp_max, 0.01)
 
 span_p = node.parameters.p_frequency_span_in_mhz * u.MHz
@@ -281,7 +281,8 @@ signal_off=signal(ds_off_s)
 signal_on=signal(ds_on_s)
 noise_on=noise(ds_on_n,qubits, dfps, daps, n_avg)
 noise_off=noise(ds_off_n, qubits, dfps, daps, n_avg)
-dsnr = (signal_on-signal_off)-(noise_on-noise_off)
+# dsnr = (signal_on-signal_off)-(noise_on-noise_off)
+dsnr = delta_s(RF_freq,ds_off_s, ds_on_s, qubits, dfps, daps) - (noise_on-noise_off)
 Gain = signal_on-signal_off
 node.results = {"snr_improvement": dsnr,
                 "gain": Gain}
@@ -293,13 +294,13 @@ pumpATmaxG=pump_maxgain(Gain, dfps, daps)
 print(f'max Avg Gain({np.round(np.max(np.mean(Gain,axis=0)))}dB) at fp={np.round((p_lo+p_if+pumpATmaxG[0][0])*1e-9,3)}GHz,Pp={np.round(node.parameters.pumpline_attenuation+dBm(full_scale_power_dbm,pumpATmaxG[0][1]),2)},Pamp={np.round(pumpATmaxG[0][1],3)}')
 # pump at max dSNR
 pumpATmaxDSNR=pump_maxdsnr(dsnr, dfps, daps)
-print(f'max Avg dSNR({np.round(np.max(np.mean(dsnr,axis=0)),2)}dB) at fp={np.round((p_lo+p_if+pumpATmaxDSNR[0][0])*1e-9,3)}GHz,Pp={np.round(node.parameters.pumpline_attenuation+dBm(full_scale_power_dbm,pumpATmaxDSNR[0][1]),2)},Pamp={np.round(pumpATmaxG[0][1],3)}')
+print(f'max Avg dSNR({np.round(np.max(np.mean(dsnr,axis=0)),2)}dB) at fp={np.round((p_lo+p_if+pumpATmaxDSNR[0][0])*1e-9,3)}GHz,Pp={np.round(node.parameters.pumpline_attenuation+dBm(full_scale_power_dbm,pumpATmaxDSNR[0][1]),2)},Pamp={np.round(pumpATmaxDSNR[0][1],3)}')
 operation_point={'fp':np.round((p_lo+p_if+pumpATmaxDSNR[0][0]),3), 
                  'Pp': node.parameters.pumpline_attenuation+dBm(full_scale_power_dbm,pumpATmaxDSNR[0][1]),
-                 'Pamp': np.round(pumpATmaxG[0][1],3)}
+                 'Pamp': np.round(pumpATmaxDSNR[0][1],3)}
 node.results["pumping point"] = operation_point
 # %% {Plotting}
-# resonator response
+#NOISE BLOB PLOT
 cmap = plt.cm.viridis.copy()
 cmap.set_under('gray')
 ncols = 2
@@ -330,7 +331,6 @@ handles = [
     plt.Line2D([], [], color='red', marker='o', linestyle='', label='pump @ maxG'),
     plt.Line2D([], [], color='blue', marker='o', linestyle='', label='pump @ maxDSNR')
 ]
-# Place the legend below all subplots
 fig.legend(handles=handles,
            loc='lower center',
            ncol=3,
@@ -342,11 +342,11 @@ plt.subplots_adjust(top=0.93, bottom=0.10, hspace=0.5, wspace=0.4)
 plt.show()
 fig_, axes_ = plt.subplots(nrows, ncols, figsize=(6, 8))
 axes_ = axes_.flatten()
-
+## SIGNAL S21 PLOT
 for i, ax in enumerate(axes_):
     if i < len(qubits):
         ax.plot(RF_freq[i]*1e-9,
-                ds_off_s.IQ_abs_signal.values[i].mean(axis=(0,1))*1e3,
+                ds_off_s.IQ_abs_signal.values[i][0][0]*1e3, #[0][0] arbitrary n_avg number of averaged S21 data
                 label='pump off', color='black')
         ax.plot(RF_freq[i]*1e-9,
                 ds_on_s.IQ_abs_signal.values[i][pumpATmaxG[1][0]][pumpATmaxG[1][1]]*1e3,
@@ -355,7 +355,7 @@ for i, ax in enumerate(axes_):
                 ds_on_s.IQ_abs_signal.values[i][pumpATmaxDSNR[1][0]][pumpATmaxDSNR[1][1]]*1e3,
                 label='pump @ maxDSNR', color='blue')
 
-        ax.set_title(f'{qubits[i].name}, Signal', fontsize=14)
+        ax.set_title(f'{qubits[i].name}, Signal S21', fontsize=14)
         ax.set_xlabel('Res. freq [GHz]', fontsize=12)
         ax.set_ylabel('Trans. amp. [mV]', fontsize=12)
     else:

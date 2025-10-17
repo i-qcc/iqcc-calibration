@@ -252,7 +252,8 @@ pumpon_snr = snr(ds_, qubits, dfps, daps)
 # %% {Data Analysis}
 # SNR improvement & Gain
 RF_freq = np.array([dfs + q.resonator.RF_frequency for q in qubits])
-dsnr = pumpon_snr-pumpoff_snr
+# dsnr = pumpon_snr-pumpoff_snr
+dsnr = delta_s(RF_freq, ds, ds_, qubits, dfps, daps)
 Gain = gain(ds, ds_, qubits, dfps, daps)
 node.results = {"snr_improvement": dsnr,
                 "gain": Gain}

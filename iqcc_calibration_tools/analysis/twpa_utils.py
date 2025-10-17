@@ -205,3 +205,4 @@ def delta_s(RF_freq, ds_off_s, ds_on_s, qubits, dfps, daps):
     signalsize_off = signal_size_multi(f_stack, s21_off_stack)
     signalsize_on = signal_size_multi(f_stack, s21_on_stack)
     return signalsize_on-signalsize_off
+######################## saturation ##########################################
