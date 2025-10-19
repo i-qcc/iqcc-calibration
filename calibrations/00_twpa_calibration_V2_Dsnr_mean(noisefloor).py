@@ -33,6 +33,7 @@ from iqcc_calibration_tools.quam_config.macros import qua_declaration
 from iqcc_calibration_tools.quam_config.lib.qua_datasets import convert_IQ_to_V
 from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray
 from iqcc_calibration_tools.analysis.twpa_utils import  * 
+from iqcc_calibration_tools.analysis.twpa_optimizer import *
 from qualang_tools.results import  fetching_tool
 from qualang_tools.loops import from_array
 from qualang_tools.multi_user import qm_session
@@ -354,8 +355,27 @@ axs[2].scatter(gain_avg, dsnr_avg, s=4)
 axs[2].set_title('pump vs gain,dsnr', fontsize=20)
 axs[2].set_xlabel('Gain Average', fontsize=20)
 axs[2].set_ylabel('dSNR Average', fontsize=20)
-axs[2].set_xlim(0,20)
-axs[2].set_ylim(0,12)
+axs[2].set_xlim(0,15)
+axs[2].set_ylim(0,11)
+plt.tight_layout()
+plt.show()
+plt.tight_layout()
+plt.show()
+
+# operation window
+plt.plot(figzise=(4,3))
+mingain=min_gain(qubits,  twpas)
+mindsnr=min_dsnr(qubits,dsnr_avg,1.8,0.97, dfps, daps)
+optimized_pump=optimizer(mingain, mindsnr, gain_avg, dsnr_avg, daps, dfps, p_lo,p_if)
+plt.scatter(gain_avg, dsnr_avg, s=4)
+plt.scatter(gain_avg[optimized_pump],  dsnr_avg[optimized_pump], s=10, color='red')
+plt.axhline(y=mindsnr, color='red', linestyle='--', linewidth=1)
+plt.axvline(x=mingain, color='red', linestyle='--', linewidth=1)
+plt.title('operation window', fontsize=20)
+plt.xlabel('Average Gain', fontsize=20)
+plt.ylabel('Average dSNR', fontsize=20)
+plt.xlim(0,15)
+plt.ylim(0,11)
 plt.tight_layout()
 plt.show()
 plt.tight_layout()
