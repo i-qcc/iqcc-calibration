@@ -253,7 +253,7 @@ pumpon_snr = snr(ds_, qubits, dfps, daps)
 # SNR improvement & Gain
 RF_freq = np.array([dfs + q.resonator.RF_frequency for q in qubits])
 # dsnr = pumpon_snr-pumpoff_snr
-dsnr = delta_s(RF_freq, ds, ds_, qubits, dfps, daps)
+dsnr = pumpon_snr-pumpoff_snr
 Gain = gain(ds, ds_, qubits, dfps, daps)
 node.results = {"snr_improvement": dsnr,
                 "gain": Gain}
@@ -349,7 +349,7 @@ axs[1].set_ylabel('pump frequency[GHz]', fontsize=20)
 cbar1 = fig.colorbar(im1, ax=axs[1])
 cbar1.set_label('Avg dSNR [dB]', fontsize=14)
 
-# plot gain, dsnr
+# plot gain, dsnr : TWPA SPEC
 axs[2].scatter(gain_avg, dsnr_avg, s=4)
 axs[2].set_title('pump vs gain,dsnr', fontsize=20)
 axs[2].set_xlabel('Gain Average', fontsize=20)
