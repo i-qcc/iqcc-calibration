@@ -144,7 +144,7 @@ with program() as CPhase_Oscillations:
                     qp.align()
 
                     #play the CZ gate
-                    qp.gates['Cz'].execute()
+                    qp.macros['CZ'].apply() # qp.gates['Cz'].execute()
                     
                     #rotate the frame
                     frame_rotation_2pi(frame, qubit.xy.name)
