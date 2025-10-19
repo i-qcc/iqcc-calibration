@@ -10,15 +10,16 @@ from iqcc_calibration_tools.quam_config.components.quam_root import Quam
 library = QualibrationLibrary.get_active_library()
 
 # %%
+
+machine = Quam.load()
+active_qubits = [q.name for q in machine.active_qubits]
+
+
 class Parameters(GraphParameters):
-    qubits: List[str] = None
+    qubits: List[str] = active_qubits
 
 parameters = Parameters()
-
-if parameters.qubits is None:
-    machine = Quam.load()
-    parameters.qubits = [q.name for q in machine.active_qubits]
-
+  
 multiplexed = True
 flux_point = "joint"
 reset_type_thermal_or_active = "thermal"

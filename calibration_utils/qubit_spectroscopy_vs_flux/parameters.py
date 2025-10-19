@@ -14,7 +14,7 @@ class NodeSpecificParameters(RunnableParameters):
     """Amplitude factor for the operation. Default is 0.1."""
     operation_len_in_ns: Optional[int] = None
     """Length of the operation in ns. Default is the predefined pulse length."""
-    frequency_span_in_mhz: float = 100.0
+    frequency_span_in_mhz: float = 60
     """Frequency span in MHz. Default is 100 MHz."""
     frequency_step_in_mhz: float = 0.5
     """Frequency step in MHz. Default is 0.5 MHz."""

@@ -9,6 +9,7 @@ from qm.qua import align
 __all__ = ["TransmonPair"]
 
 
+# TODO : to be removed using the FluxTunableTransmonPair class directly
 @quam_dataclass
 class TransmonPair(FluxTunableTransmonPair):
     """
