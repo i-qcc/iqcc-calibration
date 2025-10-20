@@ -8,7 +8,7 @@ from qualibrate_config.resolvers import get_qualibrate_config_path, get_qualibra
 from qualibrate.utils.node.path_solver import get_node_dir_path
 from qualibrate.config.resolvers import get_quam_state_path
 from qualibrate.storage.local_storage_manager import LocalStorageManager
-
+from iqcc_calibration_tools.quam_config.components.quam_root import Quam
 # Type variables for generic parameters - using same names and bounds as base class
 ParametersType = TypeVar("ParametersType", bound=NodeParameters)
 MachineType = TypeVar("MachineType", bound=MachineProtocol)
@@ -66,6 +66,9 @@ class QualibrationNode(QualibrationNodeBase, Generic[ParametersType, MachineType
             None
         """
         logger.info(f"Saving node with snapshot index {self.snapshot_idx}")
+        
+        # remove macros from quam object
+        Quam.remove_macros_from_qubits(self.machine)
         
         # Save locally first (primary operation)
         super().save()

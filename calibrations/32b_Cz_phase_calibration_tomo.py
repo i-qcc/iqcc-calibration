@@ -160,7 +160,8 @@ with program() as CPhase_Oscillations:
                         qp.align()
 
                         #play the CZ gate
-                        qp.gates['Cz'].execute(amplitude_scale = amp)
+                        qp.macros['CZ'].apply(amplitude_scale_control = amp)
+                        # qp.gates['Cz'].execute(amplitude_scale = amp)
                         
                         # measure the traget qubit on the x or y axis
                         with if_(tomo_axis == 0, unsafe = False):

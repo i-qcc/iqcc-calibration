@@ -2,31 +2,31 @@
 """
     XY-Z delay as describe in page 108 at https://web.physics.ucsb.edu/~martinisgroup/theses/Chen2018.pdf
 """
-import warnings
 
+import numpy as np
 from datetime import datetime, timezone, timedelta
 from qualang_tools.multi_user import qm_session
 from qualang_tools.results import fetching_tool, progress_counter
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
-from typing import List, Optional, Literal
+from typing import Optional, Literal, List
 from qm.qua import *
 from qm import SimulationConfig
 from qualang_tools.units import unit
 from iqcc_calibration_tools.quam_config.components import Quam
 from iqcc_calibration_tools.quam_config.macros import qua_declaration, active_reset, readout_state
 import matplotlib.pyplot as plt
-from qualang_tools.bakery import baking
-import numpy as np
-
 from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
 from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray
+from qualibrate import NodeParameters
+
 
 class Parameters(NodeParameters):
-    qubits: Optional[List[str]] = None
+    qubits: Optional[str] = None
     num_averages: int = 100
     delay_span: int = 50 # in clock cycles
     flux_point_joint_or_independent: Literal['joint', 'independent'] = "joint"
     reset_type_thermal_or_active: Literal['thermal', 'active'] = "thermal"
+    flux_amp: float = 0.04
     simulate: bool = False
     timeout: int = 100
 
@@ -113,7 +113,9 @@ with program() as xy_z_delay_calibration:
                             qubit.xy.wait(qubit.xy.operations['x180'].length // 4)
                         qubit.z.wait(qubit.xy.operations['x180'].length // 4)
                         qubit.z.wait(node.parameters.delay_span)
-                        qubit.z.play("const")
+                        qubit.z.play("const", 
+                                     amplitude_scale=node.parameters.flux_amp/qubit.z.operations['const'].amplitude, 
+                                     duration=qubit.xy.operations['x180'].length // 4)
                         qubit.xy.wait(node.parameters.delay_span + t)
                         qubit.xy.play("x180")
 

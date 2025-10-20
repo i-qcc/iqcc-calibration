@@ -5,8 +5,12 @@ from quam.components.ports import (
     FEMPortsContainer,
     OPXPlusPortsContainer,
 )
+from quam.components.macro.qubit_macros import PulseMacro
 
 from iqcc_calibration_tools.quam_config.components.twpa import TWPA
+from iqcc_calibration_tools.quam_config.components.gate_macros import (
+    VirtualZMacro, DelayMacro, ResetMacro, MeasureMacro, CZFixedMacro
+)
 
 from qm import QuantumMachinesManager, QuantumMachine
 from qualang_tools.results.data_handler import DataHandler
@@ -39,7 +43,14 @@ class Quam(FluxTunableQuam):
                     "Please provide a path or set the 'QUAM_STATE_PATH' environment variable. "
                     "See the README for instructions."
                 )
-        return super().load(*args, **kwargs)
+        
+        # Load the Quam object
+        quam_obj = super().load(*args, **kwargs)
+        
+        # Add macros to the loaded object
+        Quam.add_macros_to_qubits(quam_obj)
+        
+        return quam_obj
 
     def save(
         self,
@@ -68,6 +79,7 @@ class Quam(FluxTunableQuam):
         """
         if self.network.get("cloud", False):
             self.qmm = CloudQuantumMachinesManager(self.network["quantum_computer_backend"])
+            
         else:
             settings = dict(
                 host=self.network["host"],
@@ -105,6 +117,31 @@ class Quam(FluxTunableQuam):
                 self.qubits[name].calibrate_octave(QM)
             except NoCalibrationElements:
                 print(f"No calibration elements found for {name}. Skipping calibration.")
+
+    @classmethod
+    def add_macros_to_qubits(cls, quam_obj: "Quam") -> None:
+        """Add standard macros to all qubits and qubit pairs."""
+        
+        # Add macros to each qubit
+        for qubit_data in quam_obj.qubits.values():
+            qubit_data.macros= {
+                "x": PulseMacro(pulse="x180"),
+                "rz": VirtualZMacro(),
+                "sx": PulseMacro(pulse="x90"),
+                "delay": DelayMacro(),
+                "reset": ResetMacro(pi_pulse="x180", readout_pulse="readout"),
+                "measure": MeasureMacro()
+            }
+        
+    @classmethod
+    def remove_macros_from_qubits(cls, quam_obj: "Quam") -> None:
+        """Remove all macros from qubits and qubit pairs."""
+        
+        # Remove macros from each qubit
+        for qubit_data in quam_obj.qubits.values():
+            if hasattr(qubit_data, 'macros'):
+                qubit_data.macros = {}
+        
 
 
 @quam_dataclass
