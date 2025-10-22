@@ -97,10 +97,14 @@ class Parameters(NodeParameters):
     # Define which qubits to measure
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     qubits: Optional[List[str]] = None
+=======
+    qubits: Optional[List[str]] = ["Q5"]
+>>>>>>> b3e97ae (noise experiemnts WIP)
 
     # Experiment parameters
-    num_repetitions: int = 2000
+    num_repetitions: int = 20000
     detuning: int = 7 * u.MHz
     # min_wait_time_in_ns: int = 16
     min_wait_time_in_ns: int = 36
@@ -402,7 +406,25 @@ if not node.parameters.simulate:
     ds_estimated_frequency = fetch_results_as_xarray_arb_var(job.result_handles, qubits, {"repetition": np.arange(1,n_reps+1)}, "estimated_frequency")
     ds_time_stamp = fetch_results_as_xarray_arb_var(job.result_handles, qubits, {"repetition": np.arange(1,n_reps+1)}, "time_stamp")
 
-    timestamp_values = ds_time_stamp.time_stamp.values
+    # Extract numeric values from tuples if they exist
+    raw_values = ds_time_stamp.time_stamp.values
+    print(f"Raw values type: {type(raw_values)}")
+    print(f"Raw values dtype: {raw_values.dtype}")
+    print(f"Raw values shape: {raw_values.shape}")
+    print(f"First few raw values: {raw_values.flat[:3]}")
+    
+    if isinstance(raw_values.flat[0], tuple):
+        # If values are tuples, extract the first element (assuming it's the timestamp)
+        timestamp_values = np.array([val[0] if isinstance(val, tuple) else val for val in raw_values.flat]).reshape(raw_values.shape)
+        print("Extracted from tuples")
+    else:
+        timestamp_values = np.array(raw_values)
+        print("Direct conversion")
+    
+    print(f"Timestamp values type: {type(timestamp_values)}")
+    print(f"Timestamp values dtype: {timestamp_values.dtype}")
+    print(f"Timestamp values shape: {timestamp_values.shape}")
+    print(f"First few timestamp values: {timestamp_values.flat[:3]}")
 
     ds_time_stamp = ds_time_stamp.assign(time_stamp=(ds_time_stamp.time_stamp.dims, timestamp_values))
     time_stamp = ((ds_time_stamp - ds_time_stamp.min(dim = "repetition"))*4e-9).time_stamp    
@@ -803,7 +825,7 @@ if not node.parameters.simulate:
         qubit_name = qubit["qubit"]
         ds_integrated_noise_density.sel(qubit=qubit_name).plot(ax = ax)
         ax.set_xscale("log")
-        ax.set_yscale("log")
+        # ax.set_yscale("log")
         ax.set_xlabel("Frequency (Hz)")
         ax.set_ylabel("Integrated Noise Density")
         ax.set_title(qubit_name)
@@ -828,6 +850,7 @@ if not node.parameters.simulate:
     node.results["initial_parameters"] = node.parameters.model_dump()
     node.machine = machine
     node.save()
+<<<<<<< HEAD
 =======
     # node.results["initial_parameters"] = node.parameters.model_dump()
     # node.machine = machine
@@ -929,4 +952,62 @@ plt.show()
     node.machine = machine
     node.save()
 >>>>>>> 98ee2de (Bayesian estimation scripts)
+=======
+
+# %% {Interactive Welch PSD Plot with Peak Detection}
+# Plot ds_estimated_frequency_welch with peak detection and annotation (linear scale, no QubitGrid)
+
+from scipy.signal import find_peaks
+
+if not node.parameters.simulate:
+    fig, axes = plt.subplots(1, num_qubits, figsize=(6*num_qubits, 5))
+    if num_qubits == 1:
+        axes = [axes]
+    
+    for i, qubit in enumerate(qubits):
+        qubit_name = qubit.name
+        ax = axes[i]
+        
+        welch_data = ds_estimated_frequency_welch.sel(qubit=qubit_name)
+        freqs = welch_data.frequency.values
+        psd_values = welch_data.values
+        
+        # Plot the Welch PSD with linear scale
+        ax.plot(freqs, psd_values, 'b-', linewidth=1, alpha=0.7)
+        
+        # Find peaks in the PSD
+        # Use lower prominence threshold to detect smaller peaks
+        peaks, properties = find_peaks(psd_values, prominence=np.max(psd_values) * 0.075)
+        
+        # Mark peaks with their frequency values
+        if len(peaks) > 0:
+            peak_freqs = freqs[peaks]
+            peak_psd = psd_values[peaks]
+            
+            # Plot peak markers
+            ax.plot(peak_freqs, peak_psd, 'ro', markersize=8, alpha=0.8)
+            
+            # Annotate each peak with its frequency value
+            for j, (freq, psd) in enumerate(zip(peak_freqs, peak_psd)):
+                ax.annotate(f'{freq:.2e} Hz', 
+                           xy=(freq, psd), 
+                           xytext=(10, 10), 
+                           textcoords='offset points',
+                           fontsize=8,
+                           bbox=dict(boxstyle='round,pad=0.3', facecolor='yellow', alpha=0.7),
+                           arrowprops=dict(arrowstyle='->', connectionstyle='arc3,rad=0'))
+        
+        ax.set_xlabel("Frequency (Hz)")
+        ax.set_ylabel("Welch PSD")
+        ax.set_title(f"Welch PSD with Peaks - {qubit_name}")
+        ax.grid(True, alpha=0.3)
+        
+    plt.suptitle("Welch Power Spectral Density with Peak Detection (Linear Scale)")
+    plt.tight_layout()
+    plt.show()
+    
+    # Store the figure in results
+    node.results["welch_psd_peaks_linear_figure"] = fig
+
+>>>>>>> b3e97ae (noise experiemnts WIP)
 # %%

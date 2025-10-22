@@ -19,9 +19,9 @@ from typing import Optional, Literal, List
 
 
 class Parameters(NodeParameters):
-    qubits: Optional[List[str]] = ["qubitC2"]
+    qubits: Optional[List[str]] = ["Q6"]
     num_averages: int = 1000
-    dc_offset: float = 0.01
+    dc_offset: float = 0.02
     flux_point_joint_or_independent: Literal['joint', 'independent'] = "joint"
     simulate: bool = False
     timeout: int = 100
@@ -43,7 +43,7 @@ simulate = node.parameters.simulate
 # from iqcc_calibration_tools.quam_config.components import QuAM
 # from iqcc_calibration_tools.quam_config.macros import qua_declaration, active_reset
 import xarray as xr
-import xrft
+# import xrft
 # import matplotlib.pyplot as plt
 # import numpy as np
 from scipy import signal
@@ -110,6 +110,7 @@ with program() as find_optimal_freq_offset_and_idle_time:
     I, I_st, Q, Q_st, n, n_st = qua_declaration(num_qubits=num_qubits)
     state = [declare(int) for _ in range(num_qubits)]
     state_st = [declare_stream() for _ in range(num_qubits)]
+    current_state = [declare(int) for _ in range(num_qubits)]
     init_state = [declare(int) for _ in range(num_qubits)]
     final_state = [declare(int) for _ in range(num_qubits)]    
     # freq = declare(int)  # QUA variable for the flux dc level
@@ -127,29 +128,28 @@ with program() as find_optimal_freq_offset_and_idle_time:
             save(n, n_st)
             
             with for_(*from_array(freq_MHZ, freqs_MHZ)):        
-                    
-                assign(phi, Cast.mul_fixed_by_int(freq_MHZ * 1e-3, idle_time))
-                
+                assign(phi, Cast.mul_fixed_by_int(freq_MHZ * 1e-3, 4 * t))
+                # Ramsey sequence
+                # qubit.reset_qubit_active_simple()
                 qubit.align()
-
-                qubit.xy.play("x90")
-                qubit.xy.frame_rotation_2pi(phi)
-                qubit.z.wait(duration=qubit.xy.operations["x180"].length)
-                
-                qubit.xy.wait(t + 1)
-                qubit.z.play("const", amplitude_scale=dc / qubit.z.operations["const"].amplitude, duration=t)
-                
-                qubit.xy.play("x90")
-                
-                qubit.align()
+                with strict_timing_():
+                    qubit.xy.play("x90")
+                    qubit.xy.frame_rotation_2pi(phi)
+                    qubit.xy.wait(t + 1)
+                    qubit.z.wait(duration=qubit.xy.operations["x90"].length // 4)
+                    qubit.z.play(
+                        "const", amplitude_scale=dc / qubit.z.operations["const"].amplitude, duration=t
+                    )
+                    qubit.xy.play("x90")
                 
                 # Measure the state of the resonators
-                readout_state(qubit, state[i])
-                assign(final_state[i], init_state[i] ^ state[i])
-                save(final_state[i], state_st[i])
-                # save(freq_GHZ, state_st[i])
-                
-                assign(init_state[i], state[i])
+                qubit.readout_state(current_state[i])
+                assign(state[i], init_state[i] ^ current_state[i])
+                # assign(state[i], current_state[i])
+                assign(init_state[i], current_state[i])
+                save(state[i], state_st[i])
+                qubit.wait(500)
+    
                 reset_frame(qubit.xy.name)
 
     with stream_processing():
@@ -206,10 +206,10 @@ opt_freq = {}
 if not simulate:
     grid = QubitGrid(ds, [q.grid_location for q in qubits])
     for ax, qubit in grid_iter(grid):
-        opt_freq[qubit['qubit']] = np.abs(ds.sel(qubit = qubit['qubit']).state-0.5).idxmin('freq')
+        opt_freq[qubit['qubit']] = np.abs(ds.sel(qubit = qubit['qubit']).state-0.4).idxmin('freq')
         ds.sel(qubit = qubit['qubit']).state.plot(ax =ax)
-        ax.axhline(0.5, color='k')
-        ax.plot(opt_freq[qubit['qubit']], 0.5, 'o')
+        ax.axhline(0.4, color='k')
+        ax.plot(opt_freq[qubit['qubit']], 0.4, 'o')
         ax.set_title(qubit['qubit'])
         ax.set_xlabel('Frequency (Hz)')
         ax.set_ylabel('State')
@@ -228,6 +228,7 @@ with program() as Ramsey_noise_spec:
     I, I_st, Q, Q_st, n, n_st = qua_declaration(num_qubits=num_qubits)
     state = [declare(int) for _ in range(num_qubits)]
     state_st = [declare_stream() for _ in range(num_qubits)]
+    current_state = [declare(int) for _ in range(num_qubits)]
     init_state = [declare(int) for _ in range(num_qubits)]
     final_state = [declare(int) for _ in range(num_qubits)]
     t = declare(int)
@@ -241,28 +242,51 @@ with program() as Ramsey_noise_spec:
 
         with for_(n, 0, n < n_avg, n + 1):
             save(n, n_st)
-
+            
             assign(phi, phis[qubit.name])
+            # Ramsey sequence
+            # qubit.reset_qubit_active_simple()
             qubit.align()
-            # with strict_timing_():
-            # update_frequency(qubit.xy.name, int(opt_freq[qubit.name])  + qubit.xy.intermediate_frequency)
-            qubit.xy.play("x90",  timestamp_stream=f'time_stamp{i+1}')
-            qubit.xy.frame_rotation_2pi(phi)
-            qubit.z.wait(duration=qubit.xy.operations["x180"].length)
-            
-            qubit.xy.wait(t + 1)
-            qubit.z.play("const", amplitude_scale=dc / qubit.z.operations["const"].amplitude, duration=t)
-            
-            qubit.xy.play("x90")
-            # update_frequency(qubit.xy.name, qubit.xy.intermediate_frequency)
-            qubit.align()            
+            with strict_timing_():
+                qubit.xy.play("x90",  timestamp_stream=f'time_stamp{i+1}')
+                qubit.xy.frame_rotation_2pi(phi)
+                qubit.xy.wait(t + 1)
+                qubit.z.wait(duration=qubit.xy.operations["x90"].length // 4)
+                qubit.z.play(
+                    "const", amplitude_scale=dc / qubit.z.operations["const"].amplitude, duration=t
+                )
+                qubit.xy.play("x90")
             
             # Measure the state of the resonators
-            readout_state(qubit, state[i])
-            assign(final_state[i], init_state[i] ^ state[i])
-            save(final_state[i], state_st[i])
-            assign(init_state[i], state[i])
+            qubit.readout_state(current_state[i])
+            assign(state[i], init_state[i] ^ current_state[i])
+            # assign(state[i], current_state[i])
+            assign(init_state[i], current_state[i])
+            save(state[i], state_st[i])
+            qubit.wait(500)            
             reset_frame(qubit.xy.name)
+
+            # assign(phi, phis[qubit.name])
+            # qubit.align()
+            # # with strict_timing_():
+            # # update_frequency(qubit.xy.name, int(opt_freq[qubit.name])  + qubit.xy.intermediate_frequency)
+            # qubit.xy.play("x90",  timestamp_stream=f'time_stamp{i+1}')
+            # qubit.xy.frame_rotation_2pi(phi)
+            # qubit.z.wait(duration=qubit.xy.operations["x180"].length // 4)
+            
+            # qubit.xy.wait(t + 1)
+            # qubit.z.play("const", amplitude_scale=dc / qubit.z.operations["const"].amplitude, duration=t)
+            
+            # qubit.xy.play("x90")
+            # # update_frequency(qubit.xy.name, qubit.xy.intermediate_frequency)
+            # qubit.align()            
+            
+            # # Measure the state of the resonators
+            # readout_state(qubit, state[i])
+            # assign(final_state[i], init_state[i] ^ state[i])
+            # save(final_state[i], state_st[i])
+            # assign(init_state[i], state[i])
+            # reset_frame(qubit.xy.name)
 
     with stream_processing():
         n_st.save("n")
@@ -368,12 +392,15 @@ if not simulate:
         time_stamp_q = ds.time_stamp.sel(qubit = qubit.name).values
         
         f, Pxx_den = signal.welch(data_q-data_q.mean(),  1e9/np.mean(np.diff(time_stamp_q)), 
-                          nperseg=2**17)
+                          nperseg=2**19)
         dat_fft[qubit.name] = xr.Dataset({'Pxx_den': (['freq'], Pxx_den)}, coords={'freq': f}).Pxx_den
 
-        # dat_fft[qubit.name] = xrft.power_spectrum(data_q, real_dim='n')
-        # dat_fft[qubit.name] = dat_fft[qubit.name].assign_coords(freq_n=1e9*dat_fft[qubit.name].freq_n/np.mean(np.diff(time_stamp_q)))
-    
+
+    dat_fft_xr = xr.concat([dat_fft[q.name] for q in qubits], dim="qubit")
+    dat_fft_xr = dat_fft_xr.assign_coords(qubit=[q.name for q in qubits])
+    dat_fft = dat_fft_xr
+
+
 # %%    
 if not simulate:
     grid = QubitGrid(ds, [q.grid_location for q in qubits])
@@ -393,5 +420,80 @@ if not simulate:
 # %%
 node.results['initial_parameters'] = node.parameters.model_dump()
 node.machine = machine
-node.save()
+# node.save()
+# %%
+# Ramsey time in seconds
+ramsey_time = 520e-9  # 520 ns
+
+# Frequency sensitivity (MHz per radian of phase)
+frequency_sensitivity = 1e-6 / (2 * np.pi * ramsey_time)
+
+# Convert your FFT to physical frequency noise density
+dat_fft_physical = dat_fft * (frequency_sensitivity)**2
+
+# Plot with proper units
+dat_fft_physical.plot(yscale="log")
+plt.ylabel('Frequency Noise Density [MHz]')
+plt.xlabel('Frequency [Hz]')
+plt.xscale('log')
+plt.yscale('log')
+plt.title('Qubit Frequency Noise Spectrum')
+plt.tight_layout()
+plt.show()
+# %%
+# Step 1: Ramsey time and frequency sensitivity
+ramsey_time = 520e-9  # 520 ns
+frequency_sensitivity = 1 / (2 * np.pi * ramsey_time)
+
+# Step 2: Convert state noise to frequency noise
+dat_fft_frequency = dat_fft * (frequency_sensitivity)**2
+
+# Step 3: Convert frequency noise to voltage noise
+alpha = 100e9  # 100 GHz/V²
+alpha = -qubits[0].freq_vs_flux_01_quad_term
+
+V0 = 0.02      # 20 mV
+voltage_sensitivity = 1 / (alpha * 2 * V0)  # V/Hz
+dat_fft_voltage = dat_fft_frequency * (voltage_sensitivity)**2
+
+# Plot voltage noise density
+dat_fft_voltage.plot(yscale="log")
+plt.ylabel('Voltage Noise Density [V²/Hz]')
+plt.xlabel('Frequency [Hz]')
+plt.xscale('log')
+plt.yscale('log')
+plt.title('Qubit Voltage Noise Spectrum')
+plt.tight_layout()
+plt.show()
+
+# %%
+# Step 1: Ramsey time and frequency sensitivity
+ramsey_time = 520e-9  # 520 ns
+frequency_sensitivity = 1 / (2 * np.pi * ramsey_time) * 0.5
+
+# Step 2: Convert state noise to frequency noise
+dat_fft_frequency = dat_fft * (frequency_sensitivity)**2
+
+# Step 3: Convert frequency noise to voltage noise density
+alpha = 100e9  # 100 GHz/V²
+alpha = -qubits[0].freq_vs_flux_01_quad_term
+V0 = 0.02      # 20 mV
+voltage_sensitivity = 1 / (alpha * 2 * V0)  # V/Hz
+dat_fft_voltage_density = dat_fft_frequency * (voltage_sensitivity)**2
+
+# Step 4: Convert to V/√Hz (take square root)
+dat_fft_voltage_rms = np.sqrt(dat_fft_voltage_density)*1e9
+
+# Plot voltage noise in V/√Hz
+dat_fft_voltage_rms.plot(yscale="log")
+plt.ylabel('Voltage Noise [nV/√Hz]')
+plt.xlabel('Frequency [Hz]')
+plt.xscale('log')
+plt.yscale('log')
+plt.xlim([0,1e3])
+plt.title('Qubit Voltage Noise Spectrum')
+plt.tight_layout()
+plt.grid(which='both')
+plt.show()
+node.results['figure_fft_voltage_rms'] = plt.gcf()
 # %%
