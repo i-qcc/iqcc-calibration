@@ -1,28 +1,23 @@
 
-""" Jeongwon Kim IQCC, 251009
-Set the pumping point and sweep readout power around every readout resonators
-For each readout power, calculate Gain and find out the P1dB point which is 
-defined as 1dB gain compression point
+""" Jeongwon Kim IQCC, 251022
+do spectroscopy around the bandwidth ~(7GHz ~ 7.6GHz : our usual readout bandwidth)
+for various readout power ~(-120dBm~-95dBm)
+with the pump off and on(pumping condition is given through node 001) and get the Gain.
+For each signal frequency, get the Gain as a function of readout power
+and get the 1dB gain compression point(P1dB)
 
 Prerequisites:
-    - Having calibrated the resonator frequency (nodes 02a, 02b and/or 02c).
+    - Having calibrated the optimal twpa pumping point (nodes 001). All the gain compression 
+      is measured under the given pumping point which is obatained through node001
 
 * Gain is defined as the increase in the signal level.
-    - twpa pump off : measure the signal response within  a 4MHz around the readout resonator
+    - twpa pump off : measure the signal response within 600MHz around the readout bandwidth
       singal_off= signal[dB] 
-    - twpa pump on :  measure signal response within the same 4MHz around the readout resonator
+    - twpa pump on :  measure signal response within 600MHz around the readoutbandwidth
       singal_on= signal[dB]
     => gain=signal_on-signal_off
-* P1dB : measure the gain depending on the readout amplitude and find the point where
-        gain starts to get smaller 1dB
-    - twpa pump off : measure within a 4 MHz window around the readout resonator twice
-      measure(amp=0) for noise level
-      measure(amp=from state file) for signal level
-      snr_off= signal[dB]-noise[dB]
-    - twpa pump on :  measure within a 4 MHz window around the readout resonator twice
-      measure(amp=0) for noise level
-      measure(amp=from state file) for signal level
-    => dsnr=snr_on-snr_off
+* P1dB : measure the gain as a function of readout amplitude and find the point where
+        gain starts to get compressed 1dB
 """
 
 # %% {Imports}
@@ -50,14 +45,16 @@ class Parameters(NodeParameters):
     num_averages: int = 100
     frequency_span_in_mhz: float = 600
     frequency_step_in_mhz: float = 1
-    flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
+    amp_min : float = 0.01
+    amp_max : float = 2
+    points : float = 80
     simulate: bool = False
     simulation_duration_ns: int = 4000
     timeout: int = 300
     load_data_id: Optional[int] = None
     pumpline_attenuation: int = -50 #(-50: fridge atten(-30)+directional coupler(-20)/ room temp line(4m)~-5,)  #-5: fridge line # exclude for now
-    
-node = QualibrationNode(name="twpa_calibration", parameters=Parameters())
+    signalline_attenuation : int = -60-6-10 #-60dB : fridge atten, -6dB : cryogenic wiring, -10dB : room temp wiring # carmel gilboa
+node = QualibrationNode(name="00b_twpa_saturation", parameters=Parameters())
 # %% {Initialize_QuAM_and_QOP}
 # Class containing tools to help handling units and conversions.
 u = unit(coerce_to_integer=True)
@@ -68,6 +65,7 @@ machine = Quam.load()
 twpas = [machine.twpas[t] for t in node.parameters.twpas]
 qubits = [machine.qubits[machine.twpas['twpa1'].qubits[1]]]
 resonators = [machine.qubits[machine.twpas['twpa1'].qubits[1]].resonator]
+spectroscopy = [twpas[0].spectroscopy]
 
 # Generate the OPX and Octave configurations
 config = machine.generate_config()
@@ -76,8 +74,7 @@ if node.parameters.load_data_id is None:
     qmm = machine.connect()
 #%% # readout pulse information
 from iqcc_calibration_tools.quam_config.lib.qua_datasets import dBm, mV
-signal_line_atten=-60-6-5 #-60dB : fridge atten, -6dB : cryogenic wiring, -5dB : room temp wiring
-readout_power=[np.round(dBm(qubits[i].resonator.opx_output.full_scale_power_dbm,qubits[i].resonator.operations["readout"].amplitude)+signal_line_atten,2) for i in range(len(qubits))]
+readout_power=[np.round(dBm(qubits[i].resonator.opx_output.full_scale_power_dbm,qubits[i].resonator.operations["readout"].amplitude)+node.parameters.signalline_attenuation,2) for i in range(len(qubits))]
 readout_length=[qubits[i].resonator.operations["readout"].length for i in range(len(qubits))]
 readout_voltage=[np.round(mV(qubits[i].resonator.opx_output.full_scale_power_dbm,qubits[i].resonator.operations["readout"].amplitude),2) for i in range(len(qubits))]
 for i in range(len(readout_power)):
@@ -91,7 +88,9 @@ dfs = np.arange(-span / 2, +span / 2, step)
 
 # pump amp, frequency sweep
 full_scale_power_dbm=twpas[0].pump.opx_output.full_scale_power_dbm
-daps = np.linspace(0.1, 2, 80) # when readout amp=0.1, -120<ps<-95
+daps = np.linspace(node.parameters.amp_min, node.parameters.amp_max, node.parameters.points) # when readout amp=0.15, -120<ps<-95
+f_p = twpas[0].pump_frequency
+p_p = twpas[0].pump_amplitude
 # pump duration should be able to cover the resonator spectroscopy which takes #(dfs) (as we are multiplexing qubit number doesnt matter) 
 pump_duration = (10*len(daps)*len(dfs)*(machine.qubits[twpas[0].qubits[0]].resonator.operations["readout"].length+machine.qubits[twpas[0].qubits[0]].resonator.depletion_time))/4#(n_avg*len(dfs)*(machine.qubits[twpas[0].qubits[0]].resonator.operations["readout"].length+machine.qubits[twpas[0].qubits[0]].resonator.depletion_time))/4
 with program() as twpa_pump_off:    
@@ -104,13 +103,13 @@ with program() as twpa_pump_off:
 # measure readout responses around readout resonators without pump
         with for_each_(da, daps): 
             with for_(*from_array(df, dfs)): 
-                for i, rr in enumerate(resonators):
+                for i, spec in enumerate(spectroscopy):
                     # Update the resonator frequencies for all resonators
-                    update_frequency(rr.name, df+rr.intermediate_frequency)
+                    update_frequency(spec.name, df+spec.intermediate_frequency)
                     # Measure the resonator
-                    rr.measure("readout", amplitude_scale=da, qua_vars=(I[i], Q[i]))
+                    spec.measure("readout", amplitude_scale=da, qua_vars=(I[i], Q[i]))
                     # wait for the resonator to relax
-                    rr.wait(rr.depletion_time * u.ns)
+                    spec.wait(spec.depletion_time * u.ns)
                     # save data
                     save(I[i], I_st[i])
                     save(Q[i], Q_st[i])
@@ -128,18 +127,18 @@ with program() as twpa_pump_on:
 # TWPA on
     with for_(n, 0, n < n_avg, n + 1):  
         save(n, n_st)
-        update_frequency(twpas[0].pump.name, -11e6+twpas[0].pump.intermediate_frequency)
-        twpas[0].pump.play('pump', amplitude_scale=0.178, duration=pump_duration)#+250)
+        update_frequency(twpas[0].pump.name, f_p+twpas[0].pump.intermediate_frequency)
+        twpas[0].pump.play('pump', amplitude_scale=p_p, duration=pump_duration)#+250)
         wait(250) #1000/4 wait 1us for pump to settle before readout
         with for_each_(da, daps): 
             with for_(*from_array(df, dfs)):
-                for i, rr in enumerate(resonators):
+                for i, spec in enumerate(spectroscopy):
                     # Update the resonator frequencies for all resonators
-                    update_frequency(rr.name, df+rr.intermediate_frequency)
+                    update_frequency(spec.name, df+spec.intermediate_frequency)
                     # Measure the resonator
-                    rr.measure("readout", amplitude_scale=da, qua_vars=(I[i], Q[i]))
+                    spec.measure("readout", amplitude_scale=da, qua_vars=(I[i], Q[i]))
                     # wait for the resonator to relax
-                    rr.wait(rr.depletion_time * u.ns)
+                    spec.wait(spec.depletion_time * u.ns)
                     # save data
                     save(I[i], I_st[i])
                     save(Q[i], Q_st[i])
@@ -192,12 +191,13 @@ ds_ = ds_.assign({"IQ_abs": 1e3*np.sqrt(ds_["I"] ** 2 + ds_["Q"] ** 2)})
 # %% {Data Analysis}
 # Gain & P 1dB point (saturation power)
 Gain = mvTOdbm(ds_.IQ_abs.values[0])-mvTOdbm(ds.IQ_abs.values[0])
-ps=np.round(dBm(qubits[0].resonator.opx_output.full_scale_power_dbm,
-                daps*resonators[0].operations["readout"].amplitude) # resonator amp should be 0.1 to make ps from -120~-94
-                +signal_line_atten,2)
+ps=np.round(dBm(twpas[0].spectroscopy.opx_output.full_scale_power_dbm,
+                daps*twpas[0].spectroscopy.operations["readout"].amplitude) # resonator amp should be 0.1 to make ps from -120~-94
+                +node.parameters.signalline_attenuation,2)
 
 # %% {Plotting}
-# Gain compression along the bandwidth 
+print(f"calibration time = {np.round(1e-9*len(ps)*len(dfs)*n_avg*(machine.qubits[twpas[0].qubits[0]].resonator.operations['readout'].length + machine.qubits[twpas[0].qubits[0]].resonator.depletion_time), 3)} sec")
+# fs VS Gain : Gain compression along the bandwidth 
 fs=np.array([dfs+q.resonator.RF_frequency for q in qubits])[0]
 plt.figure(figsize=(4,3))
 for i in range(1,len(daps),10):
@@ -224,11 +224,9 @@ plt.title(r'Gain Compression ($P_{1\mathrm{dB}}$)')
 plt.legend(loc='upper right', bbox_to_anchor=(1.5, 1), fontsize=7)
 # %% {Update state}
 p1db = ps[p1db]
-fp=-11e6+twpas[0].pump.intermediate_frequency+twpas[0].pump.LO_frequency
-pp=0.178
 node.results = {"p_saturation":p1db,
-                "fp":fp,
-                 "pp":pp }
+                "fp":f_p+twpas[0].pump.intermediate_frequency+twpas[0].pump.LO_frequency,
+                 "pp":p_p }
 if not node.parameters.load_data_id:
     with node.record_state_updates():        
         machine.twpas['twpa1'].p_saturation=p1db
