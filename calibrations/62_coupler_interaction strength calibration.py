@@ -327,5 +327,5 @@ if not node.parameters.simulate:
     node.outcomes = {q.name: "successful" for q in qubit_pairs}
     node.results['initial_parameters'] = node.parameters.model_dump()
     node.machine = machine
-    # node.save()
+    node.save()
 # %%
