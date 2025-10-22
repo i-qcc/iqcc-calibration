@@ -38,10 +38,14 @@ from iqcc_calibration_tools.quam_config.macros import qua_declaration, active_re
 from qualang_tools.loops import from_array
 u = unit(coerce_to_integer=True)
 <<<<<<< HEAD
+<<<<<<< HEAD
 from scipy.signal import welch
 =======
 
 >>>>>>> cf92d5e (Bayesian)
+=======
+from scipy.signal import welch
+>>>>>>> 98ee2de (Bayesian estimation scripts)
 # %% {Extra functions for data fetching}
 
 def extract_string(input_string):
@@ -92,6 +96,7 @@ def fetch_results_as_xarray_arb_var(handles, qubits, measurement_axis, var_name 
 class Parameters(NodeParameters):
     # Define which qubits to measure
 <<<<<<< HEAD
+<<<<<<< HEAD
     qubits: Optional[List[str]] = None
 
     # Experiment parameters
@@ -113,26 +118,36 @@ class Parameters(NodeParameters):
     keep_shot_data: bool = True
 =======
     qubits: Optional[List[str]] = ["Q5"]
+=======
+    qubits: Optional[List[str]] = None
+>>>>>>> 98ee2de (Bayesian estimation scripts)
 
     # Experiment parameters
-    num_repetitions: int = 20000
+    num_repetitions: int = 2000
     detuning: int = 7 * u.MHz
     # min_wait_time_in_ns: int = 16
     min_wait_time_in_ns: int = 36
-    max_wait_time_in_ns: int = 4000
+    max_wait_time_in_ns: int = 8000
     wait_time_step_in_ns: int = 72
     
-    physical_detuning: int = 1 * u.MHz
+    physical_detuning: int = 5 * u.MHz
 
-    # Bayesian parameters
+    # Bayesian parameters - frequency should be between 0 and 8 MHz due to the limitation of fixed variables. Can be modified by chagning from MHz to 10MHz units.
+    
     f_min: float = 6.5 #MHz
     f_max: float = 7.5 #MHz
+<<<<<<< HEAD
     df: float = 0.01 #MHz
 
     # Control parameters
     reset_type: Literal["active", "thermal"] = "thermal"
     use_state_discrimination: bool = True
 >>>>>>> cf92d5e (Bayesian)
+=======
+    df: float = 0.02 #MHz
+    
+    keep_shot_data: bool = True
+>>>>>>> 98ee2de (Bayesian estimation scripts)
 
     # Execution parameters
     simulate: bool = False
@@ -191,6 +206,7 @@ with program() as BayesFreq:
     I, I_st, Q, Q_st, n, n_st = qua_declaration(num_qubits=num_qubits)
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     state = [declare(int) for _ in range(num_qubits)]
     state_st = [declare_stream() for _ in range(num_qubits)]
 
@@ -204,12 +220,15 @@ with program() as BayesFreq:
 
     t = declare(int)
     phase = declare(fixed)
+=======
+    state = [declare(int) for _ in range(num_qubits)]
+    state_st = [declare_stream() for _ in range(num_qubits)]
+>>>>>>> 98ee2de (Bayesian estimation scripts)
 
     # Bayes variables
-    frequencies = declare(fixed, value=v_f.tolist())
-
-    Pf = declare(fixed, value=(np.ones(len(v_f)) / len(v_f)).tolist())
+    frequencies = declare(fixed, value=v_f.tolist())   
     Pf_st = [declare_stream() for _ in range(num_qubits)]
+<<<<<<< HEAD
 
     norm = declare(fixed)
     s = declare(int)  # Variable for qubit state classification
@@ -226,11 +245,16 @@ with program() as BayesFreq:
 
     estimated_frequency = declare(fixed) #in MHz
 >>>>>>> cf92d5e (Bayesian)
+=======
+>>>>>>> 98ee2de (Bayesian estimation scripts)
     estimated_frequency_st = [declare_stream() for _ in range(num_qubits)]
 
     # Main experiment loop
     for i, qubit in enumerate(qubits):
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 98ee2de (Bayesian estimation scripts)
         # align()
         t = declare(int)
         phase = declare(fixed)        
@@ -247,8 +271,11 @@ with program() as BayesFreq:
         # SPAM parameters
         alpha = declare(fixed)
         beta = declare(fixed)
+<<<<<<< HEAD
 =======
 >>>>>>> cf92d5e (Bayesian)
+=======
+>>>>>>> 98ee2de (Bayesian estimation scripts)
 
         # SPAM parameters from confusion matrix
         assign(alpha, qubit.resonator.confusion_matrix[0][1] - qubit.resonator.confusion_matrix[1][0])
@@ -279,11 +306,16 @@ with program() as BayesFreq:
                 # Measurement
                 readout_state(qubit, state[i])
 <<<<<<< HEAD
+<<<<<<< HEAD
                 if node.parameters.keep_shot_data:
                     save(state[i], state_st[i])
 =======
                 save(state[i], state_st[i])
 >>>>>>> cf92d5e (Bayesian)
+=======
+                if node.parameters.keep_shot_data:
+                    save(state[i], state_st[i])
+>>>>>>> 98ee2de (Bayesian estimation scripts)
                 qubit.align()
                 qubit.xy.play("x180", condition=Cast.to_bool(state[i]))
                 
@@ -331,11 +363,16 @@ with program() as BayesFreq:
         for i in range(num_qubits):
             Pf_st[i].buffer(n_reps,len(v_f)).save(f"Pf{i + 1}")
 <<<<<<< HEAD
+<<<<<<< HEAD
             if node.parameters.keep_shot_data:
                 state_st[i].buffer(n_reps,len(idle_times)).save(f"state{i + 1}")
 =======
             state_st[i].buffer(n_reps,len(idle_times)).save(f"state{i + 1}")
 >>>>>>> cf92d5e (Bayesian)
+=======
+            if node.parameters.keep_shot_data:
+                state_st[i].buffer(n_reps,len(idle_times)).save(f"state{i + 1}")
+>>>>>>> 98ee2de (Bayesian estimation scripts)
             estimated_frequency_st[i].buffer(n_reps).save(f"estimated_frequency{i + 1}")
 # %% {Simulate_or_execute}
 if node.parameters.simulate:
@@ -353,10 +390,14 @@ elif node.parameters.load_data_id is None:
 # %% {Data_fetching_and_dataset_creation}
 if not node.parameters.simulate:
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 98ee2de (Bayesian estimation scripts)
     if node.parameters.keep_shot_data:
         ds_single = fetch_results_as_xarray_arb_var(job.result_handles, qubits, {"t": idle_times*4, "repetition": np.arange(1,n_reps+1)}, "state")
     else:
         ds_single = None
+<<<<<<< HEAD
     ds_Pf = fetch_results_as_xarray_arb_var(job.result_handles, qubits, { "vf" : np.arange(node.parameters.f_min, node.parameters.f_max + 0.5 * node.parameters.df, node.parameters.df),"repetition": np.arange(1,n_reps+1)}, "Pf")
     ds_estimated_frequency = fetch_results_as_xarray_arb_var(job.result_handles, qubits, {"repetition": np.arange(1,n_reps+1)}, "estimated_frequency")
     ds_time_stamp = fetch_results_as_xarray_arb_var(job.result_handles, qubits, {"repetition": np.arange(1,n_reps+1)}, "time_stamp")
@@ -377,10 +418,26 @@ if not node.parameters.simulate:
     ds_time_stamp = fetch_results_as_xarray_arb_var(job.result_handles, qubits, {"repetition": np.arange(1,n_reps+1)}, "time_stamp")
     ds = xr.merge([ds_single, ds_Pf / ds_Pf.Pf.sum(dim='vf')])
 >>>>>>> cf92d5e (Bayesian)
+=======
+    ds_Pf = fetch_results_as_xarray_arb_var(job.result_handles, qubits, { "vf" : np.arange(node.parameters.f_min, node.parameters.f_max + 0.5 * node.parameters.df, node.parameters.df),"repetition": np.arange(1,n_reps+1)}, "Pf")
+    ds_estimated_frequency = fetch_results_as_xarray_arb_var(job.result_handles, qubits, {"repetition": np.arange(1,n_reps+1)}, "estimated_frequency")
+    ds_time_stamp = fetch_results_as_xarray_arb_var(job.result_handles, qubits, {"repetition": np.arange(1,n_reps+1)}, "time_stamp")
+
+    timestamp_values = ds_time_stamp.time_stamp.values
+
+    ds_time_stamp = ds_time_stamp.assign(time_stamp=(ds_time_stamp.time_stamp.dims, timestamp_values))
+    time_stamp = ((ds_time_stamp - ds_time_stamp.min(dim = "repetition"))*4e-9).time_stamp    
+    
+    if node.parameters.keep_shot_data:
+        ds = xr.merge([ds_single, ds_Pf / ds_Pf.Pf.sum(dim='vf'), ds_estimated_frequency, time_stamp])
+    else:
+        ds = xr.merge([ds_Pf / ds_Pf.Pf.sum(dim='vf'), ds_estimated_frequency, ds_time_stamp])
+>>>>>>> 98ee2de (Bayesian estimation scripts)
     
     node.results = {"ds": ds}
 
     # %% {Data_analysis}
+<<<<<<< HEAD
 <<<<<<< HEAD
 
     # Create DataArray of estimated frequency with 'qubit' and 'repetition' dimensions
@@ -486,6 +543,104 @@ if not node.parameters.simulate:
     ds_time_stamp = ds_time_stamp.assign(time_stamp=(ds_time_stamp.time_stamp.dims, timestamp_values))
     time_stamp = ((ds_time_stamp - ds_time_stamp.min(dim = "repetition"))*4e-6).time_stamp
 >>>>>>> cf92d5e (Bayesian)
+=======
+
+    # Create DataArray of estimated frequency with 'qubit' and 'repetition' dimensions
+    # Use the processed time_stamp for the time axis
+    estimated_frequency_xr = xr.DataArray(
+        ds_estimated_frequency.estimated_frequency.values,
+        dims=["qubit", "repetition"],
+        coords={
+            "qubit": ds_estimated_frequency.qubit.values,
+            "time_stamp": (("qubit", "repetition"), time_stamp.values)
+        },
+        name="estimated_frequency"
+    )
+
+    # Compute FFT along the 'repetition' axis for each qubit
+    estimated_frequency = ds_estimated_frequency.estimated_frequency.values  # shape: (num_qubit, num_repetitions)
+    n_qubits, n_reps = estimated_frequency.shape
+
+    # If available, use the time step between adjacent repetitions to set frequency axis
+    # Assume time_stamp (ms units) is shape (num_qubit, num_reps)
+    t_vals = time_stamp.values  # shape: (num_qubit, num_reps)
+
+    # Frequency step (Hz) for each qubit (if constant sampling)
+    dt = np.mean(np.diff(t_vals, axis=1), axis=1)  # convert ms to s
+    # If sampling rate is irregular, ignore for now and use a representative dt
+    # Take mean dt for all qubits
+    mean_dt = np.mean(dt)
+    freq_axis = np.fft.rfftfreq(n_reps, d=mean_dt)  # in Hz
+
+    # Compute FFT for all qubits
+    fft_data = np.fft.rfft(estimated_frequency - np.nanmean(estimated_frequency, axis=1, keepdims=True), axis=1)
+    fft_data = np.abs(fft_data)   # magnitude of FFT
+
+    ds_estimated_frequency_fft = xr.DataArray(
+        fft_data,
+        dims=("qubit", "frequency"),
+        coords={
+            "qubit": ds_estimated_frequency.qubit.values,
+            "frequency": freq_axis
+        },
+        name="estimated_frequency_fft"
+    )
+    
+    
+    # Compute Welch's transform (Welch PSD) for each qubit and pack into an xarray
+
+
+    welch_freqs_list = []
+    welch_psd_list = []
+    nperseg = min(1024, n_reps)
+    if nperseg < 16:
+        nperseg = n_reps // 2
+
+    # Use mean_dt as dt, fs=1/mean_dt
+    fs = 1.0 / mean_dt
+
+    for qidx in range(n_qubits):
+        y = estimated_frequency[qidx] - np.nanmean(estimated_frequency[qidx])
+        f, Pxx = welch(
+            y,
+            fs=fs,
+            window='hann',
+            nperseg=nperseg,
+            noverlap=nperseg//2,
+            scaling='density',
+            detrend='constant'
+        )
+        welch_freqs_list.append(f)
+        welch_psd_list.append(Pxx)
+
+    # Assume the Welch frequency axis is the same for all qubits, so take the first
+    welch_freqs = welch_freqs_list[0]
+    welch_psd_arr = np.stack(welch_psd_list, axis=0)
+
+    ds_estimated_frequency_welch = xr.DataArray(
+        welch_psd_arr,
+        dims=("qubit", "frequency"),
+        coords={
+            "qubit": ds_estimated_frequency.qubit.values,
+            "frequency": welch_freqs
+        },
+        name="estimated_frequency_welch_psd"
+    )
+    
+    # Compute the integrated noise density (cumulative spectral density) for each qubit
+    # Integrated noise density is the cumulative sum of PSD * df up to each frequency value
+    integrated_noise_density_arr = np.cumsum(welch_psd_arr * np.diff(welch_freqs, prepend=0), axis=1)
+
+    ds_integrated_noise_density = xr.DataArray(
+        integrated_noise_density_arr,
+        dims=("qubit", "frequency"),
+        coords={
+            "qubit": ds_estimated_frequency.qubit.values,
+            "frequency": welch_freqs
+        },
+        name="integrated_noise_density"
+    )
+>>>>>>> 98ee2de (Bayesian estimation scripts)
 
 
     # %% {Plotting}
@@ -498,11 +653,15 @@ if not node.parameters.simulate:
         da = ds_Pf[y_data_key].sel(qubit=qubit_name)
         X, Y = np.meshgrid(da.vf.values, time_stamp.sel(qubit=qubit_name).values)
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 98ee2de (Bayesian estimation scripts)
         # Robustify the plot: set vmin/vmax to 10th and 90th percentiles of the data (ignoring NaN)
         data = da.values
         vmin = np.nanpercentile(data, 1)
         vmax = np.nanpercentile(data, 99)
         pcm = ax.pcolormesh(X, Y, data, vmin=vmin, vmax=vmax)
+<<<<<<< HEAD
         ax.set_xlabel("frequency (MHz)")
         ax.set_ylabel("time (s)")
 =======
@@ -510,12 +669,17 @@ if not node.parameters.simulate:
         ax.set_xlabel("frequency (MHz)")
         ax.set_ylabel("time (ms)")
 >>>>>>> cf92d5e (Bayesian)
+=======
+        ax.set_xlabel("frequency (MHz)")
+        ax.set_ylabel("time (s)")
+>>>>>>> 98ee2de (Bayesian estimation scripts)
         ax.set_title(qubit_name)
         grid_bayes.fig.colorbar(pcm, ax=ax, label=y_data_key)
         ax.grid(False)
 
     grid_bayes.fig.suptitle("Frequency Bayes distribution")
     plt.tight_layout()
+<<<<<<< HEAD
 <<<<<<< HEAD
     node.results["PF_figure"] = grid_bayes.fig
 
@@ -542,28 +706,38 @@ if not node.parameters.simulate:
         plt.tight_layout()
         node.results["state_figure"] = grid_shot.fig
 =======
+=======
+    node.results["PF_figure"] = grid_bayes.fig
+>>>>>>> 98ee2de (Bayesian estimation scripts)
 
     # Create qubit grid
-    grid_shot = QubitGrid(ds, [q.grid_location for q in qubits])
-    y_data_key = "state"
-    # Loop over grid axes and qubits
-    for ax, qubit in grid_iter(grid_shot):
-        qubit_name = qubit["qubit"]
-        t_vals = ds_single.t.values
-        y_vals = ds_single[y_data_key].sel(qubit=qubit_name).values
+    if node.parameters.keep_shot_data:
+        grid_shot = QubitGrid(ds, [q.grid_location for q in qubits])
+        y_data_key = "state"
+        # Loop over grid axes and qubits
+        for ax, qubit in grid_iter(grid_shot):
+            qubit_name = qubit["qubit"]
+            t_vals = ds_single.t.values
+            y_vals = ds_single[y_data_key].sel(qubit=qubit_name).values
 
-        # Plot data with pcolormesh
-        X, Y = np.meshgrid(t_vals*1e-3, time_stamp.sel(qubit=qubit_name).values)
-        pcm = ax.pcolormesh(X, Y, y_vals)
-        ax.set_xlabel("time (µs)")
-        ax.set_ylabel("time (ms)")
-        ax.set_title(qubit_name)
-        grid_shot.fig.colorbar(pcm, ax=ax, label=f"{y_data_key}")
-        ax.grid(False)
+            # Plot data with pcolormesh
+            X, Y = np.meshgrid(t_vals*1e-3, time_stamp.sel(qubit=qubit_name).values)
+            pcm = ax.pcolormesh(X, Y, y_vals)
+            ax.set_xlabel("time (µs)")
+            ax.set_ylabel("time (s)")
+            ax.set_title(qubit_name)
+            grid_shot.fig.colorbar(pcm, ax=ax, label=f"{y_data_key}")
+            ax.grid(False)
 
+<<<<<<< HEAD
     grid_shot.fig.suptitle("Single-shot data")
     plt.tight_layout()
 >>>>>>> cf92d5e (Bayesian)
+=======
+        grid_shot.fig.suptitle("Single-shot data")
+        plt.tight_layout()
+        node.results["state_figure"] = grid_shot.fig
+>>>>>>> 98ee2de (Bayesian estimation scripts)
     
     # Create qubit grid
     grid_freq = QubitGrid(ds, [q.grid_location for q in qubits])
@@ -582,6 +756,9 @@ if not node.parameters.simulate:
 
     grid_freq.fig.suptitle("Estimated Frequency")
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 98ee2de (Bayesian estimation scripts)
     plt.tight_layout()   
     node.results["estimated_frequency_figure"] = grid_freq.fig
     
@@ -635,14 +812,18 @@ if not node.parameters.simulate:
     grid_freq.fig.suptitle("Integrated Noise Density")
     plt.tight_layout()
          
+<<<<<<< HEAD
 =======
     plt.tight_layout()    
 >>>>>>> cf92d5e (Bayesian)
+=======
+>>>>>>> 98ee2de (Bayesian estimation scripts)
     # %%
 
     # %% {Update_state}
 
     # %% {Save_results}
+<<<<<<< HEAD
 <<<<<<< HEAD
     node.results["initial_parameters"] = node.parameters.model_dump()
     node.machine = machine
@@ -743,4 +924,9 @@ plt.tight_layout()
 plt.show()
 
 >>>>>>> cf92d5e (Bayesian)
+=======
+    node.results["initial_parameters"] = node.parameters.model_dump()
+    node.machine = machine
+    node.save()
+>>>>>>> 98ee2de (Bayesian estimation scripts)
 # %%
