@@ -136,9 +136,9 @@ with program() as CPhase_Oscillations:
                 for qubit, state_q, state_st in [(qp.qubit_control, state_control[i], state_st_control[i]), (qp.qubit_target, state_target[i], state_st_target[i])]:
                     # reset
                     if node.parameters.reset_type == "active":
-                            active_reset(qp.qubit_control)
+                            active_reset_simple(qp.qubit_control)
                             qp.align()
-                            active_reset(qp.qubit_target)
+                            active_reset_simple(qp.qubit_target)
                             qp.align()
                     else:
                         wait(qp.qubit_control.thermalization_time * u.ns)
