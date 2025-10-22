@@ -301,12 +301,12 @@ if not node.parameters.simulate:
     grid_names, qubit_pair_names = grid_pair_names(qubit_pairs)
     grid = QubitPairGrid(grid_names, qubit_pair_names)
     for ax, qubit_pair in grid_iter(grid):
-        phase_diffs[qubit_pair['qubit']].plot.line(ax=ax)
-        # if qubit_pair['qubit'] in fitted:
-            # ax.plot(phase_diffs[qubit_pair['qubit']].amp_full, fitted[qubit_pair['qubit']])
-        # ax.plot([optimal_amps[qubit_pair['qubit']]], [0.5], marker = 'o', color = 'red')
-        # ax.axhline(y=0.5, color='red', linestyle='--',lw=0.5)
-        # ax.axvline(x=optimal_amps[qubit_pair['qubit']], color='red', linestyle='--',lw=0.5)
+        phase_diffs[qubit_pair['qubit']].plot.line(ax=ax, x = "amp_full")
+        if qubit_pair['qubit'] in fitted:
+            ax.plot(phase_diffs[qubit_pair['qubit']].amp_full, fitted[qubit_pair['qubit']])
+        ax.plot([optimal_amps[qubit_pair['qubit']]], [0.5], marker = 'o', color = 'red')
+        ax.axhline(y=0.5, color='red', linestyle='--',lw=0.5)
+        ax.axvline(x=optimal_amps[qubit_pair['qubit']], color='red', linestyle='--',lw=0.5)
         # Add secondary x-axis for detuning in MHz
         quad_term = qp.qubit_control.freq_vs_flux_01_quad_term if qp.macros[node.parameters.cz_macro_name].pulsed_qubit == "control" else qp.qubit_target.freq_vs_flux_01_quad_term
         def amp_to_detuning_MHz(amp):
