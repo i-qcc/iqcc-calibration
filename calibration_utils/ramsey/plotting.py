@@ -128,8 +128,6 @@ def plot_transmission_amplitude(ax, ds, qubit, fitted=None):
 
 def add_fit_text(ax, fit_results):
     """Add fit results text to the axis."""
-    decay = 1/fit.sel(fit_vals="decay").fit.mean(dim = "detuning_signs").values
-    decay_error = decay**-2/fit.sel(fit_vals="decay_decay").fit.mean(dim = "detuning_signs").values
     ax.text(
         0.9,
         0.9,
