@@ -1,17 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
+from scipy.special import erf
 
 def voltTOdbm(volt):
     p_w=(volt**2)/50
     dbm=10*np.log10(p_w*1000)
     return dbm
-# def dBm(full_scale_power_dbm,daps):
-#     v=np.sqrt((2*50*10**(full_scale_power_dbm/10))/1000)*daps*1 # 1 : twpa readout amplitude  #opx1000 documentation
-#     p_w=(v**2)/50
-#     dbm=10*np.log10(p_w*1000)-10
-#     return dbm +5.68 #5.68 calibrated through SA on 14/09
-
 ################ 250922 V2 #####################################
 def dBm(full_scale_power_dbm,daps):
     v=np.sqrt((2*50*10**(full_scale_power_dbm/10))/1000)*daps*1 # 1 : twpa readout amplitude  #opx1000 documentation
@@ -74,7 +69,63 @@ def noise(ds, qubits, dfps, daps, n_avg):
                     I_noise[i][j][k]=np.std(I[i][j][k])
                     Q_noise[i][j][k]=np.std(I[i][j][k])
     return (voltTOdbm(I_noise)+voltTOdbm(Q_noise))/2 #is it ok to define the noise as avg of IQ std
+######################## optimizer
+def lin(db_value):
+        return 10 ** (db_value / 10)
+def fidelity(ro,t1,snr,pgg): #snr=distance/(distribution of g,e)
+    fidelity=np.exp(-ro/(2*t1))*erf(snr/(np.sqrt(2)))*pgg
+    return fidelity  
+def pa(qubits, dfps, daps):
+    target_shape = (len(qubits), len(dfps), len(daps), 1)
+    total_elements = np.prod(target_shape)
+    pa = np.resize(daps, total_elements).reshape(target_shape)
+    return pa
+def fp(qubits, dfps, daps):
+    fp = np.zeros((len(qubits), len(dfps), len(daps), 1))
+    fp[:, :, :, 0] = dfps[np.newaxis, :, np.newaxis]
+    return fp
+def min_dsnr(qubits,dsnr_avg,snr_off,pgg, dfps, daps): 
+    twpa_fct=np.sqrt(lin(dsnr_avg))
+    f=fidelity(qubits[0].resonator.operations["readout"].length*1e-3,
+               qubits[0].T1*1e6, 
+               snr_off*twpa_fct,
+               pgg)
+    f_=f.reshape(len(dfps)*len(daps))
+    sat_idx=np.where((np.max(f_)-f_)*100<0.1)
+    sat_dsnr = dsnr_avg.reshape(len(dfps)*len(daps))[sat_idx[0]]
+    return min(sat_dsnr)
+def min_gain(qubits,  twpas):
+    ##### 1.max a_ro_on_max s.t) #(mtpx Ro)*Pon < Psat-10 : total readout power should be smaller than saturation power
+    ##### get the da , theoretically can be used 
+    a_ro=np.linspace(0,1,500)
+    ps_on=dBm(qubits[0].resonator.opx_output.full_scale_power_dbm,
+            a_ro*qubits[0].resonator.operations["readout"].amplitude)-60-6-5
+    mtpx_ps_on= ps_on + 10*np.log10(len(qubits))
+    idx=np.where(mtpx_ps_on<twpas[0].p_saturation-20)[0][-1]
+    a_ro_on_max=a_ro[idx]
+    ###### 2. a_ro_off~a_ro_off*a_ro_on*sqrt(linG) : 
+    ###### pick the Gain which compensate the lowered readout amplitude up to the readout amplitude when twpa is off
+    g=np.linspace(0,25,500)
+    a_ro_off=1 # value doesnt matter
+    idx_=np.where(a_ro_off<a_ro_off*a_ro_on_max*np.sqrt(10**(g/10)))
+    minimum_gain=g[idx_[0][0]]
+    # to guarantee TWPA gain suppress HEMT noise
+    if minimum_gain<10:
+        minimum_gain=10
+    elif minimum_gain>=10:
+        minimum_gain=minimum_gain
+    return minimum_gain
 
+def optimizer(mingain, mindsnr, gain_avg, dsnr_avg, daps, dfps, p_lo,p_if):
+    mask = gain_avg > mingain
+    masked_dsnr = np.where(mask, dsnr_avg, -np.inf)
+    flat_index = np.argmax(masked_dsnr)
+    idx = np.unravel_index(flat_index, dsnr_avg.shape)
+    print(f"Optimized ap={np.round(daps[idx[1]],5)},fp={np.round((p_lo+p_if+dfps[idx[0]])*1e-9,3)}GHz ")
+    print(f"gain_avg :{np.round(gain_avg[idx],2)}dB")
+    print(f"dsnr_avg :{np.round(dsnr_avg[idx],2)}dB")
+    return idx
+#############################
 def resonator_fit(f, f0, gamma, a, c0, c1):
     # f0 [GHz], gamma [GHz], a > 0 is dip depth, baseline c0 + c1*(f - f0)
     return (c0 + c1*(f - f0)) - a / (1.0 + ((f - f0)/gamma)**2)
@@ -159,7 +210,6 @@ def _fit_one_trace(f, s21):
     popt, pcov = curve_fit(resonator_fit, f, s21, p0=p0, bounds=bounds, maxfev=20000)
     f0_fit, gamma_fit, a_fit, c0_fit, c1_fit = popt
     return a_fit  # dip depth in dB
-
 def signal_size_multi(f_arr, s21_arr):
     """
     Return array of a_fit (dip depth in dB) for multiple traces.
@@ -205,4 +255,4 @@ def delta_s(RF_freq, ds_off_s, ds_on_s, qubits, dfps, daps):
     signalsize_off = signal_size_multi(f_stack, s21_off_stack)
     signalsize_on = signal_size_multi(f_stack, s21_on_stack)
     return signalsize_on-signalsize_off
-######################## saturation ##########################################
+

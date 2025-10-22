@@ -23,6 +23,7 @@ class TWPA(QuamComponent):
     id: Union[int, str]
 
     pump: IQChannel = None
+    spectroscopy: IQChannel = None
 
     max_gain: float = None
     max_snr_improvement: float = None
