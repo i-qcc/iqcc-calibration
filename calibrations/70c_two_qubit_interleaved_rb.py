@@ -63,11 +63,11 @@ from calibration_utils.two_qubit_interleaved_rb.plot_utils import gate_mapping
 # %% {Node_parameters}
 
 class Parameters(NodeParameters):
-    qubit_pairs: Optional[List[str]] = ["qD1-qD2"]
-    circuit_lengths: tuple[int] = (0,1,2,4,8,16) # in number of cliffords
+    qubit_pairs: Optional[List[str]] = ["qB1-qB2"]
+    circuit_lengths: tuple[int] = (0,1,2,4,8,16,32,64) # in number of cliffords
     num_circuits_per_length: int = 15
-    num_averages: int = 15
-    target_gate: str = "cz" # "idle_2q" or "cz" supported 
+    num_averages: int = 20
+    target_gate: str = "idle_2q" # "idle_2q" or "cz" supported 
     basis_gates: list[str] = ['rz', 'sx', 'x', 'cz'] 
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
     reset_type_thermal_or_active: Literal["thermal", "active"] = "thermal"
