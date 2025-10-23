@@ -7,3 +7,5 @@ __pycache__/
 .Python
 *.identifier
 iqcc_cloud_token_generator.py
+calibrations/08e_Ramsey_vs_Flux_Calibration_legacy.py
+calibrations/10f_Stark_vs_DRAG_Calibration_RB_circ.py
