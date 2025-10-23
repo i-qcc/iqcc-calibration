@@ -17,8 +17,6 @@ active_qubits = [q.name for q in machine.active_qubits]
 
 class Parameters(GraphParameters):
     qubits: List[str] = active_qubits
-
-parameters = Parameters()
   
 multiplexed = True
 flux_point = "joint"
@@ -27,7 +25,7 @@ reset_type_thermal_or_active = "thermal"
 
 g = QualibrationGraph(
     name="graph_retune_fine_arbel",
-    parameters=parameters,
+    parameters=Parameters(),
     nodes={
         "IQ_blobs": library.nodes["07_iq_blobs"].copy(
             multiplexed=multiplexed,

@@ -249,8 +249,24 @@ if not node.parameters.simulate:
     
     optimized_ds = xr.concat(optimal_slices, dim='qubit')
     
+    # Reconstruct the freq_full coordinate for the optimized dataset
+    optimized_ds = optimized_ds.assign_coords(
+        {
+            "freq_full": (
+                ["qubit", "freq"],
+                np.array([dfs + qubit_freqs[q.name] + detunings[q.name] for q in qubits]),
+            )
+        }
+    )
+    optimized_ds.freq_full.attrs["long_name"] = "Frequency"
+    optimized_ds.freq_full.attrs["units"] = "GHz"
+    
     # Find peaks for all qubits
     result = peaks_dips(optimized_ds.I_rot, dim='freq', prominence_factor=5)
+    
+    # Debug: Print the result structure
+    print(f"Peak detection result structure: {result}")
+    print(f"Available qubits in result: {result.qubit.values if hasattr(result, 'qubit') else 'No qubit dimension'}")
     
     # The resonant RF frequency of the qubits
     abs_freqs = dict(
@@ -262,33 +278,42 @@ if not node.parameters.simulate:
             for q in qubits if not np.isnan(result.sel(qubit=q.name).position.values)
         ]
     )
+    
+    print(f"Abs_freqs keys: {list(abs_freqs.keys())}")
+    print(f"Fit_results keys: {list(fit_results.keys())}")
 
     for q in qubits:
         fit_results[q.name] = {}
-        if not np.isnan(result.sel(qubit=q.name).position.values):
-            fit_results[q.name]["fit_successful"] = True
-            fit_results[q.name]["optimal_ro_amp"] = optimal_ro_amps[q.name]
-            fit_results[q.name]["drive_freq"] = result.sel(qubit=q.name).position.values + q.xy.RF_frequency
-            fit_results[q.name]["peak_width"] = float(result.sel(qubit=q.name).width.values)
-            fit_results[q.name]["readout_angle"] = float(angle)
-            
-            # Calculate amplitude scaling factors
-            Pi_length = q.xy.operations["x180"].length
-            used_amp = q.xy.operations["saturation"].amplitude * operation_amp
-            factor_cw = float(target_peak_width / result.sel(qubit=q.name).width.values)
-            factor_pi = np.pi / (result.sel(qubit=q.name).width.values * Pi_length * 1e-9)
-            
-            fit_results[q.name]["factor_cw"] = factor_cw
-            fit_results[q.name]["factor_pi"] = factor_pi
-            
-            print(f"\nResults for {q.name}:")
-            print(f"Optimal readout amplitude: {optimal_ro_amps[q.name]:.3f}")
-            print(f"Drive frequency: {fit_results[q.name]['drive_freq']/1e9:.6f} GHz")
-            print(f"Peak width: {result.sel(qubit=q.name).width.values/1e6:.2f} MHz")
-            print(f"Readout angle: {angle:.4f}")
-        else:
+        try:
+            # Check if the qubit exists in the result and has a valid position
+            if q.name in result.qubit.values and not np.isnan(result.sel(qubit=q.name).position.values):
+                fit_results[q.name]["fit_successful"] = True
+                fit_results[q.name]["optimal_ro_amp"] = optimal_ro_amps[q.name]
+                fit_results[q.name]["drive_freq"] = result.sel(qubit=q.name).position.values + q.xy.RF_frequency
+                fit_results[q.name]["peak_width"] = float(result.sel(qubit=q.name).width.values)
+                fit_results[q.name]["readout_angle"] = float(angle)
+                
+                # Calculate amplitude scaling factors
+                Pi_length = q.xy.operations["x180"].length
+                used_amp = q.xy.operations["saturation"].amplitude * operation_amp
+                factor_cw = float(target_peak_width / result.sel(qubit=q.name).width.values)
+                factor_pi = np.pi / (result.sel(qubit=q.name).width.values * Pi_length * 1e-9)
+                
+                fit_results[q.name]["factor_cw"] = factor_cw
+                fit_results[q.name]["factor_pi"] = factor_pi
+                
+                print(f"\nResults for {q.name}:")
+                print(f"Optimal readout amplitude: {optimal_ro_amps[q.name]:.3f}")
+                print(f"Drive frequency: {fit_results[q.name]['drive_freq']/1e9:.6f} GHz")
+                print(f"Peak width: {result.sel(qubit=q.name).width.values/1e6:.2f} MHz")
+                print(f"Readout angle: {angle:.4f}")
+            else:
+                fit_results[q.name]["fit_successful"] = False
+                print(f"\nFailed to find a peak for {q.name}")
+        except (KeyError, ValueError) as e:
+            # Handle case where qubit is not in result or other errors
             fit_results[q.name]["fit_successful"] = False
-            print(f"\nFailed to find a peak for {q.name}")
+            print(f"\nFailed to find a peak for {q.name} (error: {e})")
 
     # %% {Plotting}
     # Create two separate figures using QubitGrid
@@ -296,19 +321,20 @@ if not node.parameters.simulate:
     # Figure 1: 2D heatmaps
     grid_2d = QubitGrid(ds, [q.grid_location for q in qubits])
     for ax, qubit in grid_iter(grid_2d):
-        qubit_data = ds.sel(qubit=qubit["qubit"])
+        qubit_name = qubit["qubit"]
+        qubit_data = ds.sel(qubit=qubit_name)
         im = ax.pcolormesh(
             qubit_data.freq_full/1e9,
             ro_amps,
             qubit_data.IQ_abs,
             shading='auto'
         )
-        if fit_results[qubit["qubit"]]["fit_successful"]:
-            ax.axhline(y=optimal_ro_amps_scaling[qubit["qubit"]], color='r', linestyle='--', linewidth=2)
+        if qubit_name in fit_results and fit_results[qubit_name]["fit_successful"]:
+            ax.axhline(y=optimal_ro_amps_scaling[qubit_name], color='r', linestyle='--', linewidth=2)
         ax.set_xlabel('Frequency (GHz)')
         ax.set_ylabel('Readout Amplitude Scale')
         ax.set_ylim(0.98*node.parameters.readout_amp_start, 1.02*node.parameters.readout_amp_stop)
-        ax.set_title(f'{qubit["qubit"]}')
+        ax.set_title(f'{qubit_name}')
     
     grid_2d.fig.suptitle(f"Qubit Spectroscopy vs Readout Amplitude Optimization \n {date_time} GMT+3 #{node.node_id} \n multiplexed = {node.parameters.multiplexed}")
     plt.tight_layout()
@@ -317,13 +343,14 @@ if not node.parameters.simulate:
     # Figure 2: Optimal slices
     grid_slice = QubitGrid(optimized_ds, [q.grid_location for q in qubits])
     for ax, qubit in grid_iter(grid_slice):
-        if fit_results[qubit["qubit"]]["fit_successful"]:
-            qubit_slice = optimized_ds.sel(qubit=qubit["qubit"])
+        qubit_name = qubit["qubit"]
+        if qubit_name in fit_results and fit_results[qubit_name]["fit_successful"]:
+            qubit_slice = optimized_ds.sel(qubit=qubit_name)
             freq_ghz = qubit_slice.freq_full / 1e9
             ax.plot(freq_ghz, qubit_slice.I_rot * 1e3, 'b-', label='Data')
             
             # Plot Lorentzian fit
-            qubit_result = result.sel(qubit=qubit["qubit"])
+            qubit_result = result.sel(qubit=qubit_name)
             freq_points = qubit_slice.freq
             approx_peak = qubit_result.base_line + qubit_result.amplitude / (1 + ((freq_points - qubit_result.position) / (qubit_result.width/2)) ** 2)
             
@@ -331,20 +358,22 @@ if not node.parameters.simulate:
                     linewidth=2, linestyle="--", color='r', label='fit')
             
             # Plot peak point
-            peak_freq = abs_freqs[qubit["qubit"]] / 1e9
-            peak_val = qubit_slice.I_rot.sel(freq=qubit_result.position) * 1e3
-            ax.plot(peak_freq, peak_val, "or", markersize=5, label='Peak')
+            if qubit_name in abs_freqs:
+                peak_freq = abs_freqs[qubit_name] / 1e9
+                peak_val = qubit_slice.I_rot.sel(freq=qubit_result.position) * 1e3
+                ax.plot(peak_freq, peak_val, "or", markersize=5, label='Peak')
             
             ax.set_xlabel('Frequency (GHz)')
             ax.set_ylabel('Rotated I (mV)')
-            ax.set_title(f'{qubit["qubit"]} (amp={optimal_ro_amps[qubit["qubit"]]:.3f})')
+            ax.set_title(f'{qubit_name} (amp={optimal_ro_amps[qubit_name]:.3f})')
             ax.legend(fontsize=9, loc='upper right')
             
             # Set reasonable x-axis limits around the peak
-            peak_idx = np.abs(freq_ghz - peak_freq).argmin()
-            width_pts = int(len(freq_ghz) * 0.2)  # Show ~20% of the data around peak
-            ax.set_xlim(freq_ghz[max(0, peak_idx - width_pts)], 
-                        freq_ghz[min(len(freq_ghz)-1, peak_idx + width_pts)])
+            if qubit_name in abs_freqs:
+                peak_idx = np.abs(freq_ghz - peak_freq).argmin()
+                width_pts = int(len(freq_ghz) * 0.2)  # Show ~20% of the data around peak
+                ax.set_xlim(freq_ghz[max(0, peak_idx - width_pts)], 
+                            freq_ghz[min(len(freq_ghz)-1, peak_idx + width_pts)])
     
     grid_slice.fig.suptitle(f"Qubit Spectroscopy vs Readout Amplitude Optimization \n {date_time} GMT+3 #{node.node_id} \n multiplexed = {node.parameters.multiplexed}")
     plt.tight_layout()

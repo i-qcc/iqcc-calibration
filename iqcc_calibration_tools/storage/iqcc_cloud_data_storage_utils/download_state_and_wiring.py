@@ -50,4 +50,4 @@ def download_state_and_wiring(quantum_computer_backend: str) -> None:
         raise
 
 if __name__ == "__main__":
-    download_state_and_wiring("gilboa") 
+    download_state_and_wiring("arbel") 
