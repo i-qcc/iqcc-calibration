@@ -95,12 +95,9 @@ amps = np.arange(
 )
 
 with program() as drag_calibration:
-    I, _, Q, _, n, n_st = qua_declaration(num_qubits=num_qubits)
+    I, _, Q, _, _, n_st = qua_declaration(num_qubits=num_qubits)
     state = [declare(bool) for _ in range(num_qubits)]
     state_stream = [declare_stream() for _ in range(num_qubits)]
-    a = declare(fixed)  # QUA variable for the qubit drive amplitude pre-factor
-    npi = declare(int)  # QUA variable for the number of qubit pulses
-    count = declare(int)  # QUA variable for counting the qubit pulses
 
     if flux_point == "joint":
         # Bring the active qubits to the desired frequency point
@@ -110,7 +107,11 @@ with program() as drag_calibration:
         # Bring the active qubits to the desired frequency point
         if flux_point != "joint":
             machine.set_all_fluxes(flux_point=flux_point, target=qubit)
-
+        
+        n = declare(int)  # QUA variable for the number of averages
+        a = declare(fixed)  # QUA variable for the qubit drive amplitude pre-factor
+        npi = declare(int)  # QUA variable for the number of qubit pulses
+        count = declare(int)  # QUA variable for counting the qubit pulses
         with for_(n, 0, n < n_avg, n + 1):
             save(n, n_st)
             for option in [0, 1]:
