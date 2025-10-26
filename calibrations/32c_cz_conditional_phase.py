@@ -270,6 +270,7 @@ def plot_data(node: QualibrationNode[Parameters, Quam]):
         node.results["ds_fit"],
         qubit_pairs,
     )
+    node.add_node_info_subtitle(fig_phase)
     plt.show()
 
     node.results["phase_figure"] = fig_phase
