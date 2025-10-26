@@ -21,7 +21,7 @@ from qualibrate import NodeParameters
 
 
 class Parameters(NodeParameters):
-    qubits: Optional[str] = None
+    qubits: Optional[List[str]] = None
     num_averages: int = 100
     delay_span: int = 50 # in clock cycles
     flux_point_joint_or_independent: Literal['joint', 'independent'] = "joint"
