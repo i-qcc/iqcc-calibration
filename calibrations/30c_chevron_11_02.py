@@ -69,7 +69,7 @@ State update:
 
 # Be sure to include [Parameters, Quam] so the node has proper type hinting
 node = QualibrationNode[Parameters, Quam](
-    name="30c_chevron_11-02",  # Name should be unique
+    name="30c_chevron_11_02",  # Name should be unique
     description=description,  # Describe what the node is doing, which is also reflected in the QUAlibrate GUI
     parameters=Parameters(),  # Node parameters defined under quam_experiment/experiments/node_name
 )
@@ -81,7 +81,8 @@ node = QualibrationNode[Parameters, Quam](
 def custom_param(node: QualibrationNode[Parameters, Quam]):
     """Allow the user to locally set the node parameters for debugging purposes, or execution in the Python IDE."""
     # node.parameters.qubit_pairs = ["q1-q2"]
-    pass
+    node.parameters.max_time_in_ns = 100
+    node.parameters.reset_type = "active"
 
 
 # Instantiate the QUAM class from the state file
