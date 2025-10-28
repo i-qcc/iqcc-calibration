@@ -239,8 +239,8 @@ for qp in qubit_pairs:
 # %% {Update_state}
 with node.record_state_updates():
     for qp in qubit_pairs:
-        qp.macros["cz"].fidelities['StandardRB'] = rb_result.fidelity
-        qp.macros["cz"].fidelities['StandardRB_alpha'] = rb_result.alpha
+        qp.macros["cz"].fidelity['StandardRB'] = rb_result.fidelity
+        qp.macros["cz"].fidelity['StandardRB_alpha'] = rb_result.alpha
 
 # %% {Save_results}
 node.save()

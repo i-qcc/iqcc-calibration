@@ -229,7 +229,7 @@ ds_transposed = ds_transposed.transpose("qubit", "repeat", "circuit_depth", "ave
 for qp in qubit_pairs:
 
     rb_result = InterleavedRBResult(
-        standard_rb_alpha=qp.macros["cz"].fidelities.get('StandardRB_alpha', 1),
+        standard_rb_alpha=qp.macros["cz"].fidelity.get('StandardRB_alpha', 1),
         circuit_depths=list(node.parameters.circuit_lengths),
         num_repeats=node.parameters.num_circuits_per_length,
         num_averages=node.parameters.num_averages,
@@ -244,8 +244,8 @@ for qp in qubit_pairs:
 # %% {Update_state}
 with node.record_state_updates():
     for qp in qubit_pairs:
-        qp.macros["cz"].fidelities['IRB_alpha'] = rb_result.alpha
-        qp.macros["cz"].fidelities['IRB'] = rb_result.fidelity
+        qp.macros["cz"].fidelity['IRB_alpha'] = rb_result.alpha
+        qp.macros["cz"].fidelity['IRB'] = rb_result.fidelity
 
 # %% {Save_results}
 node.save()
