@@ -174,7 +174,7 @@ def save_node(node : QualibrationNode):
     # Check if cloud dependencies are available
     try:
         from iqcc_cloud_client import IQCC_Cloud
-        from cloud_qualibrate_link.qualibrate_cloud_handler import QualibrateCloudHandler
+        from iqcc_qualibrate2cloud import QualibrateCloudHandler
         cloud_deps_available = True
     except ImportError:
         logger.info("Cloud dependencies not available - skipping cloud upload")

@@ -106,7 +106,7 @@ class QualibrationNode(QualibrationNodeBase, Generic[ParametersType, MachineType
         """
         try:
             from iqcc_cloud_client import IQCC_Cloud
-            from cloud_qualibrate_link.qualibrate_cloud_handler import QualibrateCloudHandler
+            from iqcc_qualibrate2cloud import QualibrateCloudHandler
             return True
         except ImportError:
             logger.info("Cloud dependencies not available - skipping cloud upload")
@@ -134,7 +134,7 @@ class QualibrationNode(QualibrationNodeBase, Generic[ParametersType, MachineType
         """
         try:
             from iqcc_cloud_client import IQCC_Cloud
-            from cloud_qualibrate_link.qualibrate_cloud_handler import QualibrateCloudHandler
+            from iqcc_qualibrate2cloud import QualibrateCloudHandler
             
             logger.info(f"Found quantum computer backend: {quantum_computer_backend}")
             
@@ -176,7 +176,7 @@ class QualibrationNode(QualibrationNodeBase, Generic[ParametersType, MachineType
             quantum_computer_backend (str): The quantum computer backend name
         """
         try:
-            from cloud_qualibrate_link.qualibrate_cloud_handler import QualibrateCloudHandler
+            from iqcc_qualibrate2cloud import QualibrateCloudHandler
             
             # Get configuration and paths using the actual functions from the script
             q_config_path = get_qualibrate_config_path()

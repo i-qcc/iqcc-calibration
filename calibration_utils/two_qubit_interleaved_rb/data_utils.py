@@ -225,9 +225,13 @@ class InterleavedRBResult(RBResult):
     Class for analyzing and visualizing the results of a Interleaved Randomized Benchmarking (IRB) experiment.
     """
     standard_rb_alpha: float = 1
+    
+    def __init__(self, standard_rb_alpha: float, circuit_depths: list[int], num_repeats: int, num_averages: int, state: np.ndarray):
+        super().__init__(circuit_depths, num_repeats, num_averages, state)
+        self.standard_rb_alpha = standard_rb_alpha
 
-    def get_fidelity(self):
+    def get_fidelity(self, alpha: float):
         """
         Calculates the interleaved gate fidelity using the formula from https://arxiv.org/pdf/1210.7011.
         """
-        return 1 - ((2**2 - 1) * (1 - self.alpha / self.standard_rb_alpha) / 2**2)
+        return 1 - ((2**2 - 1) * (1 - alpha / self.standard_rb_alpha) / 2**2)
