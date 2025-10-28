@@ -46,7 +46,7 @@ import math
 
 # %% {Node_parameters}
 class Parameters(NodeParameters):
-    twpas: Optional[List[str]] = ['twpa1']
+    twpas: Optional[List[str]] = ['twpa2-1']
     num_averages: int = 30
     amp_min: float =  0.25
     amp_max: float =  0.6
@@ -55,7 +55,6 @@ class Parameters(NodeParameters):
     frequency_step_in_mhz: float = 0.1
     p_frequency_span_in_mhz: float = 60
     p_frequency_step_in_mhz: float =0.5
-    flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
     simulate: bool = False
     simulation_duration_ns: int = 4000
     timeout: int = 300
@@ -296,6 +295,11 @@ operation_point={'fp':np.round((p_lo+p_if+pumpATmaxDSNR[0][0]),3),
                  'Pamp': np.round(pumpATmaxDSNR[0][1],3)}
 node.results["pumping point"] = operation_point
 # %% {Plotting}
+# time_sec = 1e-9 * 12 * n_avg * len(daps) * len(dfps) * len(dfs) * (
+#     machine.qubits[twpas[0].qubits[0]].resonator.operations["readout"].length +
+#     machine.qubits[twpas[0].qubits[0]].resonator.depletion_time
+# )
+# print(f"calibration time = {np.round(time_sec, 3)} sec")
 #NOISE BLOB PLOT
 cmap = plt.cm.viridis.copy()
 cmap.set_under('gray')
@@ -429,7 +433,7 @@ plt.scatter(gain_avg, dsnr_avg, s=4)
 plt.scatter(gain_avg[optimized_pump],  dsnr_avg[optimized_pump], s=10, color='red')
 plt.axhline(y=mindsnr, color='red', linestyle='--', linewidth=1)
 plt.axvline(x=mingain, color='red', linestyle='--', linewidth=1)
-plt.title('operation window', fontsize=20)
+plt.title(f'{twpas[0].id} operation window', fontsize=20)
 plt.xlabel('Average Gain', fontsize=20)
 plt.ylabel('Average dSNR', fontsize=20)
 plt.xlim(0,22)

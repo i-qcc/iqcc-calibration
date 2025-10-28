@@ -46,10 +46,10 @@ import math
 
 # %% {Node_parameters}
 class Parameters(NodeParameters):
-    twpas: Optional[List[str]] = ['twpa1']
+    twpas: Optional[List[str]] = ['twpa3']
     num_averages: int = 30
-    amp_min: float =  0.25
-    amp_max: float =  0.6
+    amp_min: float =  0.1
+    amp_max: float =  0.31
     points : int = 40
     frequency_span_in_mhz: float = 4
     frequency_step_in_mhz: float = 0.1
@@ -60,8 +60,8 @@ class Parameters(NodeParameters):
     simulation_duration_ns: int = 4000
     timeout: int = 300
     load_data_id: Optional[int] = None
-    pumpline_attenuation: int = -50-10 #(-50: fridge atten(-30)+directional coupler(-20)/ room temp line(7m)~-10,)  #-5: fridge line # exclude for now
-    signalline_attenuation : int = -60-6-10 #-60dB : fridge atten, -6dB : cryogenic wiring, -10dB : room temp wiring # carmel gilboa
+    pumpline_attenuation: int = -50-5 #(-50: fridge atten(-30)+directional coupler(-20)/ room temp line(4m)~-5,)  #-5: fridge line # exclude for now
+    signalline_attenuation : int = -60-6-5 #-60dB : fridge atten, -6dB : cryogenic wiring, -10dB : room temp wiring # galil arbel
 
 node = QualibrationNode(name="00a_twpa_calibration", parameters=Parameters())
 date_time = datetime.now(timezone(timedelta(hours=3))).strftime("%Y-%m-%d %H:%M:%S")
@@ -74,8 +74,8 @@ machine = Quam.load()
 
 # Get the relevant QuAM components
 twpas = [machine.twpas[t] for t in node.parameters.twpas]
-qubits = [machine.qubits[machine.twpas['twpa1'].qubits[i]] for i in range(len(machine.twpas['twpa1'].qubits))]
-resonators = [machine.qubits[machine.twpas['twpa1'].qubits[i]].resonator for i in range(len(machine.twpas['twpa1'].qubits))]
+qubits = [machine.qubits[machine.twpas['twpa3'].qubits[i]] for i in range(len(machine.twpas['twpa3'].qubits))]
+resonators = [machine.qubits[machine.twpas['twpa3'].qubits[i]].resonator for i in range(len(machine.twpas['twpa3'].qubits))]
 
 # Generate the OPX and Octave configurations
 config = machine.generate_config()
@@ -100,7 +100,7 @@ full_scale_power_dbm=twpas[0].pump.opx_output.full_scale_power_dbm
 amp_max = node.parameters.amp_max
 amp_min = node.parameters.amp_min
 amp_step = int((dBm(full_scale_power_dbm, amp_max)-dBm(full_scale_power_dbm, amp_min))/0.2)
-daps = np.linspace(amp_min, amp_max, node.parameters.points)
+daps = np.logspace(np.log10(amp_min), np.log10(amp_max), node.parameters.points)
 
 span_p = node.parameters.p_frequency_span_in_mhz * u.MHz
 step_p = node.parameters.p_frequency_step_in_mhz * u.MHz
@@ -285,6 +285,7 @@ for i, ax in enumerate(axes):
     else:
         ax.axis("off")  
 plt.tight_layout()
+s=plt.gcf()
 plt.show()
 ## Noise PLOT
 fig, axes = plt.subplots(nrows, ncols, figsize=(6, 8)) 
@@ -302,9 +303,10 @@ for i, ax in enumerate(axes):
     else:
         ax.axis("off")  
 plt.tight_layout()
+n=plt.gcf()
 plt.show()
 ##       
-pump_frequency=machine.twpas['twpa1'].pump.LO_frequency+machine.twpas['twpa1'].pump.intermediate_frequency+dfps
+pump_frequency=machine.twpas['twpa3'].pump.LO_frequency+machine.twpas['twpa3'].pump.intermediate_frequency+dfps
 pump_power=dBm(full_scale_power_dbm,daps)+node.parameters.pumpline_attenuation
 pump_power[np.isneginf(pump_power)]=0
 indices=np.linspace(0, len(pump_frequency)-1,10, dtype=int)
@@ -316,7 +318,7 @@ xtick_pos = np.linspace(0, len(daps)-1, len(selected_powers))
 # 
 gain_avg=np.mean(Gain,axis=0)
 dsnr_avg=np.mean(dsnr,axis=0)
-fig, axs = plt.subplots(1, 3, figsize=(12, 5))
+fig, axs = plt.subplots(1, 3, figsize=(12,5))
 cmap = plt.cm.viridis.copy()
 cmap.set_under('gray')
 # plot gain vs pump
@@ -326,7 +328,7 @@ axs[0].set_xticks(xtick_pos)
 axs[0].set_xticklabels(selected_powers,rotation=90)
 axs[0].set_yticks(ytick_pos)
 axs[0].set_yticklabels(selected_frequencies)
-axs[0].set_title('pump vs Gain', fontsize=20)
+axs[0].set_title(f'{twpas[0].id} pump vs Gain', fontsize=15)
 axs[0].set_xlabel('pump power[dBm]', fontsize=20)
 axs[0].set_ylabel('pump frequency[GHz]', fontsize=20)
 cbar0 = fig.colorbar(im0, ax=axs[0])
@@ -341,7 +343,7 @@ axs[1].set_xticks(xtick_pos)
 axs[1].set_xticklabels(selected_powers,rotation=90)
 axs[1].set_yticks(ytick_pos)
 axs[1].set_yticklabels(selected_frequencies)
-axs[1].set_title('pump vs dSNR', fontsize=20)
+axs[1].set_title(f'{twpas[0].id} pump vs dSNR', fontsize=15)
 axs[1].set_xlabel('pump amplitude', fontsize=20)
 axs[1].set_ylabel('pump frequency[GHz]', fontsize=20)
 cbar1 = fig.colorbar(im1, ax=axs[1])
@@ -352,11 +354,10 @@ axs[2].scatter(gain_avg, dsnr_avg, s=4)
 axs[2].set_title('pump vs gain,dsnr', fontsize=20)
 axs[2].set_xlabel('Gain Average', fontsize=20)
 axs[2].set_ylabel('dSNR Average', fontsize=20)
-axs[2].set_xlim(0,22)
-axs[2].set_ylim(0,13)
+axs[2].set_xlim(0,18)
+axs[2].set_ylim(0,11)
 plt.tight_layout()
-plt.show()
-plt.tight_layout()
+map=plt.gcf()
 plt.show()
 
 # operation window
@@ -368,22 +369,25 @@ plt.scatter(gain_avg, dsnr_avg, s=4)
 plt.scatter(gain_avg[optimized_pump],  dsnr_avg[optimized_pump], s=10, color='red')
 plt.axhline(y=mindsnr, color='red', linestyle='--', linewidth=1)
 plt.axvline(x=mingain, color='red', linestyle='--', linewidth=1)
-plt.title('operation window', fontsize=20)
+plt.title(f'{twpas[0].id} operation window', fontsize=20)
 plt.xlabel('Average Gain', fontsize=20)
 plt.ylabel('Average dSNR', fontsize=20)
-plt.xlim(0,22)
-plt.ylim(0,13)
+plt.xlim(0,18)
+plt.ylim(0,11)
 plt.tight_layout()
+window=plt.gcf()
 plt.show()
-plt.tight_layout()
-plt.show()
+node.results["figures"]={"signal": s,
+                         "noise": n,
+                         "map": map,
+                         "operation_window" : window}
 #%% {Update_state}
 if not node.parameters.load_data_id:
     with node.record_state_updates():        
-        machine.twpas['twpa1'].pump_frequency=pumpATmaxDSNR[0][0]
-        machine.twpas['twpa1'].pump_amplitude=pumpATmaxDSNR[0][1]
-        machine.twpas['twpa1'].max_gain=np.round(np.max(np.mean(Gain,axis=0)))
-        machine.twpas['twpa1'].max_snr_improvement=np.round(np.max(np.mean(dsnr,axis=0)))
+        machine.twpas['twpa3'].pump_frequency=pumpATmaxDSNR[0][0]
+        machine.twpas['twpa3'].pump_amplitude=pumpATmaxDSNR[0][1]
+        machine.twpas['twpa3'].max_gain=np.round(np.max(np.mean(Gain,axis=0)))
+        machine.twpas['twpa3'].max_snr_improvement=np.round(np.max(np.mean(dsnr,axis=0)))
 
     # %% {Save_results}
     node.outcomes = {q.name: "successful" for q in qubits}

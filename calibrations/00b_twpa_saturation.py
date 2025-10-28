@@ -4,7 +4,7 @@ do spectroscopy around the bandwidth ~(7GHz ~ 7.6GHz : our usual readout bandwid
 for various readout power ~(-120dBm~-95dBm)
 with the pump off and on(pumping condition is given through node 001) and get the Gain.
 For each signal frequency, get the Gain as a function of readout power
-and get the 1dB gain compression point(P1dB)
+and get the input power at which gain is compressed 1dB(P1dB)
 
 Prerequisites:
     - Having calibrated the optimal twpa pumping point (nodes 001). All the gain compression 
@@ -41,19 +41,19 @@ import math
 
 # %% {Node_parameters}
 class Parameters(NodeParameters):
-    twpas: Optional[List[str]] = ['twpa1']
+    twpas: Optional[List[str]] = ['twpa3']
     num_averages: int = 100
     frequency_span_in_mhz: float = 600
     frequency_step_in_mhz: float = 1
-    amp_min : float = 0.01
-    amp_max : float = 2
-    points : float = 80
+    amp_min : float = 0.02
+    amp_max : float = 1.1
+    points : float = 60
     simulate: bool = False
     simulation_duration_ns: int = 4000
     timeout: int = 300
     load_data_id: Optional[int] = None
-    pumpline_attenuation: int = -50 #(-50: fridge atten(-30)+directional coupler(-20)/ room temp line(4m)~-5,)  #-5: fridge line # exclude for now
-    signalline_attenuation : int = -60-6-10 #-60dB : fridge atten, -6dB : cryogenic wiring, -10dB : room temp wiring # carmel gilboa
+    pumpline_attenuation: int = -50-5 #(-50: fridge atten(-30)+directional coupler(-20)/ room temp line(4m)~-5,)  #-5: fridge line # exclude for now
+    signalline_attenuation : int = -60-6-5 #-60dB : fridge atten, -6dB : cryogenic wiring, -5dB : room temp wiring # galil arbel
 node = QualibrationNode(name="00b_twpa_saturation", parameters=Parameters())
 # %% {Initialize_QuAM_and_QOP}
 # Class containing tools to help handling units and conversions.
@@ -63,8 +63,8 @@ machine = Quam.load()
 
 # Get the relevant QuAM components
 twpas = [machine.twpas[t] for t in node.parameters.twpas]
-qubits = [machine.qubits[machine.twpas['twpa1'].qubits[1]]]
-resonators = [machine.qubits[machine.twpas['twpa1'].qubits[1]].resonator]
+qubits = [machine.qubits[machine.twpas['twpa3'].qubits[1]]]
+resonators = [machine.qubits[machine.twpas['twpa3'].qubits[1]].resonator]
 spectroscopy = [twpas[0].spectroscopy]
 
 # Generate the OPX and Octave configurations
@@ -88,7 +88,7 @@ dfs = np.arange(-span / 2, +span / 2, step)
 
 # pump amp, frequency sweep
 full_scale_power_dbm=twpas[0].pump.opx_output.full_scale_power_dbm
-daps = np.linspace(node.parameters.amp_min, node.parameters.amp_max, node.parameters.points) # when readout amp=0.15, -120<ps<-95
+daps = np.logspace(np.log10(node.parameters.amp_min), np.log10(node.parameters.amp_max), node.parameters.points)
 f_p = twpas[0].pump_frequency
 p_p = twpas[0].pump_amplitude
 # pump duration should be able to cover the resonator spectroscopy which takes #(dfs) (as we are multiplexing qubit number doesnt matter) 
@@ -204,11 +204,12 @@ for i in range(1,len(daps),10):
     plt.plot(fs,Gain[i], label=f'Ps={ps[i]}dBm')
     plt.xlabel('fs[GHz]')
     plt.ylabel('Gain[dB]')
-    plt.title('Gain Compression')
+    plt.title(f'{twpas[0].id} Gain Compression')
 plt.legend(loc='upper right', bbox_to_anchor=(1.7, 1))
+gain_profile=plt.gcf()
 # ps VS Gain / fs
 plt.figure(figsize=(4,3))
-for i in range(0, Gain.shape[1], 30):   # take every 5th column
+for i in range(0, Gain.shape[1], 90):   # take every 5th column
     plt.plot(ps, Gain[:, i], label=f'{np.round(fs[i]*1e-9,3)}GHz')
 # ps VS AvgGain(of all fs)
 plt.plot(ps, np.mean(Gain,axis=1),linewidth=3, color='red',label='Avg Gain')
@@ -220,16 +221,20 @@ p1db = np.argmax(avg_gain_of_all_fs < gain_1db_compression)
 plt.scatter(ps[p1db], gain_1db_compression, label=f'P1dB={ps[p1db]}dBm', color='black', marker='x',s=35, zorder=10)
 plt.xlabel('Ps[dBm]')
 plt.ylabel('Gain[dB]')
-plt.title(r'Gain Compression ($P_{1\mathrm{dB}}$)')
+plt.title(f"{twpas[0].id}: Gain Compression ")
 plt.legend(loc='upper right', bbox_to_anchor=(1.5, 1), fontsize=7)
+gain_compression=plt.gcf()
+
 # %% {Update state}
 p1db = ps[p1db]
 node.results = {"p_saturation":p1db,
                 "fp":f_p+twpas[0].pump.intermediate_frequency+twpas[0].pump.LO_frequency,
                  "pp":p_p }
+node.results["figures"]={"gain_profile": gain_profile,
+                         "gain_compression": gain_compression}
 if not node.parameters.load_data_id:
     with node.record_state_updates():        
-        machine.twpas['twpa1'].p_saturation=p1db
+        machine.twpas['twpa3'].p_saturation=p1db
     # %% {Save_results}
     node.outcomes = {q.name: "successful" for q in qubits}
     node.results["initial_parameters"] = node.parameters.model_dump()
