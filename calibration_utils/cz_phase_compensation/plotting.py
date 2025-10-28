@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import xarray as xr
 from qualibrate import QualibrationNode
-from quam_config import Quam
+from iqcc_calibration_tools.quam_config.components.quam_root import Quam
 
 from .parameters import Parameters
 

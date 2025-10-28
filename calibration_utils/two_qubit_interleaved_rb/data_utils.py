@@ -166,6 +166,8 @@ class RBResult:
 
         popt, _ = curve_fit(rb_decay_curve, self.circuit_depths, decay_curve, p0=[0.75, 0.9, 0.25], maxfev=10000)
         A, alpha, B = popt
+        
+        self.alpha = alpha
 
         return A, alpha, B
 

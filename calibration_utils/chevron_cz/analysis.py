@@ -7,6 +7,7 @@ import xarray as xr
 from qualibrate import QualibrationNode
 from qualibration_libs.analysis.fitting import fit_oscillation_decay_exp, oscillation_decay_exp
 from qualibration_libs.data import convert_IQ_to_V
+from qualibration_libs.parameters.experiment import _get_qubit_pairs
 from scipy.optimize import curve_fit
 
 from quam.components.quantum_components import qubit
@@ -165,7 +166,7 @@ def process_raw_dataset(ds: xr.Dataset, node: QualibrationNode):
     def abs_amp(qp, amp):
         return amp * node.namespace["pulse_amplitudes"][qp.name]
 
-    qubit_pairs = [node.machine.qubit_pairs[pair] for pair in node.parameters.qubit_pairs]
+    qubit_pairs = _get_qubit_pairs(node.machine, node.parameters)
 
     ds = ds.assign_coords(
         {"detuning": (["qubit_pair", "amplitude"], np.array([detuning(qp, ds.amplitude) for qp in qubit_pairs]))}
