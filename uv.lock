@@ -277,14 +277,14 @@ wheels = [
 
 [[package]]
 name = "click"
-version = "8.3.0"
+version = "8.1.8"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "colorama", marker = "sys_platform == 'win32'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/46/61/de6cd827efad202d7057d93e0fed9294b96952e188f7384832791c7b2254/click-8.3.0.tar.gz", hash = "sha256:e7b8232224eba16f4ebe410c25ced9f7875cb5f3263ffc93cc3e8da705e229c4", size = 276943 }
+sdist = { url = "https://files.pythonhosted.org/packages/b9/2e/0090cbf739cee7d23781ad4b89a9894a41538e4fcf4c31dcdd705b78eb8b/click-8.1.8.tar.gz", hash = "sha256:ed53c9d8990d83c2a27deae68e4ee337473f6330c040a31d4225c9574d16096a", size = 226593 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/db/d3/9dcc0f5797f070ec8edf30fbadfb200e71d9db6b84d211e3b2085a7589a0/click-8.3.0-py3-none-any.whl", hash = "sha256:9b9f285302c6e3064f4330c05f05b81945b2a39544279343e6e7c5f27a9baddc", size = 107295 },
+    { url = "https://files.pythonhosted.org/packages/7e/d4/7ebdbd03970677812aac39c869717059dbb71a4cfc033ca6e5221787892c/click-8.1.8-py3-none-any.whl", hash = "sha256:63c132bbbed01578a06712a2d1f497bb62d9c1c0d329b7903a866228027263b2", size = 98188 },
 ]
 
 [[package]]
@@ -899,6 +899,7 @@ dependencies = [
     { name = "qm-qua" },
     { name = "qualang-tools" },
     { name = "qualibrate" },
+    { name = "qualibrate-config" },
     { name = "qualibration-libs" },
     { name = "quam" },
     { name = "quam-builder" },
@@ -919,6 +920,7 @@ requires-dist = [
     { name = "qm-qua", specifier = "==1.2.3" },
     { name = "qualang-tools", specifier = "==0.19.3" },
     { name = "qualibrate", specifier = ">=0.2.0,<0.3.0" },
+    { name = "qualibrate-config", specifier = "==0.1.8" },
     { name = "qualibration-libs", git = "https://github.com/qua-platform/qualibration-libs.git" },
     { name = "quam", specifier = ">=0.4.2,<0.5.0" },
     { name = "quam-builder", git = "https://github.com/qua-platform/quam-builder.git" },
@@ -2181,7 +2183,7 @@ wheels = [
 
 [[package]]
 name = "qualibrate-config"
-version = "0.1.6"
+version = "0.1.8"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
@@ -2190,9 +2192,9 @@ dependencies = [
     { name = "pydantic-settings" },
     { name = "tomli-w" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/96/31/616907a601473796da8b403b003013c749937981e047a701edec86707328/qualibrate_config-0.1.6.tar.gz", hash = "sha256:32c4a17cb636458f941703ebb5f2cca49ac6e172c26829335c7bc83491f65bbb", size = 20203 }
+sdist = { url = "https://files.pythonhosted.org/packages/57/68/483ddae9e78391b139007d85801bda44f8a8b6d3385ff4e22802f16f43e0/qualibrate_config-0.1.8.tar.gz", hash = "sha256:7deccb0d160a0f1863ca43c87c5712d7a7e40a4c89fa03a8ed06d2ff552a1176", size = 27783 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/dc/de/ecec71fc6996eab9fc9d2894de8448b5b17499f9908b05c6d5a7daf4dc63/qualibrate_config-0.1.6-py3-none-any.whl", hash = "sha256:7db06c2991a851d7d71d5e3e5b406c0fed1d6a0285300590116cf09e89317764", size = 33081 },
+    { url = "https://files.pythonhosted.org/packages/86/3e/da4f51ba521eefcd018d855b2fab7eba4c32e663c82dde615b229df677d7/qualibrate_config-0.1.8-py3-none-any.whl", hash = "sha256:58969295ada9253540e18208387acad9097a4883051dd8ed72887e89b4f6d37f", size = 51170 },
 ]
 
 [[package]]

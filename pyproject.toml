@@ -26,6 +26,7 @@ dependencies = [
     "lmfit",
     "tqdm",
     "qualibrate>=0.2.0,<0.3.0",
+    "qualibrate-config==0.1.8",
     "qm-qua==1.2.3",
     "ipykernel>=6.29.3,<7.0.0",
     "more-itertools",
