@@ -36,7 +36,7 @@ Prerequisites:
 from datetime import datetime, timezone, timedelta
 from typing import List, Literal, Optional
 from more_itertools import flatten
-from calibration_utils.two_qubit_interleaved_rb.data_utils import RBResult
+from calibration_utils.two_qubit_interleaved_rb.data_utils import InterleavedRBResult, RBResult
 import xarray as xr
 
 
@@ -228,13 +228,24 @@ ds_transposed = ds_transposed.transpose("qubit", "repeat", "circuit_depth", "ave
 
 for qp in qubit_pairs:
 
-    rb_result = RBResult(
+    rb_result = InterleavedRBResult(
+        standard_rb_alpha=qp.macros["cz"].fidelities.get('StandardRB_alpha', 1),
         circuit_depths=list(node.parameters.circuit_lengths),
         num_repeats=node.parameters.num_circuits_per_length,
         num_averages=node.parameters.num_averages,
         state=ds_transposed.sel(qubit=qp.name).state.data
     )
 
-    rb_result.plot_with_fidelity()
+    fig = rb_result.plot_with_fidelity()
+    fig.suptitle(f"2Q Interleaved Randomized Benchmarking - {qp.name}")
+    node.add_node_info_subtitle(fig)
+    fig.show()
 
-# %%
+# %% {Update_state}
+with node.record_state_updates():
+    for qp in qubit_pairs:
+        qp.macros["cz"].fidelities['IRB_alpha'] = rb_result.alpha
+        qp.macros["cz"].fidelities['IRB'] = rb_result.fidelity
+
+# %% {Save_results}
+node.save()

@@ -34,6 +34,7 @@ Prerequisites:
 
 from datetime import datetime, timezone, timedelta
 from typing import List, Literal, Optional
+from matplotlib import pyplot as plt
 from more_itertools import flatten
 from calibration_utils.two_qubit_interleaved_rb.data_utils import RBResult
 import xarray as xr
@@ -45,7 +46,7 @@ from qualang_tools.multi_user import qm_session
 
 from qualang_tools.results import progress_counter, fetching_tool
 
-from qualibrate import NodeParameters, QualibrationNode
+from iqcc_calibration_tools.qualibrate_config.qualibrate.node import NodeParameters, QualibrationNode
 from calibration_utils.two_qubit_interleaved_rb.circuit_utils import layerize_quantum_circuit, process_circuit_to_integers
 from calibration_utils.two_qubit_interleaved_rb.qua_utils import QuaProgramHandler
 from iqcc_calibration_tools.analysis.plot_utils import plot_samples
@@ -77,7 +78,7 @@ class Parameters(NodeParameters):
     timeout: int = 100
     seed: int = 0
 
-node = QualibrationNode(name="2Q_standard_rb", parameters=Parameters())
+node = QualibrationNode[Parameters, Quam](name="70b_two_qubit_standard_rb", parameters=Parameters())
 
 # %% {Initialize_QuAM_and_QOP}
 
@@ -230,6 +231,16 @@ for qp in qubit_pairs:
         state=ds_transposed.sel(qubit=qp.name).state.data
     )
 
-    rb_result.plot_with_fidelity()
+    fig = rb_result.plot_with_fidelity()
+    fig.suptitle(f"2Q Randomized Benchmarking - {qp.name}")
+    node.add_node_info_subtitle(fig)
+    fig.show()
 
-# %%
+# %% {Update_state}
+with node.record_state_updates():
+    for qp in qubit_pairs:
+        qp.macros["cz"].fidelities['StandardRB'] = rb_result.fidelity
+        qp.macros["cz"].fidelities['StandardRB_alpha'] = rb_result.alpha
+
+# %% {Save_results}
+node.save()
