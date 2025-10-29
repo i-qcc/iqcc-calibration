@@ -12,7 +12,7 @@ def dBm(full_scale_power_dbm,daps):
     v=np.sqrt((2*50*10**(full_scale_power_dbm/10))/1000)*daps*1 # 1 : twpa readout amplitude  #opx1000 documentation
     p_w=(v**2)/50
     dbm=10*np.log10(p_w*1000)-10
-    return dbm +5.68 #5.68 calibrated through SA on 14/09
+    return dbm
 def pump_maxgain(gain, dfps, daps):
     avg_gain=np.mean(gain,axis=0)
     max_gain_idx=np.unravel_index(np.argmax(avg_gain), avg_gain.shape)
