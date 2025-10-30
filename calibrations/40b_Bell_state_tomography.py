@@ -311,6 +311,7 @@ with program() as CPhase_Oscillations:
                     # Bell state
                     qp.qubit_control.xy.play("-y90")
                     qp.qubit_target.xy.play("y90")
+                    qp.align()
                     qp.macros[node.parameters.cz_macro_name].apply()
                     qp.qubit_control.xy.play("y90")
                     qp.align()
