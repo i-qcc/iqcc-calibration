@@ -59,7 +59,7 @@ class Parameters(NodeParameters):
     simulate: bool = False
     timeout: int = 100
     load_data_id: Optional[int] = None
-    cz_macro_name: str = "Cz_unipolar"
+    cz_macro_name: str = "cz_unipolar"
 
 
 node = QualibrationNode(
@@ -532,6 +532,12 @@ if not node.parameters.simulate:
 # %%
 
 # %% {Update_state}
+if not node.parameters.simulate:
+    if node.parameters.load_data_id is None:
+        with node.record_state_updates():
+            for qp in qubit_pairs:
+                node.machine.qubit_pairs[qp.id].macros[node.parameters.cz_macro_name].fidelity["Bell_State_Fidelity"] = fidelity
+                node.machine.qubit_pairs[qp.id].macros[node.parameters.cz_macro_name].fidelity["Bell_State_Purity"] = purity
 
 # %% {Save_results}
 if not node.parameters.simulate:
