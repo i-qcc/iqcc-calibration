@@ -109,7 +109,9 @@ standard_RB = StandardRB(
     amplification_lengths=node.parameters.circuit_lengths,
     num_circuits_per_length=node.parameters.num_circuits_per_length,
     basis_gates=node.parameters.basis_gates,
-    num_qubits=2
+    reduce_to_1q_cliffords=node.parameters.reduce_to_1q_cliffords,
+    num_qubits=2,
+    seed=node.parameters.seed
 )
 
 transpiled_circuits = standard_RB.transpiled_circuits
@@ -234,6 +236,8 @@ for qp in qubit_pairs:
     fig.suptitle(f"2Q Randomized Benchmarking - {qp.name}")
     node.add_node_info_subtitle(fig)
     fig.show()
+    
+    node.results[f"{qp.id}_figure_RB_decay"] = fig
 
 # %% {Update_state}
 with node.record_state_updates():

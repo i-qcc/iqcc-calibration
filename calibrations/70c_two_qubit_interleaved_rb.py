@@ -239,6 +239,8 @@ for qp in qubit_pairs:
     fig.suptitle(f"2Q Interleaved Randomized Benchmarking - {qp.name}")
     node.add_node_info_subtitle(fig)
     fig.show()
+    
+    node.results[f"{qp.id}_figure_IRB_decay"] = fig
 
 # %% {Update_state}
 with node.record_state_updates():
