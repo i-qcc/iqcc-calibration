@@ -22,7 +22,7 @@ class NodeSpecificParameters(RunnableParameters):
     operation: str = "x180"
     min_amp_factor: float = -1
     max_amp_factor: float = 2.0
-    amp_factor_step: float = 0.02
+    amp_factor_step: float = 0.1
     max_number_pulses_per_sweep: int = 40
     alpha_setpoint: Optional[float] = None
 

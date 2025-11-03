@@ -1,11 +1,11 @@
 """
-        RAMSEY WITH VIRTUAL Z ROTATIONS
-The program consists in playing a Ramsey sequence (x90 - idle_time - x90 - measurement) for different idle times.
+        rabi_chevron WITH VIRTUAL Z ROTATIONS
+The program consists in playing a rabi_chevron sequence (x90 - idle_time - x90 - measurement) for different idle times.
 Instead of detuning the qubit gates, the frame of the second x90 pulse is rotated (de-phased) to mimic an accumulated
 phase acquired for a given detuning after the idle time.
-This method has the advantage of playing gates on resonance as opposed to the detuned Ramsey.
+This method has the advantage of playing gates on resonance as opposed to the detuned rabi_chevron.
 
-From the results, one can fit the Ramsey oscillations and precisely measure the qubit resonance frequency and T2*.
+From the results, one can fit the rabi_chevron oscillations and precisely measure the qubit resonance frequency and T2*.
 
 Prerequisites:
     - Having found the resonance frequency of the resonator coupled to the qubit under study (resonator_spectroscopy).
@@ -13,7 +13,7 @@ Prerequisites:
     - (optional) Having calibrated the readout (readout_frequency, amplitude, duration_optimization IQ_blobs) for better SNR.
 
 Next steps before going to the next node:
-    - Update the qubits frequency and T2_ramsey in the state.
+    - Update the qubits frequency and T2_rabi_chevron in the state.
     - Save the current state
 """
 
@@ -88,14 +88,12 @@ idle_times = (
 ).astype(int)
 
 
-# Detuning converted into virtual Z-rotations to observe Ramsey oscillation and get the qubit frequency
-
 flux_point = node.parameters.flux_point_joint_or_independent
 detuning_axis = np.arange(-node.parameters.detuning_range_in_mhz * 1e6 // 2, 
                          node.parameters.detuning_range_in_mhz * 1e6 // 2+1, 
                          node.parameters.detuning_step_size_in_mhz * 1e6,
                          dtype=np.int32)
-with program() as ramsey:
+with program() as rabi_chevron:
     I, I_st, Q, Q_st, n, n_st = qua_declaration(num_qubits=num_qubits)
     t = declare(int)  # QUA variable for the idle time
     detuning_ax = declare(int)
@@ -160,7 +158,7 @@ with program() as ramsey:
 if node.parameters.simulate:
     # Simulates the QUA program for the specified duration
     simulation_config = SimulationConfig(duration=node.parameters.simulation_duration_ns * 4)  # In clock cycles = 4ns
-    job = qmm.simulate(config, ramsey, simulation_config)
+    job = qmm.simulate(config, rabi_chevron, simulation_config)
     # Get the simulated samples and plot them for all controllers
     samples = job.get_simulated_samples()
     fig, ax = plt.subplots(nrows=len(samples.keys()), sharex=True)
@@ -176,7 +174,7 @@ if node.parameters.simulate:
 
 elif node.parameters.load_data_id is None:
     with qm_session(qmm, config, timeout=node.parameters.timeout) as qm:
-        job = qm.execute(ramsey)
+        job = qm.execute(rabi_chevron)
         results = fetching_tool(job, ["n"], mode="live")
         while results.is_processing():
             # Fetch results
@@ -216,7 +214,7 @@ if not node.parameters.simulate:
         ax.set_xlim(node.parameters.min_wait_time_in_ns, node.parameters.max_wait_time_in_ns)
         ax.set_xlabel("Idle time [ns]")
         ax.set_title(qubit["qubit"])
-    grid.fig.suptitle("Ramsey : I vs. idle time")
+    grid.fig.suptitle("rabi_chevron : I vs. idle time")
     plt.tight_layout()
     plt.show()
     node.results["figure"] = grid.fig

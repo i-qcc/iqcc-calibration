@@ -61,7 +61,7 @@ def custom_param(node: QualibrationNode[Parameters, Quam]):
     """Allow the user to locally set the node parameters for debugging purposes, or execution in the Python IDE."""
     # You can get type hinting in your IDE by typing node.parameters.
     # node.parameters.qubits = ["q1", "q2"]
-    # node.parameters.max_number_pulses_per_sweep = 100
+    # node.parameters.max_number_pulses_per_sweep = 10
     # node.parameters.min_amp_factor = 0.8
     # node.parameters.max_amp_factor = 1.2
     # node.parameters.amp_factor_step = 0.01
@@ -128,7 +128,7 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                             # Loop for error amplification (perform many qubit pulses)
                             count = declare(int)  # QUA variable for counting the qubit pulses
                             with for_(count, 0, count < npi, count + 1):
-                                qubit.xy.play(operation, amplitude_scale=a)
+                                qubit.xy.play("x180", amplitude_scale=a)
                         align()
 
                         # Qubit readout
@@ -264,3 +264,5 @@ def update_state(node: QualibrationNode[Parameters, Quam]):
 @node.run_action()
 def save_results(node: QualibrationNode[Parameters, Quam]):
     node.save()
+
+# %%

@@ -230,7 +230,7 @@ def plot_data(node: QualibrationNode[Parameters, Quam]):
         "amplitude": fig_raw_fit,
     }
 
-'''
+
 # %% {Update_state}
 @node.run_action(skip_if=node.parameters.simulate)
 def update_state(node: QualibrationNode[Parameters, Quam]):
@@ -247,4 +247,5 @@ def update_state(node: QualibrationNode[Parameters, Quam]):
 @node.run_action()
 def save_results(node: QualibrationNode[Parameters, Quam]):
     node.save()
-'''
+
+# %%
