@@ -64,14 +64,18 @@ class RBResult:
         """
         Plots the RB fidelity as a function of circuit depth, including a fit to an exponential decay model.
         The fitted curve is overlaid with the raw data points, and error bars are included.
+        
+        Returns:
+            matplotlib.figure.Figure: The figure object containing the plot.
         """
         A, alpha, B = self.fit_exponential()
         fidelity = self.get_fidelity(alpha)
-
+        self.fidelity = fidelity
+        
         # std of average
         error_bars = (self.data == 0).stack(combined=("average", "repeat")).std(dim="combined").state.data / np.sqrt(self.num_repeats * self.num_averages)
 
-        plt.figure()
+        fig = plt.figure()
         plt.errorbar(
             self.circuit_depths,
             self.get_decay_curve(),
@@ -104,9 +108,11 @@ class RBResult:
 
         plt.xlabel("Circuit Depth")
         plt.ylabel(r"Probability to recover to $|00\rangle$")
-        plt.title("2Q Randomized Benchmarking")
         plt.legend(framealpha=0)
-        plt.show()
+        
+        return fig
+        
+        
 
     def plot_two_qubit_state_distribution(self):
         """
@@ -214,16 +220,18 @@ def rb_decay_curve(x, A, alpha, B):
     return A * alpha**x + B
 
 
-def get_interleaved_gate_fidelity(num_qubits: int, reference_alpha: float, interleaved_alpha: float):
+class InterleavedRBResult(RBResult):
     """
-    Calculates the interleaved gate fidelity using the formula from https://arxiv.org/pdf/1210.7011.
-
-    Args:
-        num_qubits (int): Number of qubits involved.
-        reference_alpha (float): Decay constant from the reference RB experiment.
-        interleaved_alpha (float): Decay constant from the interleaved RB experiment.
-
-    Returns:
-        float: Estimated interleaved gate fidelity.
+    Class for analyzing and visualizing the results of a Interleaved Randomized Benchmarking (IRB) experiment.
     """
-    return 1 - ((2**num_qubits - 1) * (1 - interleaved_alpha / reference_alpha) / 2**num_qubits)
+    standard_rb_alpha: float = 1
+    
+    def __init__(self, standard_rb_alpha: float, circuit_depths: list[int], num_repeats: int, num_averages: int, state: np.ndarray):
+        super().__init__(circuit_depths, num_repeats, num_averages, state)
+        self.standard_rb_alpha = standard_rb_alpha
+
+    def get_fidelity(self, alpha: float):
+        """
+        Calculates the interleaved gate fidelity using the formula from https://arxiv.org/pdf/1210.7011.
+        """
+        return 1 - ((2**2 - 1) * (1 - alpha / self.standard_rb_alpha) / 2**2)
