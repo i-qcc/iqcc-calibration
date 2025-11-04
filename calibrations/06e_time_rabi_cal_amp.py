@@ -9,7 +9,6 @@ from qm.qua import *
 from qualang_tools.multi_user import qm_session
 from qualang_tools.results import progress_counter
 from qualang_tools.units import unit
-from qualang_tools.loops import from_array # <-- Import from_array
 
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode
 from iqcc_calibration_tools.quam_config.components.quam_root import Quam
@@ -33,12 +32,6 @@ while sweeping its duration.
 The results are then analyzed to determine the qubit pulse duration suitable 
 for the selected amplitude, which corresponds to a pi-pulse.
 
-Prerequisites:
-    - Having calibrated the mixer or the Octave (nodes 01a or 01b).
-    - Having calibrated the qubit frequency (node 03a_qubit_spectroscopy.py).
-    - Having calibrated the pi-pulse amplitude (node 04b_power_rabi.py)
-    - Having specified the desired flux point if relevant (qubit.z.flux_point).
-
 State update:
     - The qubit pulse duration (operation.length).
 """
@@ -53,11 +46,9 @@ node = QualibrationNode[Parameters, Quam](
 
 @node.run_action(skip_if=node.modes.external)
 def custom_param(node: QualibrationNode[Parameters, Quam]):
-    # You can get type hinting in your IDE by typing node.parameters.
-    node.parameters.min_wait_time_in_ns = 16
-    node.parameters.max_wait_time_in_ns = 2000
-    node.parameters.num_time_steps = 100
-    # Use the amplitude from the Power Rabi experiment
+    node.parameters.min_wait_time_in_ns = 48
+    node.parameters.max_wait_time_in_ns = 500
+    node.parameters.num_time_steps = 500
     pass
 
 
@@ -78,7 +69,11 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
     n_avg = node.parameters.num_shots  # The number of averages
     # Dephasing time sweep (in clock cycles = 4ns) - minimum is 4 clock cycles
     # Note: QUA duration must be a multiple of 4ns
-    dur_vec = get_idle_times_in_clock_cycles(node.parameters)
+    # dur_vec = get_idle_times_in_clock_cycles(node.parameters)
+    dur_vec = np.unique(np.geomspace(
+        node.parameters.min_wait_time_in_ns,
+        node.parameters.max_wait_time_in_ns,
+        node.parameters.num_time_steps)//4).astype(int)
     
     # Register the sweep axes to be added to the dataset when fetching data
     node.namespace["sweep_axes"] = {
@@ -108,16 +103,12 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                         # reset_frame(qubit.xy.name) # Not always needed, depends on framework
                         qubit.reset(node.parameters.reset_type, node.parameters.simulate)
                     align()
-                    
                     # Qubit manipulation
                     for i, qubit in multiplexed_qubits.items():
-                        qubit.xy.play(
-                            "x180", 
-                            amplitude_scale=node.parameters.drive_amp_scale, 
-                            duration = t
-                        )
+                        qubit.xy.play("x180",
+                                      amplitude_scale=node.parameters.drive_amp_scale, 
+                                      duration = t)
                     align()
-                    
                     # Qubit readout
                     for i, qubit in multiplexed_qubits.items():
                         # Measure the state of the resonators
