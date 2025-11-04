@@ -46,10 +46,10 @@ import math
 
 # %% {Node_parameters}
 class Parameters(NodeParameters):
-    twpas: Optional[List[str]] = ['twpa3']
+    twpas: Optional[List[str]] = ['twpa2-1']
     num_averages: int = 30
-    amp_min: float =  0.1
-    amp_max: float =  0.31
+    amp_min: float =  0.45
+    amp_max: float =  0.9
     points : int = 40
     frequency_span_in_mhz: float = 4
     frequency_step_in_mhz: float = 0.1
@@ -60,11 +60,10 @@ class Parameters(NodeParameters):
     simulation_duration_ns: int = 4000
     timeout: int = 300
     load_data_id: Optional[int] = None
-    pumpline_attenuation: int = -50-7 #(-50: fridge atten(-30)+directional coupler(-20)/ room temp line(4m)~-7,)  #-5: fridge line # exclude for now
-    signalline_attenuation : int = -60-7 #-60dB : fridge atten,  -10dB : room temp wiring # galil arbel
-    opx_cable_fridge : int=-7
+    pumpline_attenuation: int = -50-10-4 #(-50: fridge atten(-30)+directional coupler(-20))  
+    signalline_attenuation : int = -60-9 #-60dB : fridge atten
 node = QualibrationNode(name="00a_twpa_calibration", parameters=Parameters())
-date_time = datetime.now(timezone(timedelta(hours=3))).strftime("%Y-%m-%d %H:%M:%S")
+date_time = datetime.now(timezone(timedelta(hours=2))).strftime("%Y-%m-%d %H:%M:%S")
 node.results["date"]={"date":date_time}
 # %% {Initialize_QuAM_and_QOP}
 # Class containing tools to help handling units and conversions.
@@ -74,8 +73,8 @@ machine = Quam.load()
 
 # Get the relevant QuAM components
 twpas = [machine.twpas[t] for t in node.parameters.twpas]
-qubits = [machine.qubits[machine.twpas['twpa3'].qubits[i]] for i in range(len(machine.twpas['twpa3'].qubits))]
-resonators = [machine.qubits[machine.twpas['twpa3'].qubits[i]].resonator for i in range(len(machine.twpas['twpa3'].qubits))]
+qubits = [machine.qubits[machine.twpas['twpa2-1'].qubits[i]] for i in range(len(machine.twpas['twpa2-1'].qubits))]
+resonators = [machine.qubits[machine.twpas['twpa2-1'].qubits[i]].resonator for i in range(len(machine.twpas['twpa2-1'].qubits))]
 
 # Generate the OPX and Octave configurations
 config = machine.generate_config()
@@ -83,9 +82,8 @@ config = machine.generate_config()
 if node.parameters.load_data_id is None:
     qmm = machine.connect()
 #%% # readout pulse information
-etc=node.parameters.opx_cable_fridge
 from iqcc_calibration_tools.quam_config.lib.qua_datasets import opxoutput, mV
-readout_power=[np.round(opxoutput(qubits[i].resonator.opx_output.full_scale_power_dbm,qubits[i].resonator.operations["readout"].amplitude+etc)+node.parameters.signalline_attenuation,2) for i in range(len(qubits))]
+readout_power=[np.round(opxoutput(qubits[i].resonator.opx_output.full_scale_power_dbm,qubits[i].resonator.operations["readout"].amplitude)+node.parameters.signalline_attenuation,2) for i in range(len(qubits))]
 readout_length=[qubits[i].resonator.operations["readout"].length for i in range(len(qubits))]
 readout_voltage=[np.round(mV(qubits[i].resonator.opx_output.full_scale_power_dbm,qubits[i].resonator.operations["readout"].amplitude),2) for i in range(len(qubits))]
 for i in range(len(readout_power)):
@@ -100,7 +98,7 @@ dfs = np.arange(-span / 2, +span / 2, step)
 full_scale_power_dbm=twpas[0].pump.opx_output.full_scale_power_dbm
 amp_max = node.parameters.amp_max
 amp_min = node.parameters.amp_min
-amp_step = int((opxoutput(full_scale_power_dbm, amp_max)+etc-(opxoutput(full_scale_power_dbm, amp_min)+etc))/0.2)
+amp_step = int((opxoutput(full_scale_power_dbm, amp_max)-(opxoutput(full_scale_power_dbm, amp_min)))/0.2)
 daps = np.logspace(np.log10(amp_min), np.log10(amp_max), node.parameters.points)
 
 span_p = node.parameters.p_frequency_span_in_mhz * u.MHz
@@ -162,7 +160,7 @@ with program() as twpa_pump_on:
         with for_(*from_array(dp, dfps)):  
             update_frequency(twpas[0].pump.name, dp + twpas[0].pump.intermediate_frequency)
             with for_each_(da, daps):  
-                twpas[0].pump.play('pump', amplitude_scale=da, duration=pump_duration)#+250)
+                twpas[0].pump.play('pump', amplitude_scale=da, duration=pump_duration)
                 wait(250) #1000/4 wait 1us for pump to settle before readout
 # measure readout responses around readout resonators with pump
                 with for_(*from_array(df, dfs)):
@@ -255,11 +253,11 @@ p_lo=twpas[0].pump.LO_frequency
 p_if=twpas[0].pump.intermediate_frequency
 # pump at max avg_gain
 pumpATmaxG=pump_maxgain(Gain, dfps, daps)
-print(f'max Avg Gain({np.round(np.max(np.mean(Gain,axis=0)))}dB) at fp={np.round((p_lo+p_if+pumpATmaxG[0][0])*1e-9,3)}GHz,Pp={np.round(node.parameters.pumpline_attenuation+opxoutput(full_scale_power_dbm,pumpATmaxG[0][1])+etc,2)},Pamp={np.round(pumpATmaxG[0][1],3)}')
+print(f'max Avg Gain({np.round(np.max(np.mean(Gain,axis=0)))}dB) at fp={np.round((p_lo+p_if+pumpATmaxG[0][0])*1e-9,3)}GHz,Pp={np.round(node.parameters.pumpline_attenuation+opxoutput(full_scale_power_dbm,pumpATmaxG[0][1]),2)},Pamp={np.round(pumpATmaxG[0][1],3)}')
 # pump at max dSNR
 pumpATmaxDSNR=pump_maxdsnr(dsnr, dfps, daps)
 maxDSNR_point={'fp':np.round((p_lo+p_if+pumpATmaxDSNR[0][0]),3), 
-                 'Pp': node.parameters.pumpline_attenuation+opxoutput(full_scale_power_dbm,pumpATmaxDSNR[0][1])+etc,
+                 'Pp': node.parameters.pumpline_attenuation+opxoutput(full_scale_power_dbm,pumpATmaxDSNR[0][1]),
                  'Pamp': np.round(pumpATmaxDSNR[0][1],3)}
 node.results["maxDSNR point"] = maxDSNR_point
 # %% {Plotting}
@@ -306,8 +304,8 @@ plt.tight_layout()
 n=plt.gcf()
 plt.show()
 ##       
-pump_frequency=machine.twpas['twpa3'].pump.LO_frequency+machine.twpas['twpa3'].pump.intermediate_frequency+dfps
-pump_power=opxoutput(full_scale_power_dbm,daps)+etc+node.parameters.pumpline_attenuation
+pump_frequency=machine.twpas['twpa2-1'].pump.LO_frequency+machine.twpas['twpa2-1'].pump.intermediate_frequency+dfps
+pump_power=opxoutput(full_scale_power_dbm,daps)+node.parameters.pumpline_attenuation
 pump_power[np.isneginf(pump_power)]=0
 indices=np.linspace(0, len(pump_frequency)-1,10, dtype=int)
 selected_frequencies=np.round(pump_frequency[indices]*1e-9,3)
@@ -333,7 +331,7 @@ axs[0].set_xlabel('pump power[dBm]', fontsize=20)
 axs[0].set_ylabel('pump frequency[GHz]', fontsize=20)
 cbar0 = fig.colorbar(im0, ax=axs[0])
 cbar0.set_label('Avg Gain [dB]', fontsize=14)
-print(f'max Avg dSNR({np.round(np.max(np.mean(dsnr,axis=0)),2)}dB) \n at fp={np.round((p_lo+p_if+pumpATmaxDSNR[0][0])*1e-9,3)}GHz,Pp={np.round(node.parameters.pumpline_attenuation+opxoutput(full_scale_power_dbm,pumpATmaxDSNR[0][1])+etc,2)},Pamp={np.round(pumpATmaxDSNR[0][1],3)} \n {date_time} \n {len(dfs)}*{len(daps)}*{len(dfps)}*{n_avg}')
+print(f'max Avg dSNR({np.round(np.max(np.mean(dsnr,axis=0)),2)}dB) \n at fp={np.round((p_lo+p_if+pumpATmaxDSNR[0][0])*1e-9,3)}GHz,Pp={np.round(node.parameters.pumpline_attenuation+opxoutput(full_scale_power_dbm,pumpATmaxDSNR[0][1]),2)},Pamp={np.round(pumpATmaxDSNR[0][1],3)} \n {date_time} \n {len(dfs)}*{len(daps)}*{len(dfps)}*{n_avg}')
 
 # plot dSNR vs pump
 
@@ -354,8 +352,8 @@ axs[2].scatter(gain_avg, dsnr_avg, s=4)
 axs[2].set_title('pump vs gain,dsnr', fontsize=20)
 axs[2].set_xlabel('Gain Average', fontsize=20)
 axs[2].set_ylabel('dSNR Average', fontsize=20)
-axs[2].set_xlim(0,18)
-axs[2].set_ylim(0,11)
+axs[2].set_xlim(0,np.max(gain_avg)+1)
+axs[2].set_ylim(0,np.max(dsnr_avg)+1)
 plt.tight_layout()
 map=plt.gcf()
 plt.show()
@@ -372,13 +370,14 @@ plt.axvline(x=mingain, color='red', linestyle='--', linewidth=1)
 plt.title(f'{twpas[0].id} operation window \n {date_time}', fontsize=20)
 plt.xlabel('Average Gain', fontsize=20)
 plt.ylabel('Average dSNR', fontsize=20)
-plt.xlim(0,18)
-plt.ylim(0,11)
+plt.xlim(0,np.max(gain_avg)+1)
+plt.ylim(0,np.max(dsnr_avg)+1)
 plt.tight_layout()
 window=plt.gcf()
 plt.show()
+# %% {Update_state}
 operation_point={'fp':np.round((p_lo+p_if+dfps[optimized_pump[0]]),3), 
-                 'Pp': node.parameters.pumpline_attenuation+opxoutput(full_scale_power_dbm,daps[optimized_pump[1]])+etc,
+                 'Pp': node.parameters.pumpline_attenuation+opxoutput(full_scale_power_dbm,daps[optimized_pump[1]]),
                  'Pamp': np.round(daps[optimized_pump[1]],3)}
 node.results["operation point"] = operation_point
 node.results["Ps"]={"Ps":readout_power}
@@ -386,13 +385,12 @@ node.results["figures"]={"signal": s,
                          "noise": n,
                          "map": map,
                          "operation_window" : window}
-#%% {Update_state}
 if not node.parameters.load_data_id:
     with node.record_state_updates():        
-        machine.twpas['twpa3'].pump_frequency=dfps[optimized_pump[0]]
-        machine.twpas['twpa3'].pump_amplitude=daps[optimized_pump[1]]
-        machine.twpas['twpa3'].max_gain=np.round(np.max(np.mean(Gain,axis=0)))
-        machine.twpas['twpa3'].max_snr_improvement=np.round(np.max(np.mean(dsnr,axis=0)))
+        machine.twpas['twpa2-1'].pump_frequency=dfps[optimized_pump[0]]
+        machine.twpas['twpa2-1'].pump_amplitude=daps[optimized_pump[1]]
+        machine.twpas['twpa2-1'].max_gain=np.round(np.max(np.mean(Gain,axis=0)))
+        machine.twpas['twpa2-1'].max_snr_improvement=np.round(np.max(np.mean(dsnr,axis=0)))
 
     # %% {Save_results}
     node.outcomes = {q.name: "successful" for q in qubits}

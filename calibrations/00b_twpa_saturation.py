@@ -2,7 +2,7 @@
 """ Jeongwon Kim IQCC, 251022
 do spectroscopy around the bandwidth ~(7GHz ~ 7.6GHz : our usual readout bandwidth)
 for various readout power ~(-120dBm~-95dBm)
-with the pump off and on(pumping condition is given through node 001) and get the Gain.
+with the pump off and on(optimal pumping condition is given through node 001) and get the Gain.
 For each signal frequency, get the Gain as a function of readout power
 and get the input power at which gain is compressed 1dB(P1dB)
 
@@ -17,7 +17,7 @@ Prerequisites:
       singal_on= signal[dB]
     => gain=signal_on-signal_off
 * P1dB : measure the gain as a function of readout amplitude and find the point where
-        gain starts to get compressed 1dB
+        gain drops by 1dB relative to the small-signal gain (linear gain)
 """
 
 # %% {Imports}
@@ -41,22 +41,21 @@ import math
 
 # %% {Node_parameters}
 class Parameters(NodeParameters):
-    twpas: Optional[List[str]] = ['twpa3']
+    twpas: Optional[List[str]] = ['twpa2-1']
     num_averages: int = 100
     frequency_span_in_mhz: float = 600
     frequency_step_in_mhz: float = 1
-    amp_min : float = 0.015
+    amp_min : float = 0.01
     amp_max : float = 0.5
     points : float = 60
     simulate: bool = False
     simulation_duration_ns: int = 4000
     timeout: int = 300
     load_data_id: Optional[int] = None
-    pumpline_attenuation: int = -50-7 #(-50: fridge atten(-30)+directional coupler(-20)/ room temp line(4m)~-6,)  #-5: fridge line # exclude for now
-    signalline_attenuation : int = -60-7 #-60dB : fridge atten,  -5dB : room temp wiring # galil arbel
-    opx_cable_fridge : int=-7
+    pumpline_attenuation: int = -50-10 #(-50: fridge atten(-30)+directional coupler(-20)/   #-5: fridge line # exclude for now
+    signalline_attenuation : int = -60-9 #-60dB : fridge atten,
 node = QualibrationNode(name="00b_twpa_saturation", parameters=Parameters())
-date_time = datetime.now(timezone(timedelta(hours=3))).strftime("%Y-%m-%d %H:%M:%S")
+date_time = datetime.now(timezone(timedelta(hours=2))).strftime("%Y-%m-%d %H:%M:%S")
 node.results["date"]={"date":date_time}
 # %% {Initialize_QuAM_and_QOP}
 # Class containing tools to help handling units and conversions.
@@ -66,8 +65,8 @@ machine = Quam.load()
 
 # Get the relevant QuAM components
 twpas = [machine.twpas[t] for t in node.parameters.twpas]
-qubits = [machine.qubits[machine.twpas['twpa3'].qubits[1]]]
-resonators = [machine.qubits[machine.twpas['twpa3'].qubits[1]].resonator]
+qubits = [machine.qubits[machine.twpas['twpa2-1'].qubits[1]]]
+resonators = [machine.qubits[machine.twpas['twpa2-1'].qubits[1]].resonator]
 spectroscopy = [twpas[0].spectroscopy]
 
 # Generate the OPX and Octave configurations
@@ -76,9 +75,8 @@ config = machine.generate_config()
 if node.parameters.load_data_id is None:
     qmm = machine.connect()
 #%% # readout pulse information
-etc=node.parameters.opx_cable_fridge
 from iqcc_calibration_tools.quam_config.lib.qua_datasets import opxoutput, mV
-readout_power=[np.round(opxoutput(qubits[i].resonator.opx_output.full_scale_power_dbm,qubits[i].resonator.operations["readout"].amplitude)+etc+node.parameters.signalline_attenuation,2) for i in range(len(qubits))]
+readout_power=[np.round(opxoutput(qubits[i].resonator.opx_output.full_scale_power_dbm,qubits[i].resonator.operations["readout"].amplitude)+node.parameters.signalline_attenuation,2) for i in range(len(qubits))]
 readout_length=[qubits[i].resonator.operations["readout"].length for i in range(len(qubits))]
 readout_voltage=[np.round(mV(qubits[i].resonator.opx_output.full_scale_power_dbm,qubits[i].resonator.operations["readout"].amplitude),2) for i in range(len(qubits))]
 for i in range(len(readout_power)):
@@ -101,10 +99,9 @@ with program() as twpa_pump_off:
     I, I_st, Q, Q_st,n,n_st = qua_declaration(num_qubits=len(qubits))
     da = declare(float)# QUA variable for the readout amplitude
     df = declare(int)  # QUA variable for the readout frequency
-# TWPA off
+# TWPA off : measure readout responses around readout resonators without pump
     with for_(n, 0, n < n_avg, n + 1):  
         save(n, n_st)
-# measure readout responses around readout resonators without pump
         with for_each_(da, daps): 
             with for_(*from_array(df, dfs)): 
                 for i, spec in enumerate(spectroscopy):
@@ -196,19 +193,18 @@ ds_ = ds_.assign({"IQ_abs": 1e3*np.sqrt(ds_["I"] ** 2 + ds_["Q"] ** 2)})
 # Gain & P 1dB point (saturation power)
 Gain = mvTOdbm(ds_.IQ_abs.values[0])-mvTOdbm(ds.IQ_abs.values[0])
 ps=np.round(opxoutput(twpas[0].spectroscopy.opx_output.full_scale_power_dbm,
-                daps*twpas[0].spectroscopy.operations["readout"].amplitude)+etc # resonator amp should be 0.1 to make ps from -120~-94
+                daps*twpas[0].spectroscopy.operations["readout"].amplitude) # resonator amp should be 0.1 to make ps from -120~-94
                 +node.parameters.signalline_attenuation,2)
 
 # %% {Plotting}
-print(f"calibration time = {np.round(1e-9*len(ps)*len(dfs)*n_avg*(machine.qubits[twpas[0].qubits[0]].resonator.operations['readout'].length + machine.qubits[twpas[0].qubits[0]].resonator.depletion_time), 3)} sec")
 # fs VS Gain : Gain compression along the bandwidth 
-fs=np.array([dfs+q.resonator.RF_frequency for q in qubits])[0]
+fs=np.array([dfs+twpas[0].spectroscopy.f_01])[0]
 plt.figure(figsize=(4,3))
 for i in range(1,len(daps),8):
     plt.plot(fs,Gain[i], label=f'Ps={ps[i]}dBm')
-    plt.xlabel('fs[GHz]')
-    plt.ylabel('Gain[dB]')
-    plt.title(f'{twpas[0].id}: Gain Compression\n Pamp={np.round(p_p,3)},fp={np.round((twpas[0].pump.LO_frequency+twpas[0].pump.intermediate_frequency+f_p)*1e-9,3)}GHz, Pp={np.round(node.parameters.pumpline_attenuation+opxoutput(full_scale_power_dbm,p_p)+etc,2)}dBm\n {date_time}')
+plt.xlabel('fs[GHz]')
+plt.ylabel('Gain[dB]')
+plt.title(f'{twpas[0].id}: Gain Compression\n Pamp={np.round(p_p,3)},fp={np.round((twpas[0].pump.LO_frequency+twpas[0].pump.intermediate_frequency+f_p)*1e-9,3)}GHz, Pp={np.round(node.parameters.pumpline_attenuation+opxoutput(full_scale_power_dbm,p_p),2)}dBm\n {date_time}')
 plt.legend(loc='upper right', bbox_to_anchor=(1.7, 1))
 gain_profile=plt.gcf()
 # ps VS Gain / fs
@@ -225,20 +221,24 @@ p1db = np.argmax(avg_gain_of_all_fs < gain_1db_compression)
 plt.scatter(ps[p1db], gain_1db_compression, label=f'P1dB={ps[p1db]}dBm', color='black', marker='x',s=35, zorder=10)
 plt.xlabel('Ps[dBm]')
 plt.ylabel('Gain[dB]')
-plt.title(f"{twpas[0].id}: Gain Compression\n Pamp={np.round(p_p,3)},fp={np.round((twpas[0].pump.LO_frequency+twpas[0].pump.intermediate_frequency+f_p)*1e-9,3)}GHz, Pp={np.round(node.parameters.pumpline_attenuation+opxoutput(full_scale_power_dbm,p_p)+etc,2)}dBm \n {date_time}")
+plt.title(f"{twpas[0].id}: Gain Compression\n Pamp={np.round(p_p,3)},fp={np.round((twpas[0].pump.LO_frequency+twpas[0].pump.intermediate_frequency+f_p)*1e-9,3)}GHz, Pp={np.round(node.parameters.pumpline_attenuation+opxoutput(full_scale_power_dbm,p_p),2)}dBm \n {date_time}")
 plt.legend(loc='upper right', bbox_to_anchor=(1.5, 1), fontsize=7)
 gain_compression=plt.gcf()
 
 # %% {Update state}
+resonators = [machine.qubits[machine.twpas['twpa2-1'].qubits[i]].resonator for i in range(len(machine.twpas['twpa2-1'].qubits))]
+qubits = [machine.qubits[machine.twpas['twpa2-1'].qubits[i]] for i in range(len(machine.twpas['twpa2-1'].qubits))]
+readout_power=[np.round(opxoutput(qubits[i].resonator.opx_output.full_scale_power_dbm,qubits[i].resonator.operations["readout"].amplitude)+node.parameters.signalline_attenuation,2) for i in range(len(qubits))]
 p1db = ps[p1db]
 node.results = {"p_saturation":p1db,
                 "fp":f_p+twpas[0].pump.intermediate_frequency+twpas[0].pump.LO_frequency,
                  "pp":p_p }
 node.results["figures"]={"gain_profile": gain_profile,
                          "gain_compression": gain_compression}
+node.results["Ps"]={"Ps":readout_power}
 if not node.parameters.load_data_id:
     with node.record_state_updates():        
-        machine.twpas['twpa3'].p_saturation=p1db
+        machine.twpas['twpa2-1'].p_saturation=p1db
     # %% {Save_results}
     node.outcomes = {q.name: "successful" for q in qubits}
     node.results["initial_parameters"] = node.parameters.model_dump()
