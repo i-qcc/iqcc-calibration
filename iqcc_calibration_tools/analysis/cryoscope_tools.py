@@ -294,7 +294,7 @@ def sequential_exp_fit(
             a_dc = np.mean(y[flat_start:])
         except IndexError:
             print("No flat region found, using last point of the signal as constant term")
-            a_dc = y[-1]
+            a_dc = np.mean(y[-window:])
 
     if verbose:
         print(f"\nFitted constant term: {a_dc:.3e}")
