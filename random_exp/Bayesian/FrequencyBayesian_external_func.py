@@ -87,10 +87,10 @@ def fetch_results_as_xarray_arb_var(handles, qubits, measurement_axis, var_name 
 # %% {Node_parameters}
 class Parameters(NodeParameters):
     # Define which qubits to measure
-    qubits: Optional[List[str]] = ["Q5", "Q6"]
+    qubits: Optional[List[str]] = None
 
     # Experiment parameters
-    num_repetitions: int = 15000
+    num_repetitions: int = 1500
     detuning: int = 7 * u.MHz
     # min_wait_time_in_ns: int = 16
     min_wait_time_in_ns: int = 36
@@ -103,10 +103,6 @@ class Parameters(NodeParameters):
     f_min: float = 6.5 #MHz
     f_max: float = 7.5 #MHz
     df: float = 0.005 #MHz
-
-    # Control parameters
-    reset_type: Literal["active", "thermal"] = "thermal"
-    use_state_discrimination: bool = True
 
     # Execution parameters
     simulate: bool = False
