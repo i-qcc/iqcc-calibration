@@ -229,7 +229,7 @@ def analyse_data(node: QualibrationNode[Parameters, Quam]):
 def plot_data(node: QualibrationNode[Parameters, Quam]):
     """Plot the raw and fitted data in specific figures whose shape is given by qubit.grid_location."""
     fig_raw_fit = plot_raw_data_with_fit(node.results["ds_raw"], node.namespace["qubits"], node.results["ds_fit"])
-    fig_parabola_fit = plot_parabolas_with_fit(node.results["ds_raw"], node.namespace["qubits"], node.results["ds_fit"])
+    fig_parabola_fit = plot_parabolas_with_fit(node.results["ds_raw"], node.namespace["qubits"], node.results["ds_fit"], node.outcomes)
     node.add_node_info_subtitle(fig_raw_fit)
     node.add_node_info_subtitle(fig_parabola_fit)
     plt.show()
