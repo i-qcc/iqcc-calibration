@@ -290,3 +290,12 @@ class QualibrationNode(QualibrationNodeBase, Generic[ParametersType, MachineType
         
         # Join all parts with newlines
         return "\n".join(subtitle_parts)
+    
+    def serialize_qua_program(self, path: str | None = None, tag_for_file_name: str | None = None):
+        if path is None:
+            file_name = f"debug_{tag_for_file_name}_{self.name}_{self.node_id}.py"
+        else:
+            file_name = os.path.join(path, f"debug_{tag_for_file_name}_{self.name}_{self.node_id}.py")
+        sourceFile = open(file_name, 'w')
+        print(generate_qua_script(self.namespace["qua_program"], self.machine.generate_config()), file=sourceFile) 
+        sourceFile.close()
