@@ -72,6 +72,8 @@ class RBResult:
         fidelity = self.get_fidelity(alpha)
         self.fidelity = fidelity
         
+        self.epc = 1 - self.fidelity
+        
         # std of average
         error_bars = (self.data == 0).stack(combined=("average", "repeat")).std(dim="combined").state.data / np.sqrt(self.num_repeats * self.num_averages)
 
@@ -189,7 +191,7 @@ class RBResult:
         """
         n_qubits = 2  # Assuming 2 qubits as per the context
         d = 2**n_qubits
-        r = 1 - alpha - (1 - alpha) / d
+        r = 1 - alpha - (1 - alpha) / d # error per clifford
         fidelity = 1 - r
 
         return fidelity
@@ -202,6 +204,25 @@ class RBResult:
             np.ndarray: Decay curve representing the fidelity as a function of circuit depth.
         """
         return (self.data.state == 0).sum(("repeat", "average")) / (self.num_repeats * self.num_averages)
+    
+    def get_decay_curve_1q(self, qubit_index: int):
+        """
+        Calculates the decay curve for a single qubit.
+        
+        Args:
+            qubit_index (int): Index of the qubit to calculate the decay curve for.
+
+        Returns:
+            np.ndarray: Decay curve representing the fidelity as a function of circuit depth.
+        """
+        
+        if qubit_index == 0:
+            return ((self.data.state == 0) | (self.data.state == 1)).sum(("repeat", "average")) / (self.num_repeats * self.num_averages)
+        elif qubit_index == 1:
+            return ((self.data.state == 0) | (self.data.state == 2)).sum(("repeat", "average")) / (self.num_repeats * self.num_averages)
+        else:
+            raise ValueError(f"Qubit index {qubit_index} not supported")
+        
 
 
 def rb_decay_curve(x, A, alpha, B):
@@ -232,6 +253,6 @@ class InterleavedRBResult(RBResult):
 
     def get_fidelity(self, alpha: float):
         """
-        Calculates the interleaved gate fidelity using the formula from https://arxiv.org/pdf/1210.7011.
+        Calculates the interleaved gate fidelity using the formula from https://arxiv.org/pdf/1203.4550.
         """
         return 1 - ((2**2 - 1) * (1 - alpha / self.standard_rb_alpha) / 2**2)

@@ -87,9 +87,10 @@ class RBBase:
                 
                 clifford_product = cliff @ clifford_product  # Update the total Clifford
             
-            # Append the inverse Clifford
-            inverse_clifford = clifford_product.adjoint()
-            qc.append(inverse_clifford, range(self.num_qubits))
+            if length > 0:
+                # Append the inverse Clifford
+                inverse_clifford = clifford_product.adjoint()
+                qc.append(inverse_clifford, range(self.num_qubits))
             
             # # Verify that the quantum circuit is an identity operator up to a phase
             # unitary = Operator(qc).data
