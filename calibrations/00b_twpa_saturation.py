@@ -4,7 +4,7 @@ do spectroscopy around the bandwidth ~(7GHz ~ 7.6GHz : our usual readout bandwid
 for various readout power ~(-120dBm~-95dBm)
 with the pump off and on(optimal pumping condition is given through node 001) and get the Gain.
 For each signal frequency, get the Gain as a function of readout power
-and get the input power at which gain is compressed 1dB(P1dB)
+and get the input power at which 1dB deviation from linear gain emerges(P1dB)
 
 Prerequisites:
     - Having calibrated the optimal twpa pumping point (nodes 001). All the gain compression 
@@ -18,6 +18,7 @@ Prerequisites:
     => gain=signal_on-signal_off
 * P1dB : measure the gain as a function of readout amplitude and find the point where
         gain drops by 1dB relative to the small-signal gain (linear gain)
+        input signal power at which the amplifier's gain experiences a 1dB reduction
 """
 
 # %% {Imports}
@@ -38,6 +39,7 @@ from typing import Literal, Optional, List
 import matplotlib.pyplot as plt
 import numpy as np
 import math
+import requests
 
 # %% {Node_parameters}
 class Parameters(NodeParameters):
@@ -99,6 +101,8 @@ with program() as twpa_pump_off:
     I, I_st, Q, Q_st,n,n_st = qua_declaration(num_qubits=len(qubits))
     da = declare(float)# QUA variable for the readout amplitude
     df = declare(int)  # QUA variable for the readout frequency
+    for qubit in qubits:
+        machine.set_all_fluxes(flux_point="joint", target=qubit)
 # TWPA off : measure readout responses around readout resonators without pump
     with for_(n, 0, n < n_avg, n + 1):  
         save(n, n_st)
@@ -125,6 +129,8 @@ with program() as twpa_pump_on:
     I, I_st, Q, Q_st,n,n_st = qua_declaration(num_qubits=len(qubits))
     da = declare(float)# QUA variable for the readout amplitude
     df = declare(int)  # QUA variable for the readout frequency
+    for qubit in qubits:
+        machine.set_all_fluxes(flux_point="joint", target=qubit)
 # TWPA on
     with for_(n, 0, n < n_avg, n + 1):  
         save(n, n_st)
@@ -169,6 +175,7 @@ if node.parameters.simulate:
     node.save()
 elif node.parameters.load_data_id is None:
     date_time = datetime.now(timezone(timedelta(hours=3))).strftime("%Y-%m-%d %H:%M:%S")
+    requests.get('http://10.2.1.5/PWD=1234;' +':PWR:RF:OFF')
     with qm_session(qmm, config, timeout=node.parameters.timeout) as qm:
         job = qm.execute(twpa_pump_off)
         results = fetching_tool(job, ["n"], mode="live")
@@ -179,6 +186,7 @@ elif node.parameters.load_data_id is None:
         results_ = fetching_tool(job_, ["n"], mode="live")
         while results_.is_processing():
             n_ = results_.fetch_all()[0]
+    requests.get('http://10.2.1.5/PWD=1234;' +':PWR:RF:ON')
 # %% {Data_fetching_and_dataset_creation}
 #data for pump off
 ds = fetch_results_as_xarray(job.result_handles, qubits, {"freq": dfs,"ro_amp": daps})

@@ -45,8 +45,8 @@ def gain(ds_pumpoff,ds_pumpon, qubits, dfps, daps):
     for i in range(len(qubits)):
         for j in range(len(dfps)):
             for k in range(len(daps)):
-                signal_pumpoff[i,j,k]=voltTOdbm(np.mean(ds_pumpoff.IQ_abs_signal.values[i][j][k]))
-                signal_pumpon[i,j,k]=voltTOdbm(np.mean(ds_pumpon.IQ_abs_signal.values[i][j][k]))
+                signal_pumpoff[i,j,k]=mvTOdbm(np.mean(ds_pumpoff.IQ_abs_signal.values[i][j][k]))
+                signal_pumpon[i,j,k]=mvTOdbm(np.mean(ds_pumpon.IQ_abs_signal.values[i][j][k]))
     return signal_pumpon-signal_pumpoff
 ################ 250928 V3 #####################################
 def signal(ds):

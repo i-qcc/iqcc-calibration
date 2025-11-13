@@ -26,7 +26,9 @@ class TWPA(QuamComponent):
     spectroscopy: IQChannel = None
 
     max_gain: float = None
+    avg_std_gain: float=None
     max_snr_improvement: float = None
+    avg_std_snr_improvement: float= None
     p_saturation: float = None
 
     pump_frequency : float = None
@@ -35,7 +37,6 @@ class TWPA(QuamComponent):
 
     dispersive_feature: float = None
     qubits: list = None
-
   
     def get_output_power(self, operation, Z=50) -> float:
         power = self.xy.opx_output.full_scale_power_dbm

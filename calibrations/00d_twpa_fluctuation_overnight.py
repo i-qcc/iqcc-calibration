@@ -1,13 +1,12 @@
 
-""" Jeongwon Kim IQCC, 251022
+""" Jeongwon Kim IQCC, 251104
 do spectroscopy around the bandwidth ~(7GHz ~ 7.6GHz : our usual readout bandwidth)
-for various readout power ~(-120dBm~-95dBm)
-with the pump off and on(pumping condition is given through node 001) and get the Gain.
-For each signal frequency, get the Gain as a function of readout power
-and get the input power at which gain is compressed 1dB(P1dB)
+with the pump off and on(pumping condition is given through node 001) and get the Gain & DSNR.
+Run this experiment for #(measurement) overnight and see whether the 
+gain & dsnr fluctuate with time
 
 Prerequisites:
-    - Having calibrated the optimal twpa pumping point (nodes 001). All the gain compression 
+    - Having calibrated the optimal twpa pumping point (nodes 001). Time fluctuation of gain and dsnr
       is measured under the given pumping point which is obatained through node001
 
 * Gain is defined as the increase in the signal level.
@@ -16,8 +15,7 @@ Prerequisites:
     - twpa pump on :  measure signal response within 600MHz around the readoutbandwidth
       singal_on= signal[dB]
     => gain=signal_on-signal_off
-* P1dB : measure the gain as a function of readout amplitude and find the point where
-        gain starts to get compressed 1dB
+
 """
 
 # %% {Imports}
@@ -107,6 +105,8 @@ with program() as twpa_pump_off:
     I, I_st, Q, Q_st,n,n_st = qua_declaration(num_qubits=len(qubits))
     I_, I_st_, Q_, Q_st_,n_,n_st_ = qua_declaration(num_qubits=len(qubits))
     df = declare(int)  # QUA variable for the readout frequency
+    for qubit in qubits:
+        machine.set_all_fluxes(flux_point="joint", target=qubit)
 # TWPA off : measure readout responses around readout resonators without pump
     with for_(n, 0, n < n_avg, n + 1):  
         save(n, n_st)
@@ -145,6 +145,8 @@ with program() as twpa_pump_on:
     I, I_st, Q, Q_st,n,n_st = qua_declaration(num_qubits=len(qubits))
     I_, I_st_, Q_, Q_st_,n_,n_st_ = qua_declaration(num_qubits=len(qubits))
     df = declare(int)  # QUA variable for the readout frequency
+    for qubit in qubits:
+        machine.set_all_fluxes(flux_point="joint", target=qubit)
 # TWPA on
     with for_(n, 0, n < n_avg, n + 1):  
         save(n, n_st)
@@ -252,6 +254,7 @@ for i in range(1, len(overnightgain)-30, 40):
 ax.set_title(f'{twpas[0].id}:Gain time fluctuation\n {date_time}')
 ax.set_xlabel('frequency[GHz]')
 ax.set_ylabel('gain[dB]')
+ax.set_ylim(10,20)
 ax.legend(fontsize=6, loc='lower left')#, bbox_to_anchor=(1, 1))
 # -------- DSNR subplot --------
 ax = axes[1]
@@ -262,6 +265,7 @@ for i in range(len(overnightdsnr_noise_avg)):
 ax.set_title(f'{twpas[0].id}: DSNR time fluctuation\n {date_time}')
 ax.set_xlabel('frequency[GHz]')
 ax.set_ylabel('DSNR[dB]')
+ax.set_ylim(0,20)
 ax.legend(fontsize=6,loc='lower left')#, bbox_to_anchor=(1, 1))
 plt.tight_layout()
 profile= plt.gcf()
@@ -271,12 +275,16 @@ fig, axes = plt.subplots(1, 2, figsize=(8, 3))
 ax = axes[0]
 ax.plot(fs, ov_gain_std, label=f'avg std={np.round(np.mean(ov_gain_std),2)}dB')
 ax.set_title(f'{twpas[0].id}:std(gain)\n {date_time}')
+ax.set_xlabel('frequency[GHz]')
+ax.set_ylabel('[dB]')
 ax.legend()
 # -------- DSNR subplot --------
 ax = axes[1]
 ax.plot(fs, ov_dsnr_std, label=f'avg std={np.round(np.mean(ov_dsnr_std),2)}dB')
 ax.set_title(f'{twpas[0].id}:std(DSNR)\n {date_time}')
 ax.legend()
+ax.set_xlabel('frequency[GHz]')
+ax.set_ylabel('[dB]')
 plt.tight_layout()
 std= plt.gcf()
 print(ps)
