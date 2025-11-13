@@ -36,6 +36,7 @@ from datetime import datetime, timezone, timedelta
 from typing import List, Literal, Optional
 from matplotlib import pyplot as plt
 from more_itertools import flatten
+import numpy as np
 from calibration_utils.two_qubit_interleaved_rb.data_utils import RBResult
 import xarray as xr
 
@@ -57,7 +58,12 @@ from calibration_utils.two_qubit_interleaved_rb.cloud_utils import write_sync_ho
 from calibration_utils.two_qubit_interleaved_rb.rb_utils import StandardRB
 from calibration_utils.two_qubit_interleaved_rb.plot_utils import gate_mapping
 
-
+# Average gates per 2q layer calculation:
+# - Cases with non-Z gates (X/Y via .play()): assign value 2
+# - Cases with only Z gates (via .frame_rotation()): assign value 0
+# - Case 64 (CZ gate): assign value 1
+# Average number of gate per layer ≈ 1.51
+average_gates_per_2q_layer = 1.51
 
 
 # %% {Node_parameters}
@@ -65,8 +71,8 @@ from calibration_utils.two_qubit_interleaved_rb.plot_utils import gate_mapping
 class Parameters(NodeParameters):
     qubit_pairs: Optional[List[str]] = None
     circuit_lengths: tuple[int] = (0,1,2,4,8,16,32) # in number of cliffords
-    num_circuits_per_length: int = 15
-    num_averages: int = 15
+    num_circuits_per_length: int = 20
+    num_averages: int = 50
     basis_gates: list[str] = ['rz', 'sx', 'x', 'cz'] 
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
     reset_type_thermal_or_active: Literal["thermal", "active"] = "thermal"
@@ -116,8 +122,13 @@ standard_RB = StandardRB(
 
 transpiled_circuits = standard_RB.transpiled_circuits
 transpiled_circuits_as_ints = {}
+layerized_circuits = {}
 for l, circuits in transpiled_circuits.items():
-    transpiled_circuits_as_ints[l] = [process_circuit_to_integers(layerize_quantum_circuit(qc)) for qc in circuits]
+    layerized_circuits[l] = [layerize_quantum_circuit(qc) for qc in circuits]
+    transpiled_circuits_as_ints[l] = [process_circuit_to_integers(qc) for qc in layerized_circuits[l]]
+
+# to calculate the average number of 2q layers per Clifford
+average_layers_per_clifford = np.mean([np.mean([len(circ) for circ in circuits])/np.array(length+1) for length, circuits in transpiled_circuits_as_ints.items() if length > 0])
 
 circuits_as_ints = []
 for circuits_per_len in transpiled_circuits_as_ints.values():
@@ -223,16 +234,19 @@ probs_00 = probs_00.astype(int)
 ds_transposed = ds.rename({"shots": "average", "sequence": "repeat", "depths": "circuit_depth"})
 ds_transposed = ds_transposed.transpose("qubit", "repeat", "circuit_depth", "average")
 
+rb_result = {}
+
 for qp in qubit_pairs:
+    
+    rb_result[qp.id] = RBResult(
+            circuit_depths=list(node.parameters.circuit_lengths),
+            num_repeats=node.parameters.num_circuits_per_length,
+            num_averages=node.parameters.num_averages,
+            state=ds_transposed.sel(qubit=qp.name).state.data
+        )
+    
 
-    rb_result = RBResult(
-        circuit_depths=list(node.parameters.circuit_lengths),
-        num_repeats=node.parameters.num_circuits_per_length,
-        num_averages=node.parameters.num_averages,
-        state=ds_transposed.sel(qubit=qp.name).state.data
-    )
-
-    fig = rb_result.plot_with_fidelity()
+    fig = rb_result[qp.id].plot_with_fidelity()
     fig.suptitle(f"2Q Randomized Benchmarking - {qp.name}")
     node.add_node_info_subtitle(fig)
     fig.show()
@@ -242,9 +256,14 @@ for qp in qubit_pairs:
 # %% {Update_state}
 with node.record_state_updates():
     for qp in qubit_pairs:
-        node.machine.qubit_pairs[qp.id].macros["cz"].fidelity['StandardRB'] = rb_result.fidelity
-        node.machine.qubit_pairs[qp.id].macros["cz"].fidelity['StandardRB_alpha'] = rb_result.alpha
-
+        error_per_2q_layer = (1 -rb_result[qp.id].fidelity) / average_layers_per_clifford 
+        error_per_gate = error_per_2q_layer / average_gates_per_2q_layer
+        node.machine.qubit_pairs[qp.id].macros["cz"].fidelity["StandardRB"] = {
+            "error_per_clifford": 1 - rb_result[qp.id].fidelity, 
+            "error_per_2q_layer": error_per_2q_layer,
+            "error_per_gate": error_per_gate,
+            "average_gate_fidelity": 1 - error_per_gate,
+            "alpha": rb_result[qp.id].alpha}
 # %% {Save_results}
 node.save()
 
