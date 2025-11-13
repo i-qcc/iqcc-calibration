@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import TypeVar, Generic
 from datetime import datetime, timezone, timedelta
 from qualibrate import QualibrationNode as QualibrationNodeBase
@@ -9,6 +10,8 @@ from qualibrate.utils.node.path_solver import get_node_dir_path
 from qualibrate.config.resolvers import get_quam_state_path
 from qualibrate.storage.local_storage_manager import LocalStorageManager
 from iqcc_calibration_tools.quam_config.components.quam_root import Quam
+from qm import generate_qua_script
+
 # Type variables for generic parameters - using same names and bounds as base class
 ParametersType = TypeVar("ParametersType", bound=NodeParameters)
 MachineType = TypeVar("MachineType", bound=MachineProtocol)
