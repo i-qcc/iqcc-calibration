@@ -56,15 +56,16 @@ class Parameters(NodeParameters):
     num_averages: int = 10
     max_time_in_ns: int = 128
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
-    reset_type: Literal['active', 'thermal'] = "thermal"
+    reset_type: Literal['active', 'thermal'] = "active"
     simulate: bool = False
     timeout: int = 100
     method: Literal['coarse', 'fine'] = "fine"
-    amp_range_coarse : float = 0.15
+    amp_range_coarse : float = 0.05
     amp_step_coarse : float = 0.005
-    amp_range_fine : float = 0.1
+    amp_range_fine : float = 0.05
     amp_step_fine : float = 0.002
     load_data_id: Optional[int] = None  
+    targets_name = "qubit_pairs"
 
 node = QualibrationNode(
     name="30b_02_11_oscillations_1nS", parameters=Parameters()
@@ -160,7 +161,7 @@ if node.parameters.method == "coarse":
         pulse_amplitudes[qp.name] = float(np.sqrt(-detuning/qp.qubit_control.freq_vs_flux_01_quad_term))
 else:
     for qp in qubit_pairs:
-        pulse_amplitudes[qp.name] = qp.gates["Cz"].flux_pulse_control.amplitude
+        pulse_amplitudes[qp.name] = qp.macros["cz"].flux_pulse_control.amplitude
         
 
 baked_signals = {qp.name : baked_waveform(pulse_amplitudes[qp.name], qp.qubit_control) for qp in qubit_pairs}
@@ -196,8 +197,8 @@ with program() as CPhase_Oscillations:
         else:
             machine.apply_all_flux_to_zero()
         wait(1000)
-        if hasattr(qp.gates['Cz'], 'compensations'):
-            compensation_qubits = [compensation["qubit"] for compensation in qp.gates['Cz'].compensations]
+        if hasattr(qp.macros['cz'], 'compensations'):
+            compensation_qubits = [compensation["qubit"] for compensation in qp.macros['cz'].compensations]
         else:
             compensation_qubits = []
             
@@ -227,7 +228,7 @@ with program() as CPhase_Oscillations:
                                 baked_signals[qp.name][j].run(amp_array = [(qp.qubit_control.z.name, amp)]) 
                     # # check if there are any compensations and play the relevant flux pulse
                     for comp_ind, qubit in enumerate(compensation_qubits):
-                        shift = qp.gates['Cz'].compensations[comp_ind]["shift"]
+                        shift = qp.macros['cz'].compensations[comp_ind]["shift"]
                         qubit.z.play("const", amplitude_scale= shift / qubit.z.operations["const"].amplitude, 
                                                     duration = node.parameters.max_time_in_ns // 4 + 10)
                     qp.align()
@@ -316,7 +317,7 @@ if not node.parameters.simulate:
             ds_qp.state_target.isel(amp=flux_amp_idx), "time")
         flux_time = int(1/fit_data.sel(fit_vals='f'))
 
-        print(f"parameters for {qp.name}: flux amp={flux_amp}, time={flux_time} \n old flux amp={qp.gates['Cz'].flux_pulse_control.amplitude}, old time={qp.gates['Cz'].flux_pulse_control.length}")
+        print(f"parameters for {qp.name}: flux amp={flux_amp}, time={flux_time} \n old flux amp={qp.macros['cz'].flux_pulse_control.amplitude}, old time={qp.macros['cz'].flux_pulse_control.length}")
         amplitudes[qp.name] =  flux_amp
         detunings[qp.name] = -flux_amp ** 2 * qp.qubit_control.freq_vs_flux_01_quad_term
         lengths[qp.name] = flux_time-flux_time%4+4
@@ -425,17 +426,18 @@ if not node.parameters.simulate:
     if node.parameters.load_data_id is None:
         with node.record_state_updates():
             for qp in qubit_pairs:
-                if "Cz_unipolar" in qp.gates:
-                    qp.gates['Cz_unipolar'].flux_pulse_control.amplitude = amplitudes[qp.name]
-                    qp.gates['Cz_unipolar'].flux_pulse_control.length = lengths[qp.name]
-                    qp.gates['Cz_unipolar'].flux_pulse_control.zero_padding = zero_paddings[qp.name]
-                    qp.gates['Cz'] = f"#./Cz_unipolar"
+                if "cz" in qp.macros:
+                    qp.macros['cz_unipolar'].flux_pulse_control.amplitude = amplitudes[qp.name]
+                    qp.macros['cz_unipolar'].flux_pulse_control.length = lengths[qp.name]
+                    qp.macros['cz_unipolar'].flux_pulse_control.zero_padding = zero_paddings[qp.name]
+                    qp.macros['cz'] = f"#./cz_unipolar"
                 else:
-                    qp.gates['Cz_unipolar'] = CZGate(flux_pulse_control = FluxPulse(length=lengths[qp.name], amplitude=amplitudes[qp.name], zero_padding=zero_paddings[qp.name], id = 'flux_pulse_control_' + qp.qubit_target.name))
-                    qp.gates['Cz'] = f"#./Cz_unipolar"
+                    qp.macros['cz_unipolar'] = CZGate(flux_pulse_control = FluxPulse(length=lengths[qp.name], amplitude=amplitudes[qp.name], 
+                                                                            zero_padding=zero_paddings[qp.name], id = f'flux_pulse_control_{qp.qubit_target.name}'))
+                    qp.macros['cz'] = f"#./cz_unipolar"
                 
-                qp.J2 = Js[qp.name]
-                qp.detuning = detunings[qp.name]
+                # qp.J2 = Js[qp.name]
+                # qp.detuning = detunings[qp.name]
                 
 # %% {Save_results}
 if not node.parameters.simulate:

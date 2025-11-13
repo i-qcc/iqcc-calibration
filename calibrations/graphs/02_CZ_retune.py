@@ -13,7 +13,7 @@ qubit_pairs = machine.active_qubit_pair_names
 multiplexed = True
 
 node_params = {
-    "chevron": {"max_time_in_ns": 100, "reset_type": "active", "multiplexed": multiplexed},
+    "chevron": {"max_time_in_ns": 128, "reset_type": "active"},
     "conditional_phase": {},
     "phase_compensation": {}
     }
@@ -30,7 +30,8 @@ g = QualibrationGraph(
     name="CZ_retune",
     parameters=Parameters(),
     nodes={
-        "chevron": library.nodes["30c_chevron_11-02"].copy(name="chevron"),
+        # "chevron": library.nodes["30c_chevron_11_02"].copy(name="chevron"),
+        "chevron": library.nodes["30b_02_11_oscillations_1nS"].copy(name="chevron"),
         "conditional_phase": library.nodes["32c_cz_conditional_phase"].copy(name="conditional_phase"),
         "phase_compensation": library.nodes["33d_cz_phase_compensation"].copy(name="phase_compensation"),
     },
