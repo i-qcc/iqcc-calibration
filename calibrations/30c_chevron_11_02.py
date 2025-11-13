@@ -356,7 +356,7 @@ def update_state(node: QualibrationNode[Parameters, Quam]):
             continue
         else:
             print(f"Creating CZ Unipolar gate macro for {qp.name}")
-            cz_pulse = SquarePulse(length=100, amplitude=0.5, id="cz_unipolar_pulse")
+            cz_pulse = SquarePulse(length=100, amplitude=0.5, id=f"cz_unipolar_pulse_{qp.qubit_target.id}")
             cz = CZGate(flux_pulse_control=cz_pulse)
             node.machine.qubit_pairs[qp.name].macros["cz_unipolar"] = cz
             pulse_length = (
@@ -376,7 +376,7 @@ def update_state(node: QualibrationNode[Parameters, Quam]):
             continue
         else:
             print(f"Creating CZ Flattop gate macro for {qp.name}")
-            cz_pulse = FlatTopGaussianPulse(length=100, amplitude=0.5, flat_length=50, id="cz_flattop_pulse")
+            cz_pulse = FlatTopGaussianPulse(length=100, amplitude=0.5, flat_length=50, id=f"cz_flattop_pulse_{qp.qubit_target.name}")
             cz = CZGate(flux_pulse_control=cz_pulse)
             node.machine.qubit_pairs[qp.name].macros["cz_flattop"] = cz
             pulse_length = (
