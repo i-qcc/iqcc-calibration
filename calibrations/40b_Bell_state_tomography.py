@@ -61,6 +61,7 @@ class Parameters(NodeParameters):
     timeout: int = 100
     load_data_id: Optional[int] = None
     cz_macro_name: str = "cz"
+    targets_name = "qubit_pairs"
 
 
 node = QualibrationNode(
