@@ -34,10 +34,12 @@ g = QualibrationGraph(
         "chevron": library.nodes["30b_02_11_oscillations_1nS"].copy(name="chevron"),
         "conditional_phase": library.nodes["32c_cz_conditional_phase"].copy(name="conditional_phase"),
         "phase_compensation": library.nodes["33d_cz_phase_compensation"].copy(name="phase_compensation"),
+        "bell_state_tomography": library.nodes["40b_Bell_state_tomography"].copy(name="bell_state_tomography"),
     },
     connectivity=[
         ("chevron", "conditional_phase"),
         ("conditional_phase", "phase_compensation"),
+        ("phase_compensation", "bell_state_tomography"),
     ],
     orchestrator=BasicOrchestrator(skip_failed=False),
 )

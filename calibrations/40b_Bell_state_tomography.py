@@ -48,6 +48,7 @@ from typing import Literal, Optional, List
 import matplotlib.pyplot as plt
 import numpy as np
 from iqcc_calibration_tools.analysis.plot_utils import QubitPairGrid, grid_iter, grid_pair_names
+import xarray as xr
 
 # %% {Node_parameters}
 class Parameters(NodeParameters):
@@ -59,7 +60,7 @@ class Parameters(NodeParameters):
     simulate: bool = False
     timeout: int = 100
     load_data_id: Optional[int] = None
-    cz_macro_name: str = "cz_unipolar"
+    cz_macro_name: str = "cz"
 
 
 node = QualibrationNode(
@@ -72,22 +73,22 @@ assert not (node.parameters.simulate and node.parameters.load_data_id is not Non
 # Class containing tools to help handling units and conversions.
 u = unit(coerce_to_integer=True)
 # Instantiate the QuAM class from the state file
-machine = Quam.load()
+node.machine = Quam.load()
 
 # Get the relevant QuAM components
 if node.parameters.qubit_pairs is None or node.parameters.qubit_pairs == "":
-    qubit_pairs = machine.active_qubit_pairs
+    qubit_pairs = node.machine.active_qubit_pairs
 else:
-    qubit_pairs = [machine.qubit_pairs[qp] for qp in node.parameters.qubit_pairs]
+    qubit_pairs = [node.machine.qubit_pairs[qp] for qp in node.parameters.qubit_pairs]
 
 num_qubit_pairs = len(qubit_pairs)
 
 # Generate the OPX and Octave configurations
-config = machine.generate_config()
-octave_config = machine.get_octave_config()
+config = node.machine.generate_config()
+octave_config = node.machine.get_octave_config()
 # Open Communication with the QOP
 if node.parameters.load_data_id is None:
-    qmm = machine.connect()
+    qmm = node.machine.connect()
 # %%
 
 ####################
@@ -95,7 +96,7 @@ if node.parameters.load_data_id is None:
 ####################
 from matplotlib.colors import LinearSegmentedColormap
 
-def plot_3d_hist_with_frame(data,ideal, title = ''):
+def plot_3d_hist_with_frame(data,ideal, title = '', fidelity=None, purity=None):
     fig, axs = plt.subplots(1, 2, figsize=(8, 4), subplot_kw={'projection': '3d'})
     # Create a grid of positions for the bars
     xpos, ypos = np.meshgrid(np.arange(4) + 0.5, np.arange(4) + 0.5, indexing="ij")
@@ -130,6 +131,12 @@ def plot_3d_hist_with_frame(data,ideal, title = ''):
         axs[i].set_xticklabels(['00', '01', '10', '11'], rotation=45)
         axs[i].set_yticklabels(['00', '01', '10', '11'], rotation=45)
         axs[i].set_zlim([gmin,gmax])
+        # Add fidelity and purity text to the first subplot (real part)
+        if i == 0 and fidelity is not None and purity is not None:
+            # Convert 3D axes coordinates to 2D for text placement
+            axs[i].text2D(0.02, 0.98, f"Fidelity: {fidelity:.3f}\nPurity: {purity:.3f}", 
+                         transform=axs[i].transAxes, fontsize=10, verticalalignment='top',
+                         bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
     fig.suptitle(title)
     # Show the plot
     
@@ -289,12 +296,12 @@ with program() as CPhase_Oscillations:
     
     if flux_point == "joint":
         # Bring the active qubits to the desired frequency point
-        machine.set_all_fluxes(flux_point=flux_point, target=qubit_pairs[0].qubit_control)
+        node.machine.set_all_fluxes(flux_point=flux_point, target=qubit_pairs[0].qubit_control)
     
     for i, qp in enumerate(qubit_pairs):
         # Bring the active qubits to the minimum frequency point
         if flux_point != "joint":
-            machine.set_all_fluxes(flux_point=flux_point, target=qp.qubit_control)
+            node.machine.set_all_fluxes(flux_point=flux_point, target=qp.qubit_control)
 
         with for_(n, 0, n < n_shots, n + 1):
             save(n, n_st) 
@@ -348,7 +355,6 @@ if node.parameters.simulate:
     job = qmm.simulate(config, CPhase_Oscillations, simulation_config)
     job.get_simulated_samples().con1.plot()
     node.results = {"figure": plt.gcf()}
-    node.machine = machine
     node.save()
 elif node.parameters.load_data_id is None:
     date_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
@@ -372,8 +378,7 @@ if not node.parameters.simulate:
         
     node.results = {"ds": ds}
     
-# %%
-import xarray as xr
+# %% {Data_processing}
 if not node.parameters.simulate:
     states = [0,1,2,3]
 
@@ -403,53 +408,51 @@ for qp in qubit_pairs:
         corrected_results_qp.append(corrected_results_control)
     corrected_results.append(corrected_results_qp)
 
-    # %%
+# Convert corrected_results to an xarray DataArray
+corrected_results_xr = xr.DataArray(
+    corrected_results,
+    dims=['qubit', 'tomo_axis_control', 'tomo_axis_target', 'state'],
+    coords={
+        'qubit': [qp.name for qp in qubit_pairs],
+        'tomo_axis_control': [0, 1, 2],
+        'tomo_axis_target': [0, 1, 2],
+        'state': ['00', '01', '10', '11']
+    }
+)
+corrected_results_xr = corrected_results_xr.stack(
+        tomo_axis=['tomo_axis_target', 'tomo_axis_control'])
 
-    # Convert corrected_results to an xarray DataArray
-    corrected_results_xr = xr.DataArray(
-        corrected_results,
-        dims=['qubit', 'tomo_axis_control', 'tomo_axis_target', 'state'],
-        coords={
-            'qubit': [qp.name for qp in qubit_pairs],
-            'tomo_axis_control': [0, 1, 2],
-            'tomo_axis_target': [0, 1, 2],
-            'state': ['00', '01', '10', '11']
-        }
-    )
-    corrected_results_xr = corrected_results_xr.stack(
-            tomo_axis=['tomo_axis_target', 'tomo_axis_control'])
-
-    # Store the xarray in the node results
-
-    # %%
-
-    paulis_data = {}
-    rhos = {}
-    for qp in qubit_pairs:
-        paulis_data[qp.name] = get_pauli_data(corrected_results_xr.sel(qubit = qp.name))
-        rhos[qp.name] = get_density_matrix(paulis_data[qp.name])
-        
-    # %%
-    from scipy.linalg import sqrtm
-    ideal_dat = np.array([[1,0,0,1],[0,0,0,0],[0,0,0,0],[1,0,0,1]])/2
-    s_ideal = sqrtm(ideal_dat)
-    for qp in qubit_pairs:
-        fidelity = float(np.abs(np.trace(sqrtm(s_ideal @rhos[qp.name] @ s_ideal)))**2)
-        print(f"Fidelity of {qp.name}: {fidelity:.3f}")
-        purity = np.abs(np.trace(rhos[qp.name] @ rhos[qp.name]))
-        print(f"Purity of {qp.name}: {purity:.3f}")
-        print()
-        node.results[f"{qp.name}_fidelity"] = fidelity
-        node.results[f"{qp.name}_purity"] = purity
-
-
-
+# Store the xarray in the node results
+paulis_data = {}
+rhos = {}
+for qp in qubit_pairs:
+    paulis_data[qp.name] = get_pauli_data(corrected_results_xr.sel(qubit = qp.name))
+    rhos[qp.name] = get_density_matrix(paulis_data[qp.name])
+    
 # %%
+from scipy.linalg import sqrtm
+ideal_dat = np.array([[1,0,0,1],[0,0,0,0],[0,0,0,0],[1,0,0,1]])/2
+s_ideal = sqrtm(ideal_dat)
+for qp in qubit_pairs:
+    fidelity = float(np.abs(np.trace(sqrtm(s_ideal @rhos[qp.name] @ s_ideal)))**2)
+    print(f"Fidelity of {qp.name}: {fidelity:.3f}")
+    purity = np.abs(np.trace(rhos[qp.name] @ rhos[qp.name]))
+    print(f"Purity of {qp.name}: {purity:.3f}")
+    print()
+    node.results[f"{qp.name}_fidelity"] = fidelity
+    node.results[f"{qp.name}_purity"] = purity
+
+
+
+# %% {Plot_results}
 if not node.parameters.simulate:
     
     for qp in qubit_pairs:
         ideal_dat = np.array([[1,0,0,1],[0,0,0,0],[0,0,0,0],[1,0,0,1]])/2
-        fig = plot_3d_hist_with_frame(rhos[qp.name], ideal_dat, title = qp.name)
+        fidelity = node.results[f"{qp.name}_fidelity"]
+        purity = node.results[f"{qp.name}_purity"]
+        fig = plot_3d_hist_with_frame(rhos[qp.name], ideal_dat, title = qp.name, 
+                                     fidelity=fidelity, purity=purity)
         node.results[f"{qp.name}_figure_city"] = fig
     
     grid_names, qubit_pair_names = grid_pair_names(qubit_pairs)
@@ -464,7 +467,10 @@ if not node.parameters.simulate:
                     ax.text(i+0.5, j+0.5, f"{ rho[i][j]:.2f}", ha="center", va="center", color="k")
                 else:
                     ax.text(i+0.5, j+0.5, f"{ rho[i][j]:.2f}", ha="center", va="center", color="w")
-        ax.set_title(qubit_pair['qubit'])
+        # Add fidelity and purity to title
+        fidelity = node.results[f"{qubit_pair['qubit']}_fidelity"]
+        purity = node.results[f"{qubit_pair['qubit']}_purity"]
+        ax.set_title(f"{qubit_pair['qubit']}\nFidelity: {fidelity:.3f}, Purity: {purity:.3f}")
         ax.set_xlabel('Pauli Operators')
         ax.set_ylabel('Pauli Operators')
         ax.set_xticks(range(4), ['00', '01', '10', '11'])
@@ -489,7 +495,10 @@ if not node.parameters.simulate:
                     ax.text(i+0.5, j+0.5, f"{ rho[i][j]:.2f}", ha="center", va="center", color="k")
                 else:
                     ax.text(i+0.5, j+0.5, f"{ rho[i][j]:.2f}", ha="center", va="center", color="w")
-        ax.set_title(qubit_pair['qubit'])
+        # Add fidelity and purity to title
+        fidelity = node.results[f"{qubit_pair['qubit']}_fidelity"]
+        purity = node.results[f"{qubit_pair['qubit']}_purity"]
+        ax.set_title(f"{qubit_pair['qubit']}\nFidelity: {fidelity:.3f}, Purity: {purity:.3f}")
         ax.set_xlabel('Pauli Operators')
         ax.set_ylabel('Pauli Operators')
         ax.set_xticks(range(4), ['00', '01', '10', '11'])
@@ -529,15 +538,15 @@ if not node.parameters.simulate:
     grid.fig.tight_layout()
     grid.fig.show()
     node.results["figure_paulis"] = grid.fig
-# %%
+
 
 # %% {Update_state}
 if not node.parameters.simulate:
     if node.parameters.load_data_id is None:
         with node.record_state_updates():
             for qp in qubit_pairs:
-                node.machine.qubit_pairs[qp.id].macros[node.parameters.cz_macro_name].fidelity["Bell_State_Fidelity"] = fidelity
-                node.machine.qubit_pairs[qp.id].macros[node.parameters.cz_macro_name].fidelity["Bell_State_Purity"] = purity
+                node.machine.qubit_pairs[qp.id].macros[node.parameters.cz_macro_name].fidelity["Bell_State"] = {"Fidelity": fidelity, "Purity": purity}
+                
 
 # %% {Save_results}
 if not node.parameters.simulate:
