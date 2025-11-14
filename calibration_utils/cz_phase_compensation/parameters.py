@@ -18,8 +18,8 @@ class NodeSpecificParameters(RunnableParameters):
         operation (Literal["cz_flattop", "cz_unipolar"]): Type of CZ operation to perform. Default is "cz_unipolar".
     """
 
-    num_shots: int = 100
-    num_frames: int = 17
+    num_shots: int = 1000
+    num_frames: int = 21
     operation: Literal["cz_flattop", "cz_unipolar"] = "cz_unipolar"
     use_state_discrimination: bool = True
 
