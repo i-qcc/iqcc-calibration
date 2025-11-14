@@ -905,7 +905,7 @@ requires-dist = [
     { name = "qualibrate", specifier = ">=0.2.0,<0.4.0" },
     { name = "qualibrate-config", specifier = "==0.1.8" },
     { name = "qualibration-libs", git = "https://github.com/qua-platform/qualibration-libs.git" },
-    { name = "quam", specifier = ">=0.4.2,<0.5.0" },
+    { name = "quam", specifier = "==0.5.0a1" },
     { name = "quam-builder", git = "https://github.com/qua-platform/quam-builder.git" },
     { name = "tqdm" },
     { name = "xarray" },
@@ -2234,7 +2234,7 @@ dependencies = [
 
 [[package]]
 name = "quam"
-version = "0.4.2"
+version = "0.5.0a1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "numpy" },
@@ -2243,9 +2243,9 @@ dependencies = [
     { name = "qualibrate-config" },
     { name = "typeguard" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b4/7a/6f23120a458aa738292e595088282a52266423da1aa5b7fb8b0f33152c3e/quam-0.4.2.tar.gz", hash = "sha256:0804833adc1813b41d78b14183ddec5135bc97d013fce2744041712e69e668a9", size = 308694 }
+sdist = { url = "https://files.pythonhosted.org/packages/ac/6c/b408aef0c054ecdd8452caa51aa921c690e920490cbc3023833dfd7f3e03/quam-0.5.0a1.tar.gz", hash = "sha256:493dba5e91276a7b938a10a64c839269a28082ece3855ce0d4970480c76a3f7b", size = 311066 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/22/24/481120af600a2b20d080357ac28f8576c68f1e9381c2d689a44decf45921/quam-0.4.2-py3-none-any.whl", hash = "sha256:4651c97f3a0f601f02e7d4d980973bc9eeab47af8954a1a776f4ba6a6ca601f8", size = 89635 },
+    { url = "https://files.pythonhosted.org/packages/16/cd/93eacae1aaf57e5ab13b4cb4fb0dc47fea227c1677dd2837336bb2fb8bc1/quam-0.5.0a1-py3-none-any.whl", hash = "sha256:12d3cd8228cb4808d2b36643d6c2801d0e029625a4a56ed1e55a072000a5b1af", size = 91029 },
 ]
 
 [[package]]
