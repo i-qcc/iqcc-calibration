@@ -65,15 +65,11 @@ class RBResult:
         Plots the RB fidelity as a function of circuit depth, including a fit to an exponential decay model.
         The fitted curve is overlaid with the raw data points, and error bars are included.
         
+        Note: This method assumes that fit() has been called first to calculate all metrics.
+        
         Returns:
             matplotlib.figure.Figure: The figure object containing the plot.
         """
-        A, alpha, B = self.fit_exponential()
-        fidelity = self.get_fidelity(alpha)
-        self.fidelity = fidelity
-        
-        self.epc = 1 - self.fidelity
-        
         # std of average
         error_bars = (self.data == 0).stack(combined=("average", "repeat")).std(dim="combined").state.data / np.sqrt(self.num_repeats * self.num_averages)
 
@@ -92,7 +88,7 @@ class RBResult:
         circuit_depths_smooth_axis = np.linspace(self.circuit_depths[0], self.circuit_depths[-1], 100)
         plt.plot(
             circuit_depths_smooth_axis,
-            rb_decay_curve(np.array(circuit_depths_smooth_axis), A, alpha, B),
+            rb_decay_curve(np.array(circuit_depths_smooth_axis), self.A, self.alpha, self.B),
             color="red",
             linestyle="--",
             label="Exponential Fit",
@@ -101,12 +97,24 @@ class RBResult:
         plt.text(
             0.5,
             0.95,
-            f"2Q Clifford Fidelity = {fidelity * 100:.2f}%",
+            f"2Q Clifford Fidelity = {self.fidelity * 100:.2f}%",
             horizontalalignment="center",
             verticalalignment="top",
             fontdict={"fontsize": "large", "fontweight": "bold"},
             transform=plt.gca().transAxes,
         )
+        
+        # Add average gate fidelity if it was calculated
+        if hasattr(self, 'average_gate_fidelity'):
+            plt.text(
+                0.5,
+                0.88,
+                f"Average Gate Fidelity = {self.average_gate_fidelity * 100:.2f}%",
+                horizontalalignment="center",
+                verticalalignment="top",
+                fontdict={"fontsize": "large", "fontweight": "bold"},
+                transform=plt.gca().transAxes,
+            )
 
         plt.xlabel("Circuit Depth")
         plt.ylabel(r"Probability to recover to $|00\rangle$")
@@ -178,6 +186,41 @@ class RBResult:
         self.alpha = alpha
 
         return A, alpha, B
+
+    def fit(self, average_layers_per_clifford=None, average_gates_per_2q_layer=None):
+        """
+        Fits the RB data and calculates all error and fidelity metrics.
+        
+        Args:
+            average_layers_per_clifford (float, optional): Average number of 2q layers per Clifford.
+                If provided, will calculate error_per_2q_layer, error_per_gate, and average_gate_fidelity.
+            average_gates_per_2q_layer (float, optional): Average number of gates per 2q layer.
+                If provided, will calculate error_per_2q_layer, error_per_gate, and average_gate_fidelity.
+        
+        This method calculates and stores the following attributes:
+            - A, alpha, B: Fitted exponential parameters
+            - fidelity: 2Q Clifford fidelity
+            - epc: Error per Clifford
+            - error_per_2q_layer: Error per 2q layer (if constants provided)
+            - error_per_gate: Error per gate (if constants provided)
+            - average_gate_fidelity: Average gate fidelity (if constants provided)
+        """
+        # Fit exponential decay
+        A, alpha, B = self.fit_exponential()
+        self.A = A
+        self.alpha = alpha
+        self.B = B
+        
+        # Calculate fidelity and error per Clifford
+        fidelity = self.get_fidelity(alpha)
+        self.fidelity = fidelity
+        self.epc = 1 - self.fidelity
+        
+        # Calculate additional metrics if constants are provided
+        if average_layers_per_clifford is not None and average_gates_per_2q_layer is not None:
+            self.error_per_2q_layer = (1 - fidelity) / average_layers_per_clifford
+            self.error_per_gate = self.error_per_2q_layer / average_gates_per_2q_layer
+            self.average_gate_fidelity = 1 - self.error_per_gate
 
     def get_fidelity(self, alpha):
         """

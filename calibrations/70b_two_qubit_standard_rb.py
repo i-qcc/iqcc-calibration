@@ -245,8 +245,15 @@ for qp in qubit_pairs:
             state=ds_transposed.sel(qubit=qp.name).state.data
         )
     
-
+    # Fit the data and calculate all error and fidelity metrics
+    rb_result[qp.id].fit(
+        average_layers_per_clifford=average_layers_per_clifford,
+        average_gates_per_2q_layer=average_gates_per_2q_layer
+    )
+    
+    # Plot the results
     fig = rb_result[qp.id].plot_with_fidelity()
+    
     fig.suptitle(f"2Q Randomized Benchmarking - {qp.name}")
     node.add_node_info_subtitle(fig)
     fig.show()
@@ -256,13 +263,11 @@ for qp in qubit_pairs:
 # %% {Update_state}
 with node.record_state_updates():
     for qp in qubit_pairs:
-        error_per_2q_layer = (1 -rb_result[qp.id].fidelity) / average_layers_per_clifford 
-        error_per_gate = error_per_2q_layer / average_gates_per_2q_layer
         node.machine.qubit_pairs[qp.id].macros["cz"].fidelity["StandardRB"] = {
             "error_per_clifford": 1 - rb_result[qp.id].fidelity, 
-            "error_per_2q_layer": error_per_2q_layer,
-            "error_per_gate": error_per_gate,
-            "average_gate_fidelity": 1 - error_per_gate,
+            "error_per_2q_layer": rb_result[qp.id].error_per_2q_layer,
+            "error_per_gate": rb_result[qp.id].error_per_gate,
+            "average_gate_fidelity": 1 - rb_result[qp.id].error_per_gate,
             "alpha": rb_result[qp.id].alpha}
 # %% {Save_results}
 node.save()

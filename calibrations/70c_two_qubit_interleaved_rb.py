@@ -237,6 +237,10 @@ for qp in qubit_pairs:
         state=ds_transposed.sel(qubit=qp.name).state.data
     )
 
+    # Fit the data and calculate all error and fidelity metrics
+    rb_result[qp.id].fit()
+    
+    # Plot the results
     fig = rb_result[qp.id].plot_with_fidelity()
     fig.suptitle(f"2Q Interleaved Randomized Benchmarking - {qp.name}")
     node.add_node_info_subtitle(fig)
