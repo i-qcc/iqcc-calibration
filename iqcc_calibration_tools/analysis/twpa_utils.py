@@ -48,6 +48,7 @@ def gain(ds_pumpoff,ds_pumpon, qubits, dfps, daps):
                 signal_pumpoff[i,j,k]=mvTOdbm(np.mean(ds_pumpoff.IQ_abs_signal.values[i][j][k]))
                 signal_pumpon[i,j,k]=mvTOdbm(np.mean(ds_pumpon.IQ_abs_signal.values[i][j][k]))
     return signal_pumpon-signal_pumpoff
+
 ################ 250928 V3 #####################################
 def signal(ds):
     avg_signal=ds.IQ_abs_signal.values.mean(axis=-1, keepdims=True)
@@ -125,6 +126,15 @@ def optimizer(mingain, mindsnr, gain_avg, dsnr_avg, daps, dfps, p_lo,p_if):
     print(f"gain_avg :{np.round(gain_avg[idx],2)}dB")
     print(f"dsnr_avg :{np.round(dsnr_avg[idx],2)}dB")
     return idx
+#---------------------------------MULTIPLXED READOUT OPTIMIZER----------------------------
+def multiplexed_optimizer(qubit, Gain, dsnr, qubits): #qubit = worst snr qubit 
+    idx=np.unravel_index(np.argmax(dsnr[qubit-1]),dsnr[qubit-1].shape)
+    print(f"max_average_dSNR : {np.round(np.max(np.mean(dsnr,axis=0)))}dB")
+    print(f"@ max dSNR for qB{qubit}")
+    for i in range(len(qubits)):        
+        print(f"qB{i+1}:dSNR:{np.round(dsnr[i][idx[0]][idx[1]][0],2)}dB, gain:{np.round(Gain[i][idx[0]][idx[1]][0],2)}dB")
+    return idx
+
 #############################
 def resonator_fit(f, f0, gamma, a, c0, c1):
     # f0 [GHz], gamma [GHz], a > 0 is dip depth, baseline c0 + c1*(f - f0)
