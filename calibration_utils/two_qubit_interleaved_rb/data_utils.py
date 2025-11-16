@@ -94,10 +94,16 @@ class RBResult:
             label="Exponential Fit",
         )
 
+     
+        if isinstance(self, InterleavedRBResult):
+            title = f"target gate fidelity = {self.fidelity * 100:.2f}%"
+        else:
+            title = f"2Q average Clifford fidelity = {self.fidelity * 100:.2f}%"
+            
         plt.text(
             0.5,
             0.95,
-            f"2Q Clifford Fidelity = {self.fidelity * 100:.2f}%",
+            title,
             horizontalalignment="center",
             verticalalignment="top",
             fontdict={"fontsize": "large", "fontweight": "bold"},

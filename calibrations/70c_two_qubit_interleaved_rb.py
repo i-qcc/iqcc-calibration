@@ -78,8 +78,9 @@ class Parameters(NodeParameters):
     load_data_id: Optional[int] = None
     timeout: int = 100
     seed: int = 0
+    targets_name = "qubit_pairs"
 
-node = QualibrationNode(name="2Q_interleaved_rb", parameters=Parameters())
+node = QualibrationNode(name="70c_two_qubit_interleaved_rb", parameters=Parameters())
 
 # %% {Initialize_QuAM_and_QOP}
 
