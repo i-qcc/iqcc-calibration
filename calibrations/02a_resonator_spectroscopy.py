@@ -58,6 +58,9 @@ def custom_param(node: QualibrationNode[Parameters, Quam]):
     """Allow the user to locally set the node parameters for debugging purposes, or execution in the Python IDE."""
     # You can get type hinting in your IDE by typing node.parameters.
     # node.parameters.qubits = ["q1", "q2"]
+    node.parameters.qubits = ["qB1","qB4","qB3"]
+    node.parameters.multiplexed=True
+    node.parameters.reset_type= "thermal"
     pass
 
 
@@ -90,11 +93,18 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
     with program() as node.namespace["qua_program"]:
         I, I_st, Q, Q_st, n, n_st = node.machine.declare_qua_variables()
         df = declare(int)  # QUA variable for the readout frequency
-
+        # adc_stream=declare_stream(adc_trace=True)
+        #-----------------------------------------------------------------------
+        twpas = [node.machine.twpas['twpa2-1']]
+        f_p = twpas[0].pump_frequency
+        p_p = twpas[0].pump_amplitude
+        update_frequency(twpas[0].pump.name, f_p+twpas[0].pump.intermediate_frequency)
+        
+        #-------------------------------------------------------------------------
         for multiplexed_qubits in qubits.batch():
             # Initialize the QPU in terms of flux points (flux tunable transmons and/or tunable couplers)
             for qubit in multiplexed_qubits.values():
-                node.machine.initialize_qpu(target=qubit)
+                node.machine.set_all_fluxes(flux_point="joint", target=qubit)
             align()
             with for_(n, 0, n < n_avg, n + 1):
                 save(n, n_st)
@@ -104,6 +114,8 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                         # Update the resonator frequencies for all resonators
                         rr.update_frequency(df + rr.intermediate_frequency)
                         # Measure the resonator
+                        # twpas[0].pump.play('pump', amplitude_scale=p_p, duration=3000/4)
+                        # wait(250)
                         rr.measure("readout", qua_vars=(I[i], Q[i]))
                         # wait for the resonator to deplete
                         rr.wait(rr.depletion_time * u.ns)
@@ -113,6 +125,7 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                     align()
 
         with stream_processing():
+            # adc_stream.input1().save('raw_adc')
             n_st.save("n")
             for i in range(num_qubits):
                 I_st[i].buffer(len(dfs)).average().save(f"I{i + 1}")
@@ -120,18 +133,23 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
 
 
 # %% {Simulate}
-@node.run_action(skip_if=node.parameters.load_data_id is not None or not node.parameters.simulate)
-def simulate_qua_program(node: QualibrationNode[Parameters, Quam]):
-    """Connect to the QOP and simulate the QUA program"""
-    # Connect to the QOP
-    qmm = node.machine.connect()
-    # Get the config from the machine
-    config = node.machine.generate_config()
-    # Simulate the QUA program, generate the waveform report and plot the simulated samples
-    samples, fig, wf_report = simulate_and_plot(qmm, config, node.namespace["qua_program"], node.parameters)
-    # Store the figure, waveform report and simulated samples
-    node.results["simulation"] = {"figure": fig, "wf_report": wf_report, "samples": samples}
-
+# # @node.run_action(skip_if=node.parameters.load_data_id is not None or not node.parameters.simulate)
+# # def simulate_qua_program(node: QualibrationNode[Parameters, Quam]):
+# #     """Connect to the QOP and simulate the QUA program"""
+#     # Connect to the QOP
+# qmm = node.machine.connect()
+# # Get the config from the machine
+# config = node.machine.generate_config()
+# # Simulate the QUA program, generate the waveform report and plot the simulated samples
+# samples, fig, wf_report = simulate_and_plot(qmm, config, node.namespace["qua_program"], node.parameters)
+# # Store the figure, waveform report and simulated samples
+# node.results["simulation"] = {"figure": fig, "wf_report": wf_report, "samples": samples}
+# # for i, con in enumerate(samples.keys()):
+# #     ax = plt.subplot(len(samples.keys()), 1, i + 1)
+# #     samples[con].plot()
+# #     ax.set_xlim(0, 25000)
+#     ax.set_ylim(-0.005,0.02)
+#     plt.title(con)
 
 # %% {Execute}
 @node.run_action(skip_if=node.parameters.load_data_id is not None or node.parameters.simulate)
@@ -222,3 +240,5 @@ def update_state(node: QualibrationNode[Parameters, Quam]):
 @node.run_action()
 def save_results(node: QualibrationNode[Parameters, Quam]):
     node.save()
+
+# %%

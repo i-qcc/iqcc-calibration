@@ -66,8 +66,9 @@ def custom_param(node: QualibrationNode[Parameters, Quam]):
     execution in the Python IDE.
     """
     # You can get type hinting in your IDE by typing node.parameters.
-    # node.parameters.qubits = ["q1", "q2"]
-    pass
+    node.parameters.qubits = ["qB1","qB4","qB3"]
+    node.parameters.multiplexed=True
+    node.parameters.reset_type= "active"
 
 
 # Instantiate the QUAM class from the state file
@@ -98,11 +99,14 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
     with program() as node.namespace["qua_program"]:
         I_g, I_g_st, Q_g, Q_g_st, n, n_st = node.machine.declare_qua_variables()
         I_e, I_e_st, Q_e, Q_e_st, _, _ = node.machine.declare_qua_variables()
-
+        twpas = [node.machine.twpas['twpa2-1']]
+        f_p = twpas[0].pump_frequency
+        p_p = twpas[0].pump_amplitude
+        update_frequency(twpas[0].pump.name, f_p+twpas[0].pump.intermediate_frequency)
         for multiplexed_qubits in qubits.batch():
             # Initialize the QPU in terms of flux points (flux tunable transmons and/or tunable couplers)
             for qubit in multiplexed_qubits.values():
-                node.machine.initialize_qpu(target=qubit)
+                node.machine.set_all_fluxes(flux_point="joint", target=qubit)
             align()
 
             with for_(n, 0, n < n_runs, n + 1):
@@ -113,6 +117,7 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                 for i, qubit in multiplexed_qubits.items():
                     qubit.reset(node.parameters.reset_type, node.parameters.simulate)
                 align()
+                twpas[0].pump.play('pump', amplitude_scale=p_p, duration=3000/4)
                 # Qubit readout
                 for i, qubit in multiplexed_qubits.items():
                     qubit.resonator.measure(operation, qua_vars=(I_g[i], Q_g[i]))
@@ -127,10 +132,11 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                 for i, qubit in multiplexed_qubits.items():
                     qubit.reset(node.parameters.reset_type, node.parameters.simulate)
                 align()
-
+                twpas[0].pump.play('pump', amplitude_scale=p_p, duration=3000/4)  
                 # Qubit readout
-                for i, qubit in multiplexed_qubits.items():
+                for i, qubit in multiplexed_qubits.items():                    
                     qubit.xy.play("x180")
+                    qubit.align()
                     qubit.resonator.measure(operation, qua_vars=(I_e[i], Q_e[i]))
                     qubit.resonator.wait(qubit.resonator.depletion_time * u.ns)
                     # save data
@@ -240,6 +246,13 @@ def plot_data(node: QualibrationNode[Parameters, Quam]):
         "histograms": fig_histogram,
     }
 
+#%% # readout pulse information
+from iqcc_calibration_tools.quam_config.lib.qua_datasets import opxoutput, mV
+readout_power=[np.round(opxoutput(node.namespace["qubits"][i].resonator.opx_output.full_scale_power_dbm,node.namespace["qubits"][i].resonator.operations["readout"].amplitude)-69,2) for i in range(len(node.namespace["qubits"]))]
+readout_length=[node.namespace["qubits"][i].resonator.operations["readout"].length for i in range(len(node.namespace["qubits"]))]
+readout_voltage=[np.round(mV(node.namespace["qubits"][i].resonator.opx_output.full_scale_power_dbm,node.namespace["qubits"][i].resonator.operations["readout"].amplitude),2) for i in range(len(node.namespace["qubits"]))]
+for i in range(len(readout_power)):
+    print(f"{node.namespace['qubits'][i].name}: readout power @ resonator={readout_power[i]}dBm, opx output={readout_voltage[i]}mV, readout length={readout_length[i]}")
 
 # %% {Update_state}
 @node.run_action(skip_if=node.parameters.simulate)
@@ -264,3 +277,4 @@ def update_state(node: QualibrationNode[Parameters, Quam]):
 @node.run_action()
 def save_results(node: QualibrationNode[Parameters, Quam]):
     node.save()
+# %%

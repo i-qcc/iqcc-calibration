@@ -66,7 +66,9 @@ node = QualibrationNode[Parameters, Quam](
 def custom_param(node: QualibrationNode[Parameters, Quam]):
     """Allow the user to locally set the node parameters for debugging purposes, or execution in the Python IDE."""
     # You can get type hinting in your IDE by typing node.parameters.
-    # node.parameters.qubits = ["q1", "q2"]
+    node.parameters.qubits = ["qB1","qB4","qB3"]
+    node.parameters.multiplexed=True
+    node.parameters.reset_type="thermal"
     pass
 
 
@@ -111,11 +113,14 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
         I, I_st, Q, Q_st, n, n_st = node.machine.declare_qua_variables()
         dc = declare(fixed)  # QUA variable for the flux bias
         df = declare(int)  # QUA variable for the readout frequency detuning
-
+        twpas = [node.machine.twpas['twpa2-1']]
+        f_p = twpas[0].pump_frequency
+        p_p = twpas[0].pump_amplitude
+        update_frequency(twpas[0].pump.name, f_p+twpas[0].pump.intermediate_frequency)
         for multiplexed_qubits in qubits.batch():
             # Initialize the QPU in terms of flux points (flux tunable transmons and/or tunable couplers)
             for qubit in multiplexed_qubits.values():
-                node.machine.initialize_qpu(target=qubit)
+                node.machine.set_all_fluxes(flux_point="joint", target=qubit)
             align()
 
             with for_(n, 0, n < n_avg, n + 1):
@@ -130,6 +135,8 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                         with for_(*from_array(df, dfs)):
                             # Update the resonator frequencies for resonator
                             rr.update_frequency(df + rr.intermediate_frequency)
+                            twpas[0].pump.play('pump', amplitude_scale=p_p, duration=3000/4)
+                            wait(250)
                             # readout the resonator
                             rr.measure("readout", qua_vars=(I[i], Q[i]))
                             # wait for the resonator to deplete
@@ -256,3 +263,5 @@ def update_state(node: QualibrationNode[Parameters, Quam]):
 @node.run_action()
 def save_results(node: QualibrationNode[Parameters, Quam]):
     node.save()
+
+# %%

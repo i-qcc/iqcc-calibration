@@ -110,6 +110,8 @@ with program() as twpa_pump_off_n:
     I, I_st, Q, Q_st,n,n_st = qua_declaration(num_qubits=len(qubits))
     dp = declare(int)  # QUA variable for the pump frequency
     da = declare(float)# QUA variable for the pump amplitude
+    for qubit in qubits:
+        machine.set_all_fluxes(flux_point="joint", target=qubit)
 # TWPA off
     with for_(n, 0, n < n_avg, n + 1):  
         save(n, n_st)
@@ -136,6 +138,8 @@ with program() as twpa_pump_on_n:
     I, I_st, Q, Q_st,n,n_st = qua_declaration(num_qubits=len(qubits))
     dp = declare(int)  # QUA variable for the pump frequency
     da = declare(float)# QUA variable for the pump amplitude
+    for qubit in qubits:
+        machine.set_all_fluxes(flux_point="joint", target=qubit)
     with for_(n, 0, n < n_avg, n + 1):  
         save(n, n_st)
         with for_(*from_array(dp, dfps)):  
@@ -163,7 +167,8 @@ with program() as twpa_pump_off_s:
     dp = declare(int)  # QUA variable for the pump frequency
     da = declare(float)# QUA variable for the pump amplitude
     df = declare(int)  # QUA variable for the readout frequency=pump_duration)
-
+    for qubit in qubits:
+        machine.set_all_fluxes(flux_point="joint", target=qubit)
     with for_(n, 0, n < n_avg, n + 1):  
         save(n, n_st)
         with for_(*from_array(dp, dfps)):  
@@ -191,6 +196,8 @@ with program() as twpa_pump_on_s:
     dp = declare(int)  # QUA variable for the pump frequency
     da = declare(float)# QUA variable for the pump amplitude
     df = declare(int)  # QUA variable for the readout frequency
+    for qubit in qubits:
+        machine.set_all_fluxes(flux_point="joint", target=qubit)
     with for_(n, 0, n < n_avg, n + 1):  
         save(n, n_st)
         with for_(*from_array(dp, dfps)):  

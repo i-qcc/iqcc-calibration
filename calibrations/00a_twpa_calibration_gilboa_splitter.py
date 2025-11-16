@@ -2,12 +2,11 @@
 """ Jeongwon Kim, Akiva, Omrie, Wei  IQCC, 250924
 Sweep pump frequency and amplitude
 For each pumping point, calculate Gain, SNR improvement.
-Optimize pumping point for the worst SNR Qubit so that the multiplexed readout could be done faster in the given fidelity.
+Currently optimized pumping point is maximum SNR improvement point(will be upgraded soon)
 
 Prerequisites:
-    - Need to know in which frequency dispersive feature of TWPA RPM resonator appears
+    - Need to the in which frequency dispersive feature of TWPA RPM resonator appears
     - Having calibrated the resonator frequency (nodes 02a, 02b and/or 02c).
-    - Having calibrated the worst SNR Qubit 
 
 * Gain is defined as the increase in the signal level.
     - twpa pump off : measure the signal response within  a 4MHz around the readout resonator
@@ -44,16 +43,18 @@ from typing import Literal, Optional, List
 import matplotlib.pyplot as plt
 import numpy as np
 import math
+import requests
 
 # %% {Node_parameters}
 class Parameters(NodeParameters):
     twpas: Optional[List[str]] = ['twpa2-1']
+    # qubits: Optional[List[str]] = None
     num_averages: int = 30
     amp_min: float =  0.45
     amp_max: float =  0.9
     points : int = 40
     frequency_span_in_mhz: float = 4
-    frequency_step_in_mhz: float = 0.1
+    frequency_step_in_mhz: float =0.1
     p_frequency_span_in_mhz: float = 60
     p_frequency_step_in_mhz: float =0.5
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
@@ -63,7 +64,7 @@ class Parameters(NodeParameters):
     load_data_id: Optional[int] = None
     pumpline_attenuation: int = -50-10-4 #(-50: fridge atten(-30)+directional coupler(-20))  
     signalline_attenuation : int = -60-9 #-60dB : fridge atten
-node = QualibrationNode(name="00a_twpa_calibration_MTPLX_RO", parameters=Parameters())
+node = QualibrationNode[Parameters, Quam](name="00a_twpa2_1_calibration_setflux", parameters=Parameters())
 date_time = datetime.now(timezone(timedelta(hours=2))).strftime("%Y-%m-%d %H:%M:%S")
 node.results["date"]={"date":date_time}
 # %% {Initialize_QuAM_and_QOP}
@@ -76,7 +77,6 @@ machine = Quam.load()
 twpas = [machine.twpas[t] for t in node.parameters.twpas]
 qubits = [machine.qubits[machine.twpas['twpa2-1'].qubits[i]] for i in range(len(machine.twpas['twpa2-1'].qubits))]
 resonators = [machine.qubits[machine.twpas['twpa2-1'].qubits[i]].resonator for i in range(len(machine.twpas['twpa2-1'].qubits))]
-
 # Generate the OPX and Octave configurations
 config = machine.generate_config()
 # Open Communication with the QOP
@@ -151,7 +151,7 @@ with program() as twpa_pump_off:
             Q_st[i].buffer(len(dfs)).buffer(len(daps)).buffer(len(dfps)).average().save(f"Q{i + 1}")
             I_st_[i].buffer(len(dfs)).buffer(len(daps)).buffer(len(dfps)).average().save(f"I_{i + 1}")
             Q_st_[i].buffer(len(dfs)).buffer(len(daps)).buffer(len(dfps)).average().save(f"Q_{i + 1}") 
-### TWPA on
+# ### TWPA on
 with program() as twpa_pump_on:    
     I, I_st, Q, Q_st,n,n_st = qua_declaration(num_qubits=len(qubits))
     I_, I_st_, Q_, Q_st_,n_,n_st_ = qua_declaration(num_qubits=len(qubits))
@@ -179,13 +179,12 @@ with program() as twpa_pump_on:
                         # save data
                         save(I[i], I_st[i])
                         save(Q[i], Q_st[i]) 
-                #align() doesnt work
                 with for_(*from_array(df, dfs)):
                     for i, rr in enumerate(resonators):
                         # Update the resonator frequencies for all resonators
                         update_frequency(rr.name, df + rr.intermediate_frequency)
                         # Measure the resonator, amp, see the signal level
-                        rr.measure("readout", qua_vars=(I_[i], Q_[i]))
+                        rr.measure("readout",qua_vars=(I_[i], Q_[i]))
                         # wait for the resonator to relax
                         rr.wait(rr.depletion_time * u.ns)
                         # save data
@@ -200,7 +199,7 @@ with program() as twpa_pump_on:
             I_st_[i].buffer(len(dfs)).buffer(len(daps)).buffer(len(dfps)).average().save(f"I_{i + 1}")
             Q_st_[i].buffer(len(dfs)).buffer(len(daps)).buffer(len(dfps)).average().save(f"Q_{i + 1}") 
 # %% {Simulate_or_execute}
-import requests
+requests.get('http://10.2.1.5/PWD=1234;' +':PWR:RF:OFF')
 if node.parameters.simulate:
     # Simulates the QUA program for the specified duration
     simulation_config = SimulationConfig(duration=node.parameters.simulation_duration_ns * 4)  # In clock cycles = 4ns
@@ -220,7 +219,6 @@ if node.parameters.simulate:
     node.save()
 elif node.parameters.load_data_id is None:
     date_time = datetime.now(timezone(timedelta(hours=3))).strftime("%Y-%m-%d %H:%M:%S")
-    requests.get('http://10.2.1.5/PWD=1234;' +':PWR:RF:OFF')
     with qm_session(qmm, config, timeout=node.parameters.timeout) as qm:
         job = qm.execute(twpa_pump_off)
         results = fetching_tool(job, ["n"], mode="live")
@@ -231,7 +229,7 @@ elif node.parameters.load_data_id is None:
         results_ = fetching_tool(job_, ["n"], mode="live")
         while results_.is_processing():
             n_ = results_.fetch_all()[0]
-    requests.get('http://10.2.1.5/PWD=1234;' +':PWR:RF:ON')
+requests.get('http://10.2.1.5/PWD=1234;' +':PWR:RF:ON')
 # %% {Data_fetching_and_dataset_creation}
 #data for pump off
 ds = fetch_results_as_xarray(job.result_handles, qubits, {"freq": dfs, "pump_amp": daps, "pump_freq" : dfps})
@@ -255,8 +253,8 @@ pumpon_snr = snr(ds_, qubits, dfps, daps)
 RF_freq = np.array([dfs + q.resonator.RF_frequency for q in qubits])
 dsnr = pumpon_snr-pumpoff_snr
 Gain = gain(ds, ds_, qubits, dfps, daps)
-average_gain=np.mean(Gain,axis=0)
-average_dsnr=np.mean(dsnr,axis=0)
+node.results = {"snr_improvement": dsnr,
+                "gain": Gain}
 p_lo=twpas[0].pump.LO_frequency
 p_if=twpas[0].pump.intermediate_frequency
 # pump at max avg_gain
@@ -274,16 +272,7 @@ time_sec = 1e-9 * 12 * n_avg * len(daps) * len(dfps) * len(dfs) * (
     machine.qubits[twpas[0].qubits[0]].resonator.depletion_time
 )
 print(f"calibration time = {np.round(time_sec, 3)} sec")
-pump_frequency=machine.twpas['twpa2-1'].pump.LO_frequency+machine.twpas['twpa2-1'].pump.intermediate_frequency+dfps
-pump_power=opxoutput(full_scale_power_dbm,daps)+node.parameters.pumpline_attenuation
-pump_power[np.isneginf(pump_power)]=0
-indices=np.linspace(0, len(pump_frequency)-1,10, dtype=int)
-selected_frequencies=np.round(pump_frequency[indices]*1e-9,3)
-ytick_pos = np.linspace(0, len(dfps)-1, len(selected_frequencies))
-indices_=np.linspace(0, len(pump_power)-1,10, dtype=int)
-selected_powers=np.round(pump_power[indices_],2)
-xtick_pos = np.linspace(0, len(daps)-1, len(selected_powers))
-##---------------------------- SIGNAL S21 PLOT -----------------------------------------------
+## SIGNAL S21 PLOT
 ncols = 2
 nrows = math.ceil(len(qubits) / ncols)
 fig, axes = plt.subplots(nrows, ncols, figsize=(6, 8)) 
@@ -302,7 +291,7 @@ for i, ax in enumerate(axes):
 plt.tight_layout()
 s=plt.gcf()
 plt.show()
-##-----------------------------------Noise PLOT-----------------------------------------
+## Noise PLOT
 fig, axes = plt.subplots(nrows, ncols, figsize=(6, 8)) 
 axes = axes.flatten() 
 for i, ax in enumerate(axes):
@@ -320,44 +309,57 @@ for i, ax in enumerate(axes):
 plt.tight_layout()
 n=plt.gcf()
 plt.show()
-
-### ------------------------- avggain vs pump ----------------------------------------
+##       
+pump_frequency=machine.twpas['twpa2-1'].pump.LO_frequency+machine.twpas['twpa2-1'].pump.intermediate_frequency+dfps
+pump_power=opxoutput(full_scale_power_dbm,daps)+node.parameters.pumpline_attenuation
+pump_power[np.isneginf(pump_power)]=0
+indices=np.linspace(0, len(pump_frequency)-1,10, dtype=int)
+selected_frequencies=np.round(pump_frequency[indices]*1e-9,3)
+ytick_pos = np.linspace(0, len(dfps)-1, len(selected_frequencies))
+indices_=np.linspace(0, len(pump_power)-1,10, dtype=int)
+selected_powers=np.round(pump_power[indices_],2)
+xtick_pos = np.linspace(0, len(daps)-1, len(selected_powers))
+# 
+gain_avg=np.mean(Gain,axis=0)
+dsnr_avg=np.mean(dsnr,axis=0)
 fig, axs = plt.subplots(1, 3, figsize=(12,5))
 cmap = plt.cm.viridis.copy()
 cmap.set_under('gray')
 # plot gain vs pump
-im0 = axs[0].imshow(average_gain, origin='lower', aspect='auto',
+im0 = axs[0].imshow(gain_avg, origin='lower', aspect='auto',
                     extent=[0, len(daps)-1, 0, len(dfps)-1], cmap=cmap, vmin=0)
 axs[0].set_xticks(xtick_pos)
 axs[0].set_xticklabels(selected_powers,rotation=90)
 axs[0].set_yticks(ytick_pos)
 axs[0].set_yticklabels(selected_frequencies)
-axs[0].set_title(f'{twpas[0].id} pump vs Avg Gain \n {date_time}', fontsize=15)
+axs[0].set_title(f'{twpas[0].id} pump vs Gain \n {date_time}', fontsize=15)
 axs[0].set_xlabel('pump power[dBm]', fontsize=20)
 axs[0].set_ylabel('pump frequency[GHz]', fontsize=20)
 cbar0 = fig.colorbar(im0, ax=axs[0])
 cbar0.set_label('Avg Gain [dB]', fontsize=14)
 print(f'max Avg dSNR({np.round(np.max(np.mean(dsnr,axis=0)),2)}dB) \n at fp={np.round((p_lo+p_if+pumpATmaxDSNR[0][0])*1e-9,3)}GHz,Pp={np.round(node.parameters.pumpline_attenuation+opxoutput(full_scale_power_dbm,pumpATmaxDSNR[0][1]),2)},Pamp={np.round(pumpATmaxDSNR[0][1],3)} \n {date_time} \n {len(dfs)}*{len(daps)}*{len(dfps)}*{n_avg}')
 
-# plot avgDdSNR vs pump
-im1 = axs[1].imshow(average_dsnr, origin='lower', aspect='auto',
+# plot dSNR vs pump
+
+im1 = axs[1].imshow(dsnr_avg, origin='lower', aspect='auto',
                     extent=[0, len(daps)-1, 0, len(dfps)-1], cmap=cmap, vmin=0)
 axs[1].set_xticks(xtick_pos)
 axs[1].set_xticklabels(selected_powers,rotation=90)
 axs[1].set_yticks(ytick_pos)
 axs[1].set_yticklabels(selected_frequencies)
-axs[1].set_title(f'{twpas[0].id} pump vs Avg dSNR\n {date_time} ', fontsize=15)
+axs[1].set_title(f'{twpas[0].id} pump vs dSNR\n {date_time} ', fontsize=15)
 axs[1].set_xlabel('pump amplitude', fontsize=20)
 axs[1].set_ylabel('pump frequency[GHz]', fontsize=20)
 cbar1 = fig.colorbar(im1, ax=axs[1])
 cbar1.set_label('Avg dSNR [dB]', fontsize=14)
+
 # plot gain, dsnr : TWPA SPEC
-axs[2].scatter(average_gain, average_dsnr, s=4)
+axs[2].scatter(gain_avg, dsnr_avg, s=4)
 axs[2].set_title('pump vs gain,dsnr', fontsize=20)
 axs[2].set_xlabel('Gain Average', fontsize=20)
 axs[2].set_ylabel('dSNR Average', fontsize=20)
-axs[2].set_xlim(0,np.max(average_gain)+1)
-axs[2].set_ylim(0,np.max(average_dsnr)+1)
+axs[2].set_xlim(0,np.max(gain_avg)+1)
+axs[2].set_ylim(0,np.max(dsnr_avg)+1)
 plt.tight_layout()
 map=plt.gcf()
 plt.show()
@@ -365,111 +367,34 @@ plt.show()
 # operation window
 plt.plot(figzise=(4,3))
 mingain=10#min_gain(qubits, twpas)
-mindsnr=min_dsnr(qubits,average_dsnr, 2.5, 0.95, dfps, daps)
-avg_optimized_pump=optimizer(mingain, mindsnr, average_gain, average_dsnr, daps, dfps, p_lo,p_if)
-plt.scatter(average_gain, average_dsnr, s=4)
-plt.scatter(average_gain[avg_optimized_pump],  average_dsnr[avg_optimized_pump], s=10, color='red')
+mindsnr=min_dsnr(qubits,dsnr_avg, 2.5, 0.95, dfps, daps)
+optimized_pump=optimizer(mingain, mindsnr, gain_avg, dsnr_avg, daps, dfps, p_lo,p_if)
+plt.scatter(gain_avg, dsnr_avg, s=4)
+plt.scatter(gain_avg[optimized_pump],  dsnr_avg[optimized_pump], s=10, color='red')
 plt.axhline(y=mindsnr, color='red', linestyle='--', linewidth=1)
 plt.axvline(x=mingain, color='red', linestyle='--', linewidth=1)
 plt.title(f'{twpas[0].id} operation window \n {date_time}', fontsize=20)
 plt.xlabel('Average Gain', fontsize=20)
 plt.ylabel('Average dSNR', fontsize=20)
-plt.xlim(0,np.max(average_gain)+1)
-plt.ylim(0,np.max(average_dsnr)+1)
+plt.xlim(0,np.max(gain_avg)+1)
+plt.ylim(0,np.max(dsnr_avg)+1)
 plt.tight_layout()
 window=plt.gcf()
 plt.show()
-#%% ###################{Plot & Optimize} {For Multiplexed Readout Optimization} #######################################
-### plot gain vs pump  
-fig, axes = plt.subplots(nrows, ncols, figsize=(6, 8))
-axes = axes.flatten()
-for i, ax in enumerate(axes[:len(qubits)]):  # only use first num_qubits axes
-    im0 = ax.imshow(
-        Gain[i], origin='lower', aspect='auto',
-        extent=[0, len(daps) - 1, 0, len(dfps) - 1],
-        cmap=cmap,vmin=0)
-    ax.set_xticks(xtick_pos)
-    ax.set_xticklabels(selected_powers, rotation=90, fontsize=8)
-    ax.set_yticks(ytick_pos)
-    ax.set_yticklabels(selected_frequencies, fontsize=8)
-    ax.set_title(f'{twpas[0].id}, {qubits[i].name}, pump vs Gain\n{date_time}', fontsize=10)
-    ax.set_xlabel('pump power [dBm]', fontsize=10)
-    ax.set_ylabel('pump frequency [GHz]', fontsize=10)
-    cbar0 = fig.colorbar(im0, ax=ax)
-    cbar0.set_label('Gain [dB]', fontsize=10)
-for ax in axes[len(qubits):]:
-    ax.set_visible(False)
-plt.tight_layout()
-gain_indiv=plt.gcf()
-plt.show()
-# plot dSNR vs pump
-fig, axes = plt.subplots(nrows, ncols, figsize=(6, 8))
-axes = axes.flatten()
-for i, ax in enumerate(axes[:len(qubits)]):  # only use first num_qubits axes
-    im0 = ax.imshow(
-        dsnr[i], origin='lower', aspect='auto',
-        extent=[0, len(daps) - 1, 0, len(dfps) - 1],
-        cmap=cmap, vmin=0
-    )
-    im0.set_clim(vmin=0, vmax=dsnr[i].max())
-    ax.set_xticks(xtick_pos)
-    ax.set_xticklabels(selected_powers, rotation=90, fontsize=8)
-    ax.set_yticks(ytick_pos)
-    ax.set_yticklabels(selected_frequencies, fontsize=8)
-    ax.set_title(f'{twpas[0].id}, {qubits[i].name}, pump vs dSNR\n{date_time}', fontsize=10)
-    ax.set_xlabel('pump power [dBm]', fontsize=10)
-    ax.set_ylabel('pump frequency [GHz]', fontsize=10)
-    cbar0 = fig.colorbar(im0, ax=ax)
-    cbar0.set_label('dSNR [dB]', fontsize=10)
-for ax in axes[len(qubits):]:
-    ax.set_visible(False)
-plt.tight_layout()
-dsnr_indiv=plt.gcf()
-plt.show()
-#--------------- multiplexed readout optimal point--------------------------------------------
-plt.plot(figzise=(4,3))
-mtplx_optimized_pump_idx=multiplexed_optimizer(4,Gain, dsnr, qubits)
-colors=[]
-for i in range(len(qubits)):
-    sc = plt.scatter(
-        Gain[i], dsnr[i], s=4,
-        label=f'{qubits[i].id}',
-        alpha=1 - 0.2*i
-    )
-    colors.append(sc.get_facecolor()[0])
-for i in range(len(qubits)):
-    plt.scatter(Gain[i][mtplx_optimized_pump_idx[0]][mtplx_optimized_pump_idx[1]], dsnr[i][mtplx_optimized_pump_idx[0]][mtplx_optimized_pump_idx[1]], s=30,marker='X',edgecolors=colors[i],linewidths=5,zorder=10,alpha=1,label=f'qB{i+1}@ Multiplexed RO Optimized')
-plt.title(f'{twpas[0].id} spec per qubits\n Multiplexed Readout optimized Pumping \n {date_time}', fontsize=20)
-plt.xlabel('Gain[dB]', fontsize=20)
-plt.ylabel('dSNR[dB]', fontsize=20)
-plt.xlim(0,np.max(Gain)+1)
-plt.ylim(0,np.max(dsnr)+1)
-plt.tight_layout()
-plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
-multiplexed_optimization=plt.gcf()
-plt.show()
-print(f'MPLX RO Optimized pumping point \n at fp={np.round((p_lo+p_if+dfps[mtplx_optimized_pump_idx[0]])*1e-9,3)}GHz,Pp={np.round(node.parameters.pumpline_attenuation+opxoutput(full_scale_power_dbm,daps[mtplx_optimized_pump_idx[1]]),2)},Pamp={np.round(daps[mtplx_optimized_pump_idx[1]],3)} \n {date_time} \n {len(dfs)}*{len(daps)}*{len(dfps)}*{n_avg}')
-
 # %% {Update_state}
-avg_operation_point={'fp':np.round((p_lo+p_if+dfps[avg_optimized_pump[0]]),3), 
-                 'Pp': node.parameters.pumpline_attenuation+opxoutput(full_scale_power_dbm,daps[avg_optimized_pump[1]]),
-                 'Pamp': np.round(daps[avg_optimized_pump[1]],3)}
-node.results["avg_operation_point"] = avg_operation_point
-node.results["multiplexed_RO_operation_point"]={'fp':np.round((p_lo+p_if+dfps[mtplx_optimized_pump_idx[0]]),3), 
-                 'Pp': node.parameters.pumpline_attenuation+opxoutput(full_scale_power_dbm,daps[mtplx_optimized_pump_idx[1]]),
-                 'Pamp': np.round(daps[mtplx_optimized_pump_idx[1]],3)}
+operation_point={'fp':np.round((p_lo+p_if+dfps[optimized_pump[0]]),3), 
+                 'Pp': node.parameters.pumpline_attenuation+opxoutput(full_scale_power_dbm,daps[optimized_pump[1]]),
+                 'Pamp': np.round(daps[optimized_pump[1]],3)}
+node.results["operation point"] = operation_point
 node.results["Ps"]={"Ps":readout_power}
 node.results["figures"]={"signal": s,
                          "noise": n,
                          "map": map,
-                         "operation_window" : window,
-                         "gain_indiv":gain_indiv,
-                         "dsnr_indiv":dsnr_indiv,
-                         "multiplexed_window": multiplexed_optimization}
+                         "operation_window" : window}
 if not node.parameters.load_data_id:
     with node.record_state_updates():        
-        machine.twpas['twpa2-1'].pump_frequency=dfps[mtplx_optimized_pump_idx[0]]
-        machine.twpas['twpa2-1'].pump_amplitude=daps[mtplx_optimized_pump_idx[1]]
+        machine.twpas['twpa2-1'].pump_frequency=dfps[optimized_pump[0]]
+        machine.twpas['twpa2-1'].pump_amplitude=daps[optimized_pump[1]]
         machine.twpas['twpa2-1'].max_gain=np.round(np.max(np.mean(Gain,axis=0)))
         machine.twpas['twpa2-1'].max_snr_improvement=np.round(np.max(np.mean(dsnr,axis=0)))
 

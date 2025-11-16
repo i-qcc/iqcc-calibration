@@ -53,8 +53,9 @@ node = QualibrationNode[Parameters, Quam](
 @node.run_action(skip_if=node.modes.external)
 def custom_param(node: QualibrationNode[Parameters, Quam]):
     # You can get type hinting in your IDE by typing node.parameters.
-    # node.parameters.qubits = ["q1", "q3"]
-
+    node.parameters.qubits = ["qB1","qB4","qB3"]
+    node.parameters.multiplexed=True
+    node.parameters.reset_type= "thermal"
     pass
 
 
@@ -105,7 +106,7 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
             # Initialize the QPU in terms of flux points (flux tunable transmons and/or tunable couplers)
             
             for qubit in multiplexed_qubits.values():
-                node.machine.initialize_qpu(target=qubit)
+                node.machine.set_all_fluxes(flux_point="joint", target=qubit)
             align()
 
             df = declare(int)  # QUA variable for the qubit frequency
@@ -268,3 +269,5 @@ def update_state(node: QualibrationNode[Parameters, Quam]):
 @node.run_action()
 def save_results(node: QualibrationNode[Parameters, Quam]):
     node.save()
+
+# %%
