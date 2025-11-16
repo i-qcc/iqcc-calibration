@@ -73,27 +73,23 @@ class Parameters(NodeParameters):
         reset_type_active_or_thermal (str): Reset method to use
     """
 
-    qubits: Optional[List[str]] = None
-    num_averages: int = 20
+    qubits: Optional[List[str]] = ["Q3"]
+    num_averages: int = 50
     operation: str = "x180"
     operation_amplitude_factor: Optional[float] = 1
-    duration_in_ns: Optional[int] = 25000
+    duration_in_ns: Optional[int] = 200000
+    min_wait_time_in_ns: Optional[int] = 16
     time_axis: Literal["linear", "log"] = "log"
     time_step_in_ns: Optional[int] = 48 # for linear time axis
-    time_step_num: Optional[int] = 100 # for log time axis
-    frequency_span_in_mhz: float = 250
+    time_step_num: Optional[int] = 50 # for log time axis
+    frequency_span_in_mhz: float = 200
     frequency_step_in_mhz: float = 0.4
-    flux_amp : float = 0.075
-    update_lo: bool = False
-    fitting_base_fractions: List[float] = [0.4, 0.15, 0.02] # fraction of times from which to fit each exponential
+    fitting_base_fractions: List[float] = [0.6, 0.3, 0.02] # fraction of times from which to fit each exponential
     update_state: bool = False
-    
-    flux_amp : float = 0.03
+    flux_amp : float = 0.17
     update_lo: bool = True
-    fitting_base_fractions: List[float] = [0.3, 0.02] # fraction of times from which to fit each exponential
     num_fixed_taus: Optional[int] = None
-    update_state: bool = True
-    fit_multiple_exponentials: bool = True
+    fit_multiple_exponentials: bool = False
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
     simulate: bool = False
     simulation_duration_ns: int = 2500
@@ -102,7 +98,6 @@ class Parameters(NodeParameters):
     multiplexed: bool = False
     reset_type_active_or_thermal: Literal['active', 'thermal'] = 'active'
     thermal_reset_extra_time_in_us: Optional[int] = 10_000
-    min_wait_time_in_ns: Optional[int] = 16
 
 
 node = QualibrationNode(name="97b_Pi_vs_flux_time", parameters=Parameters())
