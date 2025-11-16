@@ -110,6 +110,7 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
         f_p = twpas[0].pump_frequency
         p_p = twpas[0].pump_amplitude
         update_frequency(twpas[0].pump.name, f_p+twpas[0].pump.intermediate_frequency)
+        twpas[0].pump.play('pump', amplitude_scale=p_p)
         for multiplexed_qubits in qubits.batch():
             # Initialize the QPU in terms of flux points (flux tunable transmons and/or tunable couplers)
             for qubit in multiplexed_qubits.values():
@@ -134,8 +135,8 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
 
                     for i, qubit in multiplexed_qubits.items():
                         # readout the resonator
-                        twpas[0].pump.play('pump', amplitude_scale=p_p, duration=3000/4)
-                        wait(250)
+                        # twpas[0].pump.play('pump', amplitude_scale=p_p, duration=3000/4)
+                        # wait(250)
                         qubit.resonator.measure("readout", qua_vars=(I[i], Q[i]))
                         # wait for the resonator to deplete
                         qubit.resonator.wait(node.machine.depletion_time * u.ns)

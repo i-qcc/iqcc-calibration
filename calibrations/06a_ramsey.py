@@ -95,6 +95,7 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
         f_p = twpas[0].pump_frequency
         p_p = twpas[0].pump_amplitude
         update_frequency(twpas[0].pump.name, f_p+twpas[0].pump.intermediate_frequency)
+        twpas[0].pump.play('pump', amplitude_scale=p_p)        
         if node.parameters.use_state_discrimination:
             state = [declare(int) for _ in range(num_qubits)]
             state_st = [declare_stream() for _ in range(num_qubits)]
@@ -140,8 +141,8 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                                 qubit.readout_state(state[i])
                                 save(state[i], state_st[i])
                             else:
-                                twpas[0].pump.play('pump', amplitude_scale=p_p, duration=3000/4)
-                                wait(250)
+                                # twpas[0].pump.play('pump', amplitude_scale=p_p, duration=3000/4)
+                                # wait(250)
                                 qubit.resonator.measure("readout", qua_vars=(I[i], Q[i]))
                                 save(I[i], I_st[i])
                                 save(Q[i], Q_st[i])

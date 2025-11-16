@@ -103,6 +103,7 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
         f_p = twpas[0].pump_frequency
         p_p = twpas[0].pump_amplitude
         update_frequency(twpas[0].pump.name, f_p+twpas[0].pump.intermediate_frequency)
+        twpas[0].pump.play('pump', amplitude_scale=p_p)
         for multiplexed_qubits in qubits.batch():
             # Initialize the QPU in terms of flux points (flux tunable transmons and/or tunable couplers)
             for qubit in multiplexed_qubits.values():
@@ -118,7 +119,7 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                         update_frequency(qubit.resonator.name, df + qubit.resonator.intermediate_frequency)
                         qubit.reset(node.parameters.reset_type, node.parameters.simulate)
                     align()
-                    twpas[0].pump.play('pump', amplitude_scale=p_p, duration=3000/4)
+                    # twpas[0].pump.play('pump', amplitude_scale=p_p, duration=3000/4)
                     # Qubit readout - |g> state
                     for i, qubit in multiplexed_qubits.items():
                         # Measure the state of the resonators
@@ -131,15 +132,14 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                     for i, qubit in multiplexed_qubits.items():
                         qubit.reset(node.parameters.reset_type, node.parameters.simulate)
                     align()
-                    twpas[0].pump.play('pump', amplitude_scale=p_p, duration=3000/4)                    
+                    # twpas[0].pump.play('pump', amplitude_scale=p_p, duration=3000/4)                    
                     # Qubit readout - |e> state
                     for i, qubit in multiplexed_qubits.items():
                         # Play the x180 gate to put the qubits in the excited state
                         qubit.xy.play("x180")
                         # Align the elements to measure after playing the qubit pulses.
                         qubit.align()
-                        # Measure the state of the resonators
-                        
+                        # Measure the state of the resonators                        
                         qubit.resonator.measure("readout", qua_vars=(I_e[i], Q_e[i]))
                         save(I_e[i], I_e_st[i])
                         save(Q_e[i], Q_e_st[i])

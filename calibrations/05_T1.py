@@ -88,16 +88,18 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
         twpas = [node.machine.twpas['twpa2-1']]
         f_p = twpas[0].pump_frequency
         p_p = twpas[0].pump_amplitude
+
         update_frequency(twpas[0].pump.name, f_p+twpas[0].pump.intermediate_frequency)
         if node.parameters.use_state_discrimination:
             state = [declare(int) for _ in range(num_qubits)]
             state_st = [declare_stream() for _ in range(num_qubits)]
+        
 
         for multiplexed_qubits in qubits.batch():
             # Initialize the QPU in terms of flux points (flux tunable transmons and/or tunable couplers)
             for qubit in multiplexed_qubits.values():
                 node.machine.set_all_fluxes(flux_point="joint", target=qubit)
-
+            twpas[0].pump.play('pump', amplitude_scale=p_p)#, duration=3000/4)
             with for_(n, 0, n < n_avg, n + 1):
                 save(n, n_st)
                 with for_each_(t, idle_times):
@@ -108,22 +110,23 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                             node.parameters.simulate,
                             log_callable=node.log,
                         )
-
+                    align() #added 251116
                     # The qubit manipulation sequence
                     for i, qubit in multiplexed_qubits.items():
                         qubit.align()
                         qubit.xy.play("x180")
                         qubit.align()
                         qubit.resonator.wait(t)
-                        align() #for twpa 251116 added
+                    align() #added 251116
+                    # twpas[0].pump.play('pump', amplitude_scale=p_p, duration=3000/4)
+                    # wait(250)    
                     # Measure the state of the resonators
                     for i, qubit in multiplexed_qubits.items():
                         if node.parameters.use_state_discrimination:
                             qubit.readout_state(state[i])
                             save(state[i], state_st[i])
                         else:
-                            twpas[0].pump.play('pump', amplitude_scale=p_p, duration=3000/4)
-                            # wait(250)
+                            
                             qubit.resonator.measure("readout", qua_vars=(I[i], Q[i]))
                             # save data
                             save(I[i], I_st[i])
