@@ -358,7 +358,6 @@ if node.parameters.simulate:
     node.results = {"figure": plt.gcf()}
     node.save()
 elif node.parameters.load_data_id is None:
-    date_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     with qm_session(qmm, config, timeout=node.parameters.timeout ) as qm:
         job = qm.execute(CPhase_Oscillations)
 
@@ -478,7 +477,7 @@ if not node.parameters.simulate:
         ax.set_yticks(range(4), ['00', '01', '10', '11'])
         ax.set_xticklabels(['00', '01', '10', '11'], rotation=45, ha='right')
         ax.set_yticklabels(['00', '01', '10', '11'])
-    grid.fig.suptitle(f"Bell state tomography (real part) \n {date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type}")
+    grid.fig.suptitle(f"Bell state tomography (real part) \n {node.date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type}")
     grid.fig.tight_layout()
     grid.fig.show()
     
@@ -506,7 +505,7 @@ if not node.parameters.simulate:
         ax.set_yticks(range(4), ['00', '01', '10', '11'])
         ax.set_xticklabels(['00', '01', '10', '11'], rotation=45, ha='right')
         ax.set_yticklabels(['00', '01', '10', '11'])
-    grid.fig.suptitle(f"Bell state tomography (imaginary part) \n {date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type}")
+    grid.fig.suptitle(f"Bell state tomography (imaginary part) \n {node.date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type}")
     node.results["figure_rho_imag"] = grid.fig
 
     grid.fig.tight_layout()
