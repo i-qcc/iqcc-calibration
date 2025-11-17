@@ -5,15 +5,15 @@ from qualibration_libs.parameters import QubitsExperimentNodeParameters, CommonN
 
 
 class NodeSpecificParameters(RunnableParameters):
-    num_shots: int = 100
+    num_shots: int = 300
     """Number of averages to perform. Default is 100."""
     frequency_span_in_mhz: float = 100
     """Span of frequencies to sweep in MHz. Default is 100 MHz."""
-    frequency_step_in_mhz: float = 0.25
+    frequency_step_in_mhz: float = 0.2
     """Step size for frequency sweep in MHz. Default is 0.25 MHz."""
     operation: str = "saturation"
     """Type of operation to perform. Default is "saturation"."""
-    operation_amplitude_factor: float = 0.1
+    operation_amplitude_factor: float = 0.2
     """Amplitude pre-factor for the operation. Default is 0.1."""
     operation_len_in_ns: Optional[int] = None
     """Length of the operation in nanoseconds. Default is the predefined pulse length."""

@@ -43,7 +43,7 @@ from datetime import datetime, timezone, timedelta
 class Parameters(NodeParameters):
 
     qubits: Optional[List[str]] = None
-    num_averages: int = 200
+    num_averages: int = 100
     operation: str = "EF_x180"
     min_amp_factor: float = 0.0
     max_amp_factor: float = 2.0

@@ -166,7 +166,7 @@ with program() as twpa_pump_on:
             update_frequency(twpas[0].pump.name, dp + twpas[0].pump.intermediate_frequency)
             with for_each_(da, daps):  
                 twpas[0].pump.play('pump', amplitude_scale=da, duration=pump_duration)
-                wait(250) #1000/4 wait 1us for pump to settle before readout
+                # wait(250) #1000/4 wait 1us for pump to settle before readout
 # measure readout responses around readout resonators with pump
                 with for_(*from_array(df, dfs)):
                     for i, rr in enumerate(resonators):
@@ -231,7 +231,7 @@ elif node.parameters.load_data_id is None:
         results_ = fetching_tool(job_, ["n"], mode="live")
         while results_.is_processing():
             n_ = results_.fetch_all()[0]
-    requests.get('http://10.2.1.5/PWD=1234;' +':PWR:RF:ON')
+    # requests.get('http://10.2.1.5/PWD=1234;' +':PWR:RF:ON')
 # %% {Data_fetching_and_dataset_creation}
 #data for pump off
 ds = fetch_results_as_xarray(job.result_handles, qubits, {"freq": dfs, "pump_amp": daps, "pump_freq" : dfps})
@@ -428,7 +428,7 @@ dsnr_indiv=plt.gcf()
 plt.show()
 #--------------- multiplexed readout optimal point--------------------------------------------
 plt.plot(figzise=(4,3))
-mtplx_optimized_pump_idx=multiplexed_optimizer(4,Gain, dsnr, qubits)
+mtplx_optimized_pump_idx=multiplexed_optimizer(3,Gain, dsnr, qubits)
 colors=[]
 for i in range(len(qubits)):
     sc = plt.scatter(

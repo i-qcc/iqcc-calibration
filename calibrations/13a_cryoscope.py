@@ -30,11 +30,11 @@ from iqcc_calibration_tools.analysis.cryoscope_tools import cryoscope_frequency,
 
 # %% {Node_parameters}
 class Parameters(NodeParameters):
-    qubits: Optional[List[str]] = ['qC2']    
+    qubits: Optional[List[str]] = None   
     num_averages: int = 4000
     amplitude_factor: float = 0.2
     cryoscope_len: int = 240
-    reset_type_active_or_thermal: Literal['active', 'thermal'] = 'active'
+    reset_type_active_or_thermal: Literal['active', 'thermal'] = 'thermal'
     flux_point_joint_or_independent: Literal['joint', 'independent'] = "joint"
     simulate: bool = False
     timeout: int = 100

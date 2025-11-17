@@ -15,4 +15,4 @@ class Parameters(
     NodeSpecificParameters,
     QubitsExperimentNodeParameters,
 ):
-    pass
+    max_wait_time_in_ns : int = 40000

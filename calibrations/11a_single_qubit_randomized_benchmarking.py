@@ -67,8 +67,9 @@ node = QualibrationNode[Parameters, Quam](
 @node.run_action
 def custom_param(node: QualibrationNode[Parameters, Quam]):
     # You can get type hinting in your IDE by typing node.parameters.
-    # node.parameters.qubits = ["q1", "q2"]
-    pass
+    node.parameters.qubits = ["qB1","qB4","qB3"]
+    node.parameters.multiplexed=True
+    node.parameters.reset_type='active'
 
 
 # Instantiate the QUAM class from the state file
@@ -215,6 +216,11 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
         state = [declare(int) for _ in range(num_qubits)]
         state_st = [declare_stream() for _ in range(num_qubits)]
         depth = declare(int)  # QUA variable for the varying depth
+        twpas = [node.machine.twpas['twpa2-1']]
+        f_p = twpas[0].pump_frequency
+        p_p = twpas[0].pump_amplitude
+        update_frequency(twpas[0].pump.name, f_p+twpas[0].pump.intermediate_frequency)
+        twpas[0].pump.play('pump', amplitude_scale=p_p)
         # QUA variable for depth index (0, 1, 2, ... num_depths-1)
         depth_idx = declare(int)
         # QUA array containing the actual depth values
@@ -228,7 +234,7 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
         for multiplexed_qubits in qubits.batch():
             # Initialize the QPU in terms of flux points (flux tunable transmons and/or tunable couplers)
             for qubit in multiplexed_qubits.values():
-                node.machine.initialize_qpu(target=qubit)
+                node.machine.set_all_fluxes(flux_point="joint", target=qubit)
             align()
 
             # QUA for_ loop over the random sequences
@@ -396,3 +402,5 @@ def update_state(node: QualibrationNode[Parameters, Quam]):
 @node.run_action()
 def save_results(node: QualibrationNode[Parameters, Quam]):
     node.save()
+
+# %%

@@ -40,12 +40,12 @@ import xarray as xr
 
 # %% {Node_parameters}
 class Parameters(NodeParameters):
-    qubits: Optional[List[str]] = None
+    qubits: Optional[List[str]] = ["qB1","qB4","qB3"]
     num_averages: int = 1000
     operation: str = "x180"
-    min_amp_factor: float = -2
+    min_amp_factor: float = -2.0
     max_amp_factor: float = 2.0
-    amp_factor_step: float = 0.05
+    amp_factor_step: float = 0.1
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
     reset_type_thermal_or_active: Literal["thermal", "active"] = "active"
     simulate: bool = False
@@ -101,7 +101,11 @@ with program() as drag_calibration:
     a = declare(fixed)  # QUA variable for the qubit drive amplitude pre-factor
     npi = declare(int)  # QUA variable for the number of qubit pulses
     count = declare(int)  # QUA variable for counting the qubit pulses
-
+    twpas = [machine.twpas['twpa2-1']]
+    f_p = twpas[0].pump_frequency
+    p_p = twpas[0].pump_amplitude
+    update_frequency(twpas[0].pump.name, f_p+twpas[0].pump.intermediate_frequency)
+    twpas[0].pump.play('pump', amplitude_scale=p_p)
     if flux_point == "joint":
         # Bring the active qubits to the desired frequency point
         machine.set_all_fluxes(flux_point=flux_point, target=qubits[0])

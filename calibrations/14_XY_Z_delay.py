@@ -13,7 +13,7 @@ from typing import Optional, Literal
 from scipy.optimize import curve_fit
 
 from iqcc_calibration_tools.quam_config.trackable_object import tracked_updates
-from iqcc_calibration_tools.storage.save_utils import save_node, get_node_id
+# from iqcc_calibration_tools.storage.save_utils import  get_node_id
 
 class Parameters(NodeParameters):
     qubits: Optional[str] = None
@@ -27,7 +27,8 @@ class Parameters(NodeParameters):
 
 
 node = QualibrationNode(name="14_XY_Z_delay", parameters=Parameters())
-node_id = get_node_id()
+# node_id = get_node_id()
+node_id=1
 
 from qm.qua import *
 from qm import SimulationConfig

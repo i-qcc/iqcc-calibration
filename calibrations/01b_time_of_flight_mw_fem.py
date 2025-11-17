@@ -56,7 +56,8 @@ node = QualibrationNode[Parameters, Quam](
 @node.run_action(skip_if=node.modes.external)
 def custom_param(node: QualibrationNode[Parameters, Quam]):
     # You can get type hinting in your IDE by typing node.parameters.
-    # node.parameters.qubits = ["q1", "q2"]
+    node.parameters.qubits = ["qB1","qB3"]
+    node.parameters.multiplexed=True
     pass
 
 
@@ -98,7 +99,11 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
         n = declare(int)  # QUA variable for the averaging loop
         n_st = declare_stream()
         adc_st = [declare_stream(adc_trace=True) for _ in range(num_qubits)]  # The stream to store the raw ADC trace
-
+        twpas = [node.machine.twpas['twpa2-1']]
+        f_p = twpas[0].pump_frequency
+        p_p = twpas[0].pump_amplitude
+        update_frequency(twpas[0].pump.name, f_p+twpas[0].pump.intermediate_frequency)
+        # twpas[0].pump.play('pump', amplitude_scale=p_p)
         for multiplexed_qubits in qubits.batch():
             with for_(n, 0, n < node.parameters.num_shots, n + 1):
                 save(n, n_st)

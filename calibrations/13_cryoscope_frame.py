@@ -33,10 +33,10 @@ start = time.time()
 
 # %% {Node_parameters}
 class Parameters(NodeParameters):
-    qubits: Optional[List[str]] = ['qD1']    
-    num_averages: int = 20000
-    flux_amp: float = 0.06
-    cryoscope_len: int = 32
+    qubits: Optional[List[str]] = ['qA6']    
+    num_averages: int = 5000
+    flux_amp: float = 0.1
+    cryoscope_len: int = 80
     num_frames: int = 17
     reset_type_active_or_thermal: Literal['active', 'thermal'] = 'active'
     flux_point_joint_or_independent: Literal['joint', 'independent'] = "joint"

@@ -26,7 +26,7 @@ start = time.time()
 
 # %% {Node_parameters}
 class Parameters(NodeParameters):
-    qubits: Optional[List[str]] = ['Q3']    
+    qubits: Optional[List[str]] = ['qA6']    
     num_averages: int = 7500
     frequency_offset_in_mhz: float = 600
     ramsey_offset_in_mhz: float = 0

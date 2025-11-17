@@ -56,7 +56,7 @@ class Parameters(NodeParameters):
     num_averages: int = 10
     max_time_in_ns: int = 128
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
-    reset_type: Literal['active', 'thermal'] = "thermal"
+    reset_type: Literal['active', 'thermal'] = "active"
     simulate: bool = False
     timeout: int = 100
     method: Literal['coarse', 'fine'] = "fine"

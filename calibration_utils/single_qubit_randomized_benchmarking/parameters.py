@@ -11,7 +11,7 @@ class NodeSpecificParameters(RunnableParameters):
     """Use strict timing in the QUA program. Default is False."""
     num_random_sequences: int = 100
     """Number of random RB sequences. Default is 100."""
-    num_shots: int = 20
+    num_shots: int = 30
     """Number of averages. Default is 20."""
     max_circuit_depth: int = 1000
     """Maximum circuit depth (number of Clifford gates). Default is 1000."""
@@ -21,6 +21,7 @@ class NodeSpecificParameters(RunnableParameters):
     """Delta clifford (number of Clifford gates between the RB sequences). Default is 20."""
     seed: Optional[int] = None
     """Seed for the random number generator. Default is None."""
+    log_scale :bool= True
 
 
 class Parameters(
