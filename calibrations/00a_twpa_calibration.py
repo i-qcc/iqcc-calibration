@@ -23,6 +23,9 @@ Prerequisites:
       measure(amp=0) for noise level
       measure(amp=from state file) for signal level
     => dsnr=snr_on-snr_off
+* pump_ : need to use non sticky pump(pump_) for twpa calibration
+  pump  : sticky pump is for general twpa usage not for calibration
+
 """
 
 # %% {Imports}
@@ -43,16 +46,19 @@ from typing import Literal, Optional, List
 import matplotlib.pyplot as plt
 import numpy as np
 import math
+import requests
+from iqcc_calibration_tools.quam_config.lib.qua_datasets import opxoutput, mV
 
 # %% {Node_parameters}
 class Parameters(NodeParameters):
     twpas: Optional[List[str]] = ['twpa2-1']
-    num_averages: int = 30
+    # qubits: Optional[List[str]] = None
+    num_averages: int = 1
     amp_min: float =  0.45
     amp_max: float =  0.9
     points : int = 40
     frequency_span_in_mhz: float = 4
-    frequency_step_in_mhz: float = 0.1
+    frequency_step_in_mhz: float =0.1
     p_frequency_span_in_mhz: float = 60
     p_frequency_step_in_mhz: float =0.5
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
@@ -62,7 +68,7 @@ class Parameters(NodeParameters):
     load_data_id: Optional[int] = None
     pumpline_attenuation: int = -50-10-4 #(-50: fridge atten(-30)+directional coupler(-20))  
     signalline_attenuation : int = -60-9 #-60dB : fridge atten
-node = QualibrationNode(name="00a_twpa_calibration", parameters=Parameters())
+node = QualibrationNode[Parameters, Quam](name="00a_twpa2_1_calibration_setflux", parameters=Parameters())
 date_time = datetime.now(timezone(timedelta(hours=2))).strftime("%Y-%m-%d %H:%M:%S")
 node.results["date"]={"date":date_time}
 # %% {Initialize_QuAM_and_QOP}
@@ -75,14 +81,12 @@ machine = Quam.load()
 twpas = [machine.twpas[t] for t in node.parameters.twpas]
 qubits = [machine.qubits[machine.twpas['twpa2-1'].qubits[i]] for i in range(len(machine.twpas['twpa2-1'].qubits))]
 resonators = [machine.qubits[machine.twpas['twpa2-1'].qubits[i]].resonator for i in range(len(machine.twpas['twpa2-1'].qubits))]
-
 # Generate the OPX and Octave configurations
 config = machine.generate_config()
 # Open Communication with the QOP
 if node.parameters.load_data_id is None:
     qmm = machine.connect()
 #%% # readout pulse information
-from iqcc_calibration_tools.quam_config.lib.qua_datasets import opxoutput, mV
 readout_power=[np.round(opxoutput(qubits[i].resonator.opx_output.full_scale_power_dbm,qubits[i].resonator.operations["readout"].amplitude)+node.parameters.signalline_attenuation,2) for i in range(len(qubits))]
 readout_length=[qubits[i].resonator.operations["readout"].length for i in range(len(qubits))]
 readout_voltage=[np.round(mV(qubits[i].resonator.opx_output.full_scale_power_dbm,qubits[i].resonator.operations["readout"].amplitude),2) for i in range(len(qubits))]
@@ -150,7 +154,7 @@ with program() as twpa_pump_off:
             Q_st[i].buffer(len(dfs)).buffer(len(daps)).buffer(len(dfps)).average().save(f"Q{i + 1}")
             I_st_[i].buffer(len(dfs)).buffer(len(daps)).buffer(len(dfps)).average().save(f"I_{i + 1}")
             Q_st_[i].buffer(len(dfs)).buffer(len(daps)).buffer(len(dfps)).average().save(f"Q_{i + 1}") 
-### TWPA on
+# ### TWPA on
 with program() as twpa_pump_on:    
     I, I_st, Q, Q_st,n,n_st = qua_declaration(num_qubits=len(qubits))
     I_, I_st_, Q_, Q_st_,n_,n_st_ = qua_declaration(num_qubits=len(qubits))
@@ -164,7 +168,7 @@ with program() as twpa_pump_on:
         with for_(*from_array(dp, dfps)):  
             update_frequency(twpas[0].pump.name, dp + twpas[0].pump.intermediate_frequency)
             with for_each_(da, daps):  
-                twpas[0].pump.play('pump', amplitude_scale=da, duration=pump_duration)
+                twpas[0].pump_.play('pump_', amplitude_scale=da, duration=pump_duration)
                 wait(250) #1000/4 wait 1us for pump to settle before readout
 # measure readout responses around readout resonators with pump
                 with for_(*from_array(df, dfs)):
@@ -178,13 +182,12 @@ with program() as twpa_pump_on:
                         # save data
                         save(I[i], I_st[i])
                         save(Q[i], Q_st[i]) 
-                #align() doesnt work
                 with for_(*from_array(df, dfs)):
                     for i, rr in enumerate(resonators):
                         # Update the resonator frequencies for all resonators
                         update_frequency(rr.name, df + rr.intermediate_frequency)
                         # Measure the resonator, amp, see the signal level
-                        rr.measure("readout", qua_vars=(I_[i], Q_[i]))
+                        rr.measure("readout",qua_vars=(I_[i], Q_[i]))
                         # wait for the resonator to relax
                         rr.wait(rr.depletion_time * u.ns)
                         # save data
@@ -199,6 +202,7 @@ with program() as twpa_pump_on:
             I_st_[i].buffer(len(dfs)).buffer(len(daps)).buffer(len(dfps)).average().save(f"I_{i + 1}")
             Q_st_[i].buffer(len(dfs)).buffer(len(daps)).buffer(len(dfps)).average().save(f"Q_{i + 1}") 
 # %% {Simulate_or_execute}
+requests.get('http://10.2.1.5/PWD=1234;' +':PWR:RF:OFF')
 if node.parameters.simulate:
     # Simulates the QUA program for the specified duration
     simulation_config = SimulationConfig(duration=node.parameters.simulation_duration_ns * 4)  # In clock cycles = 4ns
@@ -228,6 +232,7 @@ elif node.parameters.load_data_id is None:
         results_ = fetching_tool(job_, ["n"], mode="live")
         while results_.is_processing():
             n_ = results_.fetch_all()[0]
+requests.get('http://10.2.1.5/PWD=1234;' +':PWR:RF:ON')
 # %% {Data_fetching_and_dataset_creation}
 #data for pump off
 ds = fetch_results_as_xarray(job.result_handles, qubits, {"freq": dfs, "pump_amp": daps, "pump_freq" : dfps})

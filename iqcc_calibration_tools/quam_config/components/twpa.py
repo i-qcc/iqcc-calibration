@@ -16,24 +16,24 @@ class TWPA(QuamComponent):
     Args:
         id (str, int): The id of the TWPA, used to generate the name.
             Can be a string, or an integer in which case it will add`Channel._default_label`.
-        pump (IQChannel): The pump component
-        
+        pump (IQChannel): The pump component(sticky element) used for continuous output. 
+        pump_ (IQChannel): The pump component(non sticky element)used for TWPA calibration
+        spectroscopy (IQChannel): Probe tone used for calibrating the saturation power of the TWPA
     """
 
     id: Union[int, str]
 
     pump: IQChannel = None
+    pump_: IQChannel = None
     spectroscopy: IQChannel = None
 
     max_gain: float = None
-    avg_std_gain: float=None
     max_snr_improvement: float = None
-    avg_std_snr_improvement: float= None
-    p_saturation: float = None
-
     pump_frequency : float = None
     pump_amplitude : float = None
-
+    p_saturation: float = None
+    avg_std_gain: float=None
+    avg_std_snr_improvement: float= None
 
     dispersive_feature: float = None
     qubits: list = None

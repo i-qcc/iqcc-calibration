@@ -19,6 +19,8 @@ Prerequisites:
 * P1dB : measure the gain as a function of readout amplitude and find the point where
         gain drops by 1dB relative to the small-signal gain (linear gain)
         input signal power at which the amplifier's gain experiences a 1dB reduction
+* pump_ : need to use non sticky pump(pump_) for twpa calibration
+  pump  : sticky pump is for general twpa usage not for calibration
 """
 
 # %% {Imports}
@@ -135,7 +137,7 @@ with program() as twpa_pump_on:
     with for_(n, 0, n < n_avg, n + 1):  
         save(n, n_st)
         update_frequency(twpas[0].pump.name, f_p+twpas[0].pump.intermediate_frequency)
-        twpas[0].pump.play('pump', amplitude_scale=p_p, duration=pump_duration)#+250)
+        twpas[0].pump_.play('pump_', amplitude_scale=p_p, duration=pump_duration)#+250)
         wait(250) #1000/4 wait 1us for pump to settle before readout
         with for_each_(da, daps): 
             with for_(*from_array(df, dfs)):
