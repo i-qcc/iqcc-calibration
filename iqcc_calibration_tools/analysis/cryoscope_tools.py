@@ -1,6 +1,5 @@
 import matplotlib.pylab as plt
 import numpy as np
-# from numpy.linalg import solve
 from numpy.polynomial import Polynomial as P
 from scipy.optimize import minimize, curve_fit
 from scipy import linalg
@@ -96,7 +95,7 @@ def conv_causal(v: ArrayLike, h: ArrayLike, N: Optional[int] = None) -> np.ndarr
     return y[: (len(v) if N is None else N)]
 
 
-def build_toeplitz_matrix(v: ArrayLike, L: int) -> np.ndarray:
+def build_toeplitz_matrix(v, L):
     """
     Construct a Toeplitz matrix from input sequence v for FIR system identification.
 
@@ -113,13 +112,10 @@ def build_toeplitz_matrix(v: ArrayLike, L: int) -> np.ndarray:
         Toeplitz matrix such that each row forms a lagged vector of v,
         suitable for linear convolution: phi ≈ V @ h.
     """
-    v = np.asarray(v, dtype=float)
+    v = np.asarray(v, float)
     N = len(v)
-    V = np.zeros((N, L))
-    for k in range(L):
-        V[k:, k] = v[:N-k]
     
-    return V
+    return linalg.toeplitz(c=v, r=np.concatenate([[v[0]], np.zeros(L - 1)]))
 
 
 def resample_to_target_rate(
@@ -215,7 +211,10 @@ def fit_fir(
 
 def optimize_fir_parameters(
     response: ArrayLike, 
-    Ts: float = 0.5
+    Ts: float = 0.5,
+    L_values: List[int] = [16, 20, 24, 28, 32, 40, 48],
+    lam1_values: List[float] = [1e-5, 1e-4, 1e-3, 1e-2, 1e-1],
+    lam2_values: List[float] = [1e-5, 1e-4, 1e-3, 1e-2, 1e-1]
     ) -> Tuple[List[dict], float, dict, np.ndarray, np.ndarray]:
     """
     Optimize FIR extraction parameters (L, lam1, lam2) to minimize the reconstruction error
@@ -227,6 +226,12 @@ def optimize_fir_parameters(
             response signal (1D array).
         Ts: float, optional
             Sampling time (in nanoseconds). Default is 0.5.
+        L_values: List[int], optional
+            List of FIR filter lengths to search over. Default is [16, 20, 24, 28, 32, 40, 48].
+        lam1_values: List[float], optional
+            List of regularization parameters for the identity matrix to search over. Default is [1e-5, 1e-4, 1e-3, 1e-2, 1e-1].
+        lam2_values: List[float], optional
+            List of regularization parameters for the exponential tail to search over. Default is [1e-5, 1e-4, 1e-3, 1e-2, 1e-1].
     
     Returns
     -------
@@ -245,11 +250,6 @@ def optimize_fir_parameters(
     print(f"Time span: {(len(response) * Ts):.1f} ns")
     print(f"Sampling time: {Ts:.2f} ns")
     print(f"Sampling rate: {1/Ts:.2f} GS/s\n")
-
-    # Parameter ranges to search
-    L_values = [16, 20, 24, 28, 32, 40, 48]  # FIR filter lengths
-    lam1_values = [1e-5, 1e-4, 1e-3, 1e-2, 1e-1]   # Regularization 1
-    lam2_values = [1e-5, 1e-4, 1e-3, 1e-2, 1e-1]   # Regularization 2
 
     total_combinations = len(L_values) * len(lam1_values) * len(lam2_values)
     print(f"Total parameter combinations to test: {total_combinations}")
@@ -281,12 +281,12 @@ def optimize_fir_parameters(
                     V = build_toeplitz_matrix(ideal_response, L)
                     reconstructed = V @ h
 
-                    # Truncate or pad reconstructed to match length
-                    if len(reconstructed) > len(response):
-                        reconstructed = reconstructed[:len(response)]
-                    elif len(reconstructed) < len(response):
-                        reconstructed = np.pad(reconstructed, (0, len(response) - len(reconstructed)), 
-                                              mode='edge')
+                    # # Truncate or pad reconstructed to match length
+                    # if len(reconstructed) > len(response):
+                    #     reconstructed = reconstructed[:len(response)]
+                    # elif len(reconstructed) < len(response):
+                    #     reconstructed = np.pad(reconstructed, (0, len(response) - len(reconstructed)), 
+                    #                           mode='edge')
 
                     # Compute reconstruction error (NRMS)
                     reconstruction_error = np.linalg.norm(response - reconstructed) / np.linalg.norm(response)
@@ -308,11 +308,6 @@ def optimize_fir_parameters(
                         best_params = result
                         best_h = h.copy()
                         best_reconstructed = reconstructed.copy()
-
-                    # Progress update
-                    if iteration % 20 == 0:
-                        print(f"  Tested {iteration}/{total_combinations} combinations... "
-                              f"Best error so far: {best_error:.4e}")
                         
                 except Exception as e:
                     print(f"  Warning: Failed for L={L}, lam1={lam1:.0e}, lam2={lam2:.0e}: {e}")
@@ -330,6 +325,9 @@ def analyze_and_plot_fir_fit(
     response: ArrayLike,
     time: ArrayLike,
     Ts: float = 0.5,
+    L_values: List[int] = [16, 20, 24, 28, 32, 40, 48],
+    lam1_values: List[float] = [1e-5, 1e-4, 1e-3, 1e-2, 1e-1],
+    lam2_values: List[float] = [1e-5, 1e-4, 1e-3, 1e-2, 1e-1],
     verbose: bool = True
     ) -> Tuple[np.ndarray, dict, np.ndarray, float]:
     """
@@ -344,6 +342,12 @@ def analyze_and_plot_fir_fit(
         The corresponding time array for the response signal (in ns).
     Ts : float, optional
         The sampling interval (in ns). Default is 0.5.
+    L_values : List[int], optional
+        The list of FIR filter lengths to search over. Default is [16, 20, 24, 28, 32, 40, 48].
+    lam1_values : List[float], optional
+        The list of regularization parameters for the identity matrix to search over. Default is [1e-5, 1e-4, 1e-3, 1e-2, 1e-1].
+    lam2_values : List[float], optional
+        The list of regularization parameters for the exponential tail to search over. Default is [1e-5, 1e-4, 1e-3, 1e-2, 1e-1].
     verbose: bool, optional
         Whether to print verbose output. Default is True.
 
@@ -357,12 +361,12 @@ def analyze_and_plot_fir_fit(
         The best reconstructed (filtered) signal from the optimization.
     best_error : float
         Normalized root mean square error (NRMS) for the optimal filter parameters.
-
-    Notes
-    -----
-    The function also produces a set of diagnostic plots visualizing the reconstruction and residuals.
+    fig : matplotlib.figure.Figure
+        The figure object containing the signal reconstruction and FIR coefficients plots.
     """
-    results, best_error, best_params, best_h, best_reconstructed = optimize_fir_parameters(response, Ts=Ts)
+    results, best_error, best_params, best_h, best_reconstructed = optimize_fir_parameters(
+        response, Ts=Ts, L_values=L_values, lam1_values=lam1_values, lam2_values=lam2_values
+        )
     if best_params is not None and verbose:
         print(f"\nBEST PARAMETERS:")
         print(f"  L = {best_params['L']}")
@@ -444,7 +448,7 @@ def analyze_and_plot_fir_fit(
         print("ERROR: No valid parameter combinations found!")
         print("Try adjusting parameter ranges or check your data.")
 
-    return best_h, best_params, best_reconstructed, best_error
+    return best_h, best_params, best_reconstructed, best_error, fig
 
 
 def invert_fir(
@@ -542,6 +546,9 @@ def analyze_and_plot_inverse_fir(
     response: ArrayLike,
     time: ArrayLike,
     Ts: float = 0.5,
+    L_values: List[int] = [16, 20, 24, 28, 32, 40, 48],
+    lam1_values: List[float] = [1e-5, 1e-4, 1e-3, 1e-2, 1e-1],
+    lam2_values: List[float] = [1e-5, 1e-4, 1e-3, 1e-2, 1e-1],
     M: Optional[int] = None,
     sigma_ns: float = 0.75, 
     lam_smooth: float = 5e-2, 
@@ -553,13 +560,18 @@ def analyze_and_plot_inverse_fir(
 
     Parameters
     ----------
-    
     response: ArrayLike
         The response signal to analyze.
     time: ArrayLike
         The time array for the response signal.
     Ts: float, optional
         The sampling interval (in ns). Default is 0.5.
+    L_values: List[int], optional
+        The list of FIR filter lengths to search over. Default is [16, 20, 24, 28, 32, 40, 48].
+    lam1_values: List[float], optional
+        The list of regularization parameters for the identity matrix to search over. Default is [1e-5, 1e-4, 1e-3, 1e-2, 1e-1].
+    lam2_values: List[float], optional
+        The list of regularization parameters for the exponential tail to search over. Default is [1e-5, 1e-4, 1e-3, 1e-2, 1e-1].
     M: int, optional
         The length of the inverse FIR filter coefficients to solve for (default is len(h)).
     sigma_ns: float, optional
@@ -570,11 +582,25 @@ def analyze_and_plot_inverse_fir(
         The method to use for inversion ('optimization' or 'analytical'). Default is 'optimization'.
     verbose: bool, optional
         Whether to print verbose output. Default is True.
+
+    Returns
+    -------
+    best_h : ndarray
+        The best FIR filter coefficients.
+    h_inv : ndarray
+        The inverse FIR filter coefficients.
+    fig_fir_fit : matplotlib.figure.Figure
+        The figure object containing the FIR filter fit analysis and optimization plots.
+    fig : matplotlib.figure.Figure
+        The figure object containing the signal correction analysis and inverse FIR coefficients plots.
     """
-    best_h, best_params, best_reconstructed, best_error = analyze_and_plot_fir_fit(
+    best_h, best_params, best_reconstructed, best_error, fig_fir_fit = analyze_and_plot_fir_fit(
         response=response, 
         time=time, 
         Ts=Ts,
+        L_values=L_values,
+        lam1_values=lam1_values,
+        lam2_values=lam2_values,
         verbose=verbose
         )
     best_h /= np.sum(best_h)
@@ -730,6 +756,9 @@ def analyze_and_plot_inverse_fir(
 
         print(f"\nInverse FIR (h_inv):")
         print(f"  - Length: {len(h_inv)}")
+        print(f"  - sigma_ns: {sigma_ns}")
+        print(f"  - lam_smooth: {lam_smooth}")
+        print(f"  - method: {method}")
         print(f"  - Sum: {np.sum(h_inv):.6f}")
         print(f"  - Max coefficient: {np.max(np.abs(h_inv)):.6f}")
 
@@ -742,7 +771,7 @@ def analyze_and_plot_inverse_fir(
         print(f"  Inverse FIR (h_inv): {h_inv[:10]}..." if len(h_inv) > 10 else f"  Inverse FIR (h_inv): {h_inv}")
         print("="*70)
 
-    return best_h, h_inv
+    return best_h, h_inv, fig_fir_fit, fig
 
 
 # def estimate_fir_coefficients(convolved_signal, step_response, num_coefficients):

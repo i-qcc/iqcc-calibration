@@ -100,7 +100,7 @@ class Parameters(NodeParameters):
     thermal_reset_extra_time_in_us: Optional[int] = 10_000
 
 
-node = QualibrationNode(name="97b_Pi_vs_flux_time", parameters=Parameters())
+node = QualibrationNode(name="13b_long_time_cryoscope", parameters=Parameters())
 
 # %% {Initialize_QuAM_and_QOP}
 # Class containing tools to help handling units and conversions.
