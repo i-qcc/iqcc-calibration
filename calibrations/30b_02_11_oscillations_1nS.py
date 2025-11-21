@@ -53,8 +53,8 @@ from iqcc_calibration_tools.quam_config.lib.pulses import FluxPulse
 class Parameters(NodeParameters):
 
     qubit_pairs: Optional[List[str]] = None
-    num_averages: int = 10
-    max_time_in_ns: int = 128
+    num_averages: int = 20
+    max_time_in_ns: int = 96
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
     reset_type: Literal['active', 'thermal'] = "active"
     simulate: bool = False
@@ -64,6 +64,7 @@ class Parameters(NodeParameters):
     amp_step_coarse : float = 0.005
     amp_range_fine : float = 0.05
     amp_step_fine : float = 0.002
+    operation: str = "cz"
     load_data_id: Optional[int] = None  
     targets_name = "qubit_pairs"
 
@@ -112,8 +113,11 @@ def baked_waveform(waveform_amp, qubit):
                 wf = [0.0] * node.parameters.max_time_in_ns
             else:
                 wf = waveform[:i]
-            b.add_op(f"flux_pulse_{qp.qubit_target.name}", qubit.z.name, wf)
-            b.play(f"flux_pulse_{qp.qubit_target.name}", qubit.z.name)
+            pulse_id = qp.macros[node.parameters.operation].flux_pulse_control.id
+            b.add_op(pulse_id, qubit.z.name, wf)
+            b.play(pulse_id, qubit.z.name)
+            # b.add_op(f"flux_pulse_{qp.qubit_target.name}", qubit.z.name, wf)
+            # b.play(f"flux_pulse_{qp.qubit_target.name}", qubit.z.name)
         # Append the baking object in the list to call it from the QUA program
         pulse_segments.append(b)
         
@@ -422,22 +426,17 @@ if not node.parameters.simulate:
 # %%
 
 # %% {Update_state}
+
+operation = node.parameters.operation
 if not node.parameters.simulate:
     if node.parameters.load_data_id is None:
         with node.record_state_updates():
             for qp in qubit_pairs:
                 if "cz" in qp.macros:
-                    qp.macros['cz_unipolar'].flux_pulse_control.amplitude = amplitudes[qp.name]
-                    qp.macros['cz_unipolar'].flux_pulse_control.length = lengths[qp.name]
-                    qp.macros['cz_unipolar'].flux_pulse_control.zero_padding = zero_paddings[qp.name]
-                    qp.macros['cz'] = f"#./cz_unipolar"
-                else:
-                    qp.macros['cz_unipolar'] = CZGate(flux_pulse_control = FluxPulse(length=lengths[qp.name], amplitude=amplitudes[qp.name], 
-                                                                            zero_padding=zero_paddings[qp.name], id = f'flux_pulse_control_{qp.qubit_target.name}'))
-                    qp.macros['cz'] = f"#./cz_unipolar"
-                
-                # qp.J2 = Js[qp.name]
-                # qp.detuning = detunings[qp.name]
+                    operation_id = qp.macros[operation].id # this is for the case where operation is by refrence like with "cz"
+                    qp.macros[operation_id].flux_pulse_control.amplitude = amplitudes[qp.name]
+                    qp.macros[operation_id].flux_pulse_control.length = lengths[qp.name]
+                    qp.macros[operation_id].flux_pulse_control.zero_padding = zero_paddings[qp.name]
                 
 # %% {Save_results}
 if not node.parameters.simulate:

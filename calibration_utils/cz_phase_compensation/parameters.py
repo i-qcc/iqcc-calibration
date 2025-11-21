@@ -20,7 +20,7 @@ class NodeSpecificParameters(RunnableParameters):
 
     num_shots: int = 1000
     num_frames: int = 21
-    operation: Literal["cz_flattop", "cz_unipolar"] = "cz_unipolar"
+    operation: Literal["cz_flattop", "cz_unipolar", "cz"] = "cz"
     use_state_discrimination: bool = True
 
 

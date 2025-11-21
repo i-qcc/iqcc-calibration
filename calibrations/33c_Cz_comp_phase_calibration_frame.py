@@ -124,7 +124,13 @@ with program() as CPhase_Oscillations:
     
     for i, qp in enumerate(qubit_pairs):
         # Bring the active qubits to the minimum frequency point
-        machine.
+        if flux_point == "independent":
+            machine.apply_all_flux_to_min()
+        elif flux_point == "joint":
+            machine.apply_all_flux_to_joint_idle()
+        else:
+            machine.apply_all_flux_to_zero()
+        wait(1000)
 
         with for_(n, 0, n < n_avg, n + 1):
             save(n, n_st)         

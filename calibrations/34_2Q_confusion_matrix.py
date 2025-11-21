@@ -62,6 +62,7 @@ class Parameters(NodeParameters):
     load_data_id: Optional[int] = None
     plot_raw : bool = False
     measure_leak : bool = False
+    targets_name: str = "qubit_pairs"
 
 
 node = QualibrationNode(
