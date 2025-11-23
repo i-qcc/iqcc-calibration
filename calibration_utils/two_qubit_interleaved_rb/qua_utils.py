@@ -307,19 +307,17 @@ class QuaProgramHandler:
         
         with program() as rb:
     
-            n = declare(int)
             n_st = declare_stream()
-            
             job_sequence_qua = declare(int, value=job_sequence)
-            
             # The relevant streams
-            state_control = declare(int)
-            state_target = declare(int)
-            state = declare(int)
             state_st = [declare_stream() for _ in range(self.num_pairs)]
 
             for i, qubit_pair in enumerate(self.qubit_pairs):
                 
+                n = declare(int)
+                state_control = declare(int)
+                state_target = declare(int)
+                state = declare(int)
                 # Bring the active qubits to the desired frequency point
                 self.machine.set_all_fluxes(flux_point=self.node.parameters.flux_point_joint_or_independent, target=qubit_pair.qubit_control)
 

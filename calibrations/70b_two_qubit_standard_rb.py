@@ -144,6 +144,7 @@ num_pairs = len(qubit_pairs)
 qua_program_handler = QuaProgramHandler(node, num_pairs, circuits_as_ints, node.machine, qubit_pairs)
 
 rb = qua_program_handler.get_qua_program()
+node.namespace = {"qua_program" : rb}
 
 # %% {Simulate_or_execute}
 if node.parameters.simulate:
