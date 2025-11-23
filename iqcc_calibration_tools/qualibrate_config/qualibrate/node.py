@@ -74,24 +74,24 @@ class QualibrationNode(QualibrationNodeBase, Generic[ParametersType, MachineType
         Args:
             machine_config: Dictionary containing the quam state
         """
-        logger.info("Setting machine configuration and processing...")
+        # logger.info("Setting machine configuration and processing...")
         
         if machine_config is None:
-            logger.warning("machine_config is None - cannot process")
+            # logger.warning("machine_config is None - cannot process")
             self._machine = None
             return
         
         # Store the machine configuration
         self._machine = machine_config
-        logger.info(f"Machine stored successfully. Type: {type(self._machine)}")
+        # logger.info(f"Machine stored successfully. Type: {type(self._machine)}")
         
-        # Activate TWPA SSGs
-        twpa_ssg_ips = machine_config.network.get("twpa_ssg_ips", [])
-        response = self.activate_twpa_ssgs(twpa_ssg_ips)
-        if response is not None:
-            logger.info(f"activate_twpa_ssgs response: status_code={response.status_code}, text={response.text}")
-        else:
-            logger.info("activate_twpa_ssgs response: None (no SSG IPs found)")
+        # # Activate TWPA SSGs
+        # twpa_ssg_ips = machine_config.network.get("twpa_ssg_ips", [])
+        # response = self.activate_twpa_ssgs(twpa_ssg_ips)
+        # if response is not None:
+        #     logger.info(f"activate_twpa_ssgs response: status_code={response.status_code}, text={response.text}")
+        # else:
+        #     logger.info("activate_twpa_ssgs response: None (no SSG IPs found)")
     
     def save(self):
         """
