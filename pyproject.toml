@@ -26,8 +26,6 @@ dependencies = [
     "lmfit",
     "tqdm",
     "qualibrate>=0.2.0,<0.4.0",
-    "qualibrate-runner@git+https://github.com/qua-platform/qualibrate-runner.git",
-    "qualibrate-config==0.1.8",
     "qm-qua==1.2.3",
     "ipykernel>=6.29.3,<7.0.0",
     "more-itertools",

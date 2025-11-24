@@ -882,8 +882,6 @@ dependencies = [
     { name = "qm-qua" },
     { name = "qualang-tools" },
     { name = "qualibrate" },
-    { name = "qualibrate-config" },
-    { name = "qualibrate-runner" },
     { name = "qualibration-libs" },
     { name = "quam" },
     { name = "quam-builder" },
@@ -904,8 +902,6 @@ requires-dist = [
     { name = "qm-qua", specifier = "==1.2.3" },
     { name = "qualang-tools", specifier = "<0.22.0" },
     { name = "qualibrate", specifier = ">=0.2.0,<0.4.0" },
-    { name = "qualibrate-config", specifier = "==0.1.8" },
-    { name = "qualibrate-runner", git = "https://github.com/qua-platform/qualibrate-runner.git" },
     { name = "qualibration-libs", git = "https://github.com/qua-platform/qualibration-libs.git" },
     { name = "quam", specifier = "==0.5.0a1" },
     { name = "quam-builder", git = "https://github.com/qua-platform/quam-builder.git" },
@@ -2201,7 +2197,7 @@ wheels = [
 [[package]]
 name = "qualibrate-runner"
 version = "0.4.0"
-source = { git = "https://github.com/qua-platform/qualibrate-runner.git#1433607098ed0b3176eb284d95faa680430cece8" }
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
     { name = "fastapi" },
@@ -2212,6 +2208,10 @@ dependencies = [
     { name = "tomli-w" },
     { name = "uvicorn" },
     { name = "websockets" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/2f/b3/f327146d6fbe847b4e25fb0f2cf0309f2b588937812505a7165ee025cb02/qualibrate_runner-0.4.0.tar.gz", hash = "sha256:5103e894fd282d22071feeca9905dc41b69c70b0225525a82fdec4568e788e2f", size = 15681 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/92/0e/720fb11e56ce416a9908ffd7b6db46ec8d1c07982744280691e8c967dc7a/qualibrate_runner-0.4.0-py3-none-any.whl", hash = "sha256:4b63fcf343e785715469c78bf533546d20181334ebda3f06dedb9f1939183b1a", size = 27896 },
 ]
 
 [[package]]
@@ -2480,15 +2480,15 @@ wheels = [
 
 [[package]]
 name = "secretstorage"
-version = "3.4.1"
+version = "3.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cryptography" },
     { name = "jeepney" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/32/8a/ed6747b1cc723c81f526d4c12c1b1d43d07190e1e8258dbf934392fc850e/secretstorage-3.4.1.tar.gz", hash = "sha256:a799acf5be9fb93db609ebaa4ab6e8f1f3ed5ae640e0fa732bfea59e9c3b50e8", size = 19871 }
+sdist = { url = "https://files.pythonhosted.org/packages/1c/03/e834bcd866f2f8a49a85eaff47340affa3bfa391ee9912a952a1faa68c7b/secretstorage-3.5.0.tar.gz", hash = "sha256:f04b8e4689cbce351744d5537bf6b1329c6fc68f91fa666f60a380edddcd11be", size = 19884 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b0/6d/24ebb101484f1911a6be6695b76ce43219caa110ebbe07d8c3a5f3106cca/secretstorage-3.4.1-py3-none-any.whl", hash = "sha256:c55d57b4da3de568d8c3af89dad244ab24c35ca1da8625fc1b550edf005ebc41", size = 15301 },
+    { url = "https://files.pythonhosted.org/packages/b7/46/f5af3402b579fd5e11573ce652019a67074317e18c1935cc0b4ba9b35552/secretstorage-3.5.0-py3-none-any.whl", hash = "sha256:0ce65888c0725fcb2c5bc0fdb8e5438eece02c523557ea40ce0703c266248137", size = 15554 },
 ]
 
 [[package]]
