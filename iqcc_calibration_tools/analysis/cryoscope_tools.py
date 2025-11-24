@@ -457,7 +457,8 @@ def invert_fir(
     M: Optional[int] = None,
     method: Literal['optimization', 'analytical'] = 'optimization',
     sigma_ns: float = 0.75, 
-    lam_smooth: float = 5e-2
+    lam_smooth: float = 5e-2,
+    normalize_dc_gain: bool = False
     ) -> np.ndarray:
     """
     Invert a causal FIR filter by finding an inverse causal FIR (possibly smoothed).
@@ -487,11 +488,13 @@ def invert_fir(
         Standard deviation of target Gaussian for delta approximation (default is 1.0).
     lam_smooth : float, optional
         Regularization parameter for first-difference smoothing of h_inv (default is 5e-2).
-
+    normalize_dc_gain : bool, optional
+        Whether to normalize the DC gain of the inverse FIR filter to 1. Default is False.
+    
     Returns
     -------
     h_inv : ndarray
-        FIR inverse coefficients (length M), optionally DC gain-normalized.
+        FIR inverse coefficients (length M).
 
     Notes
     -----
@@ -522,9 +525,10 @@ def invert_fir(
         h_inv = linalg.solve(A, b, assume_a='pos')
 
         # Optional: normalize composite DC gain to 1
-        gain = (h.sum() * h_inv.sum())
-        if gain != 0:
-            h_inv /= gain
+        if normalize_dc_gain:
+            gain = (h.sum() * h_inv.sum())
+            if gain != 0:
+                h_inv /= gain
 
     elif method == 'analytical':
         h_inv = np.zeros(L)
@@ -603,7 +607,6 @@ def analyze_and_plot_inverse_fir(
         lam2_values=lam2_values,
         verbose=verbose
         )
-    best_h /= np.sum(best_h)
     h_inv = invert_fir(
         h=best_h, 
         Ts=Ts, 

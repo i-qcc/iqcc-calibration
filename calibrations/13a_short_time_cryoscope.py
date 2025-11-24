@@ -20,7 +20,6 @@ from qualang_tools.units import unit
 from iqcc_calibration_tools.quam_config.components import Quam
 from qualang_tools.bakery import baking
 from qualang_tools.loops import from_array
-
 from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
 from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray
 import xarray as xr
@@ -29,7 +28,6 @@ from scipy.signal import lfilter
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
 from typing import Optional, Literal, List
 from iqcc_calibration_tools.analysis.cryoscope_tools import (
-    expdecay, 
     resample_to_target_rate, 
     conv_causal,
     analyze_and_plot_inverse_fir
@@ -54,8 +52,8 @@ class Parameters(NodeParameters):
     lam2_values: List[float] = [1e-5, 1e-4, 1e-3, 1e-2, 1e-1]
     num_inverse_firs: int = 48
     method: Literal['optimization', 'analytical'] = 'optimization'
-    sigma_ns: float = 0.75
-    lam_smooth: float = 5e-2
+    sigma_ns: float = 0.5
+    lam_smooth: float = 5e-3
     load_data_id: Optional[int] = None
     
 node = QualibrationNode(
@@ -68,7 +66,6 @@ node = QualibrationNode(
 u = unit(coerce_to_integer=True)
 # Instantiate the QuAM class from the state file
 machine = Quam.load()
-# machine = Quam.load()
 # Get the relevant QuAM components
 if node.parameters.qubits is None:
     qubits = machine.active_qubits
@@ -262,11 +259,10 @@ if not node.parameters.simulate:
     if node.parameters.load_data_id is None:
         # Fetch the data from the OPX and convert it into a xarray with corresponding axes (from most inner to outer loop)
         ds = fetch_results_as_xarray(job.result_handles, [qubit], {"frame": frames, "time": cryoscope_time})
-        plot_process = True
         node.results['ds'] = ds
     else:
         node = node.load_from_id(node.parameters.load_data_id)
-        ds = node.results["ds"]
+        ds = node.results['ds']
         
 end = time.time()
 print(f"Script runtime: {end - start:.2f} seconds")
@@ -288,9 +284,6 @@ if not node.parameters.simulate:
                     return A * np.sin(2*np.pi*x + phase) + offset
                     
                 popt, _ = curve_fit(sine_fit, x_data, y_data, p0=[0, 1, 0.5], bounds=([-np.pi, 0, -np.inf], [np.pi, np.inf, np.inf]))
-                # plt.plot(x_data, y_data,'.')
-                # plt.plot(x_data, sine_fit(x_data, *popt))
-                # plt.show()
                 phase_q.append(popt[0])
             phases.append(np.unwrap(phase_q))
         return ds.assign_coords(phase=(['qubit', 'time'], phases))
@@ -311,7 +304,6 @@ if not node.parameters.simulate:
             output_core_dims=[['time']],
             vectorize=True
         )
-        # freqs = savgol_filter(freqs, window_length=5, polyorder=2)
         return ds.assign_coords(frequencies=1e3*freqs)
 
     def extract_flux(ds):
@@ -323,7 +315,7 @@ if not node.parameters.simulate:
     ds = extract_phase(ds)
     ds = extract_freqs(ds)
     ds = extract_flux(ds)
-
+    node.results['ds'] = ds
 # %% {data analysis - plot phase, frequency, and flux}
 if not node.parameters.simulate:
     print('\033[1m\033[32m PLOT STATE, PHASE, FREQUENCY, AND FLUX \033[0m')
@@ -350,7 +342,7 @@ if not node.parameters.simulate:
 # %% {data analysis - Calculate FIR filter}
 if not node.parameters.simulate:
     print('\033[1m\033[32m CALCULATE FILTERED RESPONSE USING FIR FILTER \033[0m')
-
+    
     response_raw = ds.flux.sel(qubit = qubit.name).values
     normalized_response_raw = response_raw / response_raw[-10:].mean()
     normalized_response_2gsps = resample_to_target_rate(normalized_response_raw, 1, 0.5)
@@ -376,12 +368,14 @@ if not node.parameters.simulate:
     node.results['fit_results'] = {}
     for q in qubits:
         node.results['fit_results'][q.name] = {}
-        node.results['fit_results'][q.name]['fir'] = inv_fir.tolist()
-        
+        node.results['fit_results'][q.name]['inverse_fir'] = inv_fir.tolist()
+        node.results['fit_results'][q.name]['forward_fir'] = h_fir.tolist()
+        node.results['fit_results'][q.name]['corrected_response'] = corrected_response
+
 # %% {plot final results}
 if not node.parameters.simulate:
     print('\033[1m\033[32m PLOT FINAL RESULTS \033[0m')
-    fig,ax = plt.subplots()
+    fig, ax = plt.subplots()
     ax.plot(ds.time, normalized_response_raw, label = 'data')
     ax.plot(ds.time, corrected_response / corrected_response[-10:].mean(), '--', label = 'expected corrected response')
     ax.axhline(1.001, color = 'k')
