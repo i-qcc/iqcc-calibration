@@ -163,10 +163,10 @@ with program() as twpa_pump_on:
     with for_(n, 0, n < n_avg, n + 1):  
         save(n, n_st)
         with for_(*from_array(dp, dfps)):  
-            update_frequency(twpas[0].pump.name, dp + twpas[0].pump.intermediate_frequency)
+            update_frequency(twpas[0].pump_.name, dp + twpas[0].pump_.intermediate_frequency)
             with for_each_(da, daps):  
-                twpas[0].pump.play('pump', amplitude_scale=da, duration=pump_duration)
-                # wait(250) #1000/4 wait 1us for pump to settle before readout
+                twpas[0].pump_.play('pump_', amplitude_scale=da, duration=pump_duration)
+                wait(250) #1000/4 wait 1us for pump to settle before readout
 # measure readout responses around readout resonators with pump
                 with for_(*from_array(df, dfs)):
                     for i, rr in enumerate(resonators):
@@ -220,7 +220,7 @@ if node.parameters.simulate:
     node.save()
 elif node.parameters.load_data_id is None:
     date_time = datetime.now(timezone(timedelta(hours=3))).strftime("%Y-%m-%d %H:%M:%S")
-    requests.get('http://10.2.1.5/PWD=1234;' +':PWR:RF:OFF')
+    # requests.get('http://10.2.1.5/PWD=1234;' +':PWR:RF:OFF')
     with qm_session(qmm, config, timeout=node.parameters.timeout) as qm:
         job = qm.execute(twpa_pump_off)
         results = fetching_tool(job, ["n"], mode="live")
@@ -367,6 +367,9 @@ plt.plot(figzise=(4,3))
 mingain=10#min_gain(qubits, twpas)
 mindsnr=min_dsnr(qubits,average_dsnr, 2.5, 0.95, dfps, daps)
 avg_optimized_pump=optimizer(mingain, mindsnr, average_gain, average_dsnr, daps, dfps, p_lo,p_if)
+print(f"@ max avg dSNR:{np.round(np.max(average_dsnr),2)}dB")
+for i in range(len(qubits)):
+    print(f"qB{i+1}:dSNR:{np.round(dsnr[i][avg_optimized_pump[0]][avg_optimized_pump[1]][0],2)}dB, gain:{np.round(Gain[i][avg_optimized_pump[0]][avg_optimized_pump[1]][0],2)}dB")
 plt.scatter(average_gain, average_dsnr, s=4)
 plt.scatter(average_gain[avg_optimized_pump],  average_dsnr[avg_optimized_pump], s=10, color='red')
 plt.axhline(y=mindsnr, color='red', linestyle='--', linewidth=1)
@@ -428,7 +431,7 @@ dsnr_indiv=plt.gcf()
 plt.show()
 #--------------- multiplexed readout optimal point--------------------------------------------
 plt.plot(figzise=(4,3))
-mtplx_optimized_pump_idx=multiplexed_optimizer(3,Gain, dsnr, qubits)
+mtplx_optimized_pump_idx=multiplexed_optimizer(4,Gain, dsnr, qubits)
 colors=[]
 for i in range(len(qubits)):
     sc = plt.scatter(
@@ -468,10 +471,12 @@ node.results["figures"]={"signal": s,
                          "multiplexed_window": multiplexed_optimization}
 if not node.parameters.load_data_id:
     with node.record_state_updates():        
-        machine.twpas['twpa2-1'].pump_frequency=dfps[mtplx_optimized_pump_idx[0]]
-        machine.twpas['twpa2-1'].pump_amplitude=daps[mtplx_optimized_pump_idx[1]]
-        machine.twpas['twpa2-1'].max_gain=np.round(np.max(np.mean(Gain,axis=0)))
-        machine.twpas['twpa2-1'].max_snr_improvement=np.round(np.max(np.mean(dsnr,axis=0)))
+        machine.twpas['twpa2-1'].pump_frequency=dfps[avg_optimized_pump[0]]
+        machine.twpas['twpa2-1'].pump_amplitude=daps[avg_optimized_pump[1]]
+        machine.twpas['twpa2-1'].mltpx_pump_frequency=dfps[mtplx_optimized_pump_idx[0]]
+        machine.twpas['twpa2-1'].mltpx_pump_amplitude=daps[mtplx_optimized_pump_idx[1]]
+        machine.twpas['twpa2-1'].max_avg_gain=np.round(np.max(np.mean(Gain,axis=0)))
+        machine.twpas['twpa2-1'].max_avg_snr_improvement=np.round(np.max(np.mean(dsnr,axis=0)))
 
     # %% {Save_results}
     node.outcomes = {q.name: "successful" for q in qubits}

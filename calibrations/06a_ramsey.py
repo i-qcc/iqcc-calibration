@@ -54,7 +54,7 @@ node = QualibrationNode[Parameters, Quam](name="06a_ramsey", description=descrip
 @node.run_action(skip_if=node.modes.external)
 def custom_param(node: QualibrationNode[Parameters, Quam]):
     # You can get type hinting in your IDE by typing node.parameters.
-    node.parameters.qubits = ["qB1","qB3"]#,"qB4"]
+    # node.parameters.qubits = ["qB1","qB3"]#,"qB4"]
     node.parameters.multiplexed=False
     node.parameters.reset_type="thermal"
     pass

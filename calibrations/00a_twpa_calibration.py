@@ -53,7 +53,7 @@ from iqcc_calibration_tools.quam_config.lib.qua_datasets import opxoutput, mV
 class Parameters(NodeParameters):
     twpas: Optional[List[str]] = ['twpa2-1']
     # qubits: Optional[List[str]] = None
-    num_averages: int = 1
+    num_averages: int = 30
     amp_min: float =  0.45
     amp_max: float =  0.9
     points : int = 40
@@ -68,7 +68,7 @@ class Parameters(NodeParameters):
     load_data_id: Optional[int] = None
     pumpline_attenuation: int = -50-10-4 #(-50: fridge atten(-30)+directional coupler(-20))  
     signalline_attenuation : int = -60-9 #-60dB : fridge atten
-node = QualibrationNode[Parameters, Quam](name="00a_twpa2_1_calibration_setflux", parameters=Parameters())
+node = QualibrationNode[Parameters, Quam](name="00a_twpa2_1_calibration", parameters=Parameters())
 date_time = datetime.now(timezone(timedelta(hours=2))).strftime("%Y-%m-%d %H:%M:%S")
 node.results["date"]={"date":date_time}
 # %% {Initialize_QuAM_and_QOP}
@@ -166,7 +166,7 @@ with program() as twpa_pump_on:
     with for_(n, 0, n < n_avg, n + 1):  
         save(n, n_st)
         with for_(*from_array(dp, dfps)):  
-            update_frequency(twpas[0].pump.name, dp + twpas[0].pump.intermediate_frequency)
+            update_frequency(twpas[0].pump_.name, dp + twpas[0].pump_.intermediate_frequency)
             with for_each_(da, daps):  
                 twpas[0].pump_.play('pump_', amplitude_scale=da, duration=pump_duration)
                 wait(250) #1000/4 wait 1us for pump to settle before readout
@@ -202,7 +202,7 @@ with program() as twpa_pump_on:
             I_st_[i].buffer(len(dfs)).buffer(len(daps)).buffer(len(dfps)).average().save(f"I_{i + 1}")
             Q_st_[i].buffer(len(dfs)).buffer(len(daps)).buffer(len(dfps)).average().save(f"Q_{i + 1}") 
 # %% {Simulate_or_execute}
-requests.get('http://10.2.1.5/PWD=1234;' +':PWR:RF:OFF')
+# requests.get('http://10.2.1.5/PWD=1234;' +':PWR:RF:OFF')
 if node.parameters.simulate:
     # Simulates the QUA program for the specified duration
     simulation_config = SimulationConfig(duration=node.parameters.simulation_duration_ns * 4)  # In clock cycles = 4ns
@@ -232,7 +232,7 @@ elif node.parameters.load_data_id is None:
         results_ = fetching_tool(job_, ["n"], mode="live")
         while results_.is_processing():
             n_ = results_.fetch_all()[0]
-requests.get('http://10.2.1.5/PWD=1234;' +':PWR:RF:ON')
+# requests.get('http://10.2.1.5/PWD=1234;' +':PWR:RF:ON')
 # %% {Data_fetching_and_dataset_creation}
 #data for pump off
 ds = fetch_results_as_xarray(job.result_handles, qubits, {"freq": dfs, "pump_amp": daps, "pump_freq" : dfps})

@@ -66,9 +66,9 @@ def custom_param(node: QualibrationNode[Parameters, Quam]):
     execution in the Python IDE.
     """
     # You can get type hinting in your IDE by typing node.parameters.
-    node.parameters.qubits = ["qB1","qB3"]
+    # node.parameters.qubits = ["qB1","qB3"]
     node.parameters.multiplexed=True
-    node.parameters.reset_type= "active"
+    node.parameters.reset_type= "thermal"
 
 
 # Instantiate the QUAM class from the state file
@@ -253,8 +253,13 @@ readout_power=[np.round(opxoutput(node.namespace["qubits"][i].resonator.opx_outp
 readout_length=[node.namespace["qubits"][i].resonator.operations["readout"].length for i in range(len(node.namespace["qubits"]))]
 readout_voltage=[np.round(mV(node.namespace["qubits"][i].resonator.opx_output.full_scale_power_dbm,node.namespace["qubits"][i].resonator.operations["readout"].amplitude),2) for i in range(len(node.namespace["qubits"]))]
 for i in range(len(readout_power)):
-    print(f"{node.namespace['qubits'][i].name}: readout power @ resonator={readout_power[i]}dBm, opx output={readout_voltage[i]}mV, readout length={readout_length[i]}")
-
+    print(
+        f"{node.namespace['qubits'][i].name}: "
+        f"Ps={readout_power[i]} dBm, "
+        # f"opx output={readout_voltage[i]} mV, "
+        f"Tro={readout_length[i]}, "
+        f"Aro={node.namespace['qubits'][i].resonator.operations['readout'].amplitude}"
+    )
 # %% {Update_state}
 @node.run_action(skip_if=node.parameters.simulate)
 def update_state(node: QualibrationNode[Parameters, Quam]):

@@ -27,10 +27,12 @@ class TWPA(QuamComponent):
     pump_: IQChannel = None
     spectroscopy: IQChannel = None
 
-    max_gain: float = None
-    max_snr_improvement: float = None
+    max_avg_gain: float = None
+    max_avg_snr_improvement: float = None
     pump_frequency : float = None
     pump_amplitude : float = None
+    mltpx_pump_frequency : float = None
+    mltpx_pump_amplitude : float = None
     p_saturation: float = None
     avg_std_gain: float=None
     avg_std_snr_improvement: float= None

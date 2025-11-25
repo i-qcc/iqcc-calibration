@@ -129,7 +129,7 @@ def optimizer(mingain, mindsnr, gain_avg, dsnr_avg, daps, dfps, p_lo,p_if):
 #---------------------------------MULTIPLXED READOUT OPTIMIZER----------------------------
 def multiplexed_optimizer(qubit, Gain, dsnr, qubits): #qubit = worst snr qubit 
     idx=np.unravel_index(np.argmax(dsnr[qubit-1]),dsnr[qubit-1].shape)
-    print(f"max_average_dSNR : {np.round(np.max(np.mean(dsnr,axis=0)))}dB")
+    # print(f"max_average_dSNR : {np.round(np.max(np.mean(dsnr,axis=0)))}dB")
     print(f"@ max dSNR for qB{qubit}")
     for i in range(len(qubits)):        
         print(f"qB{i+1}:dSNR:{np.round(dsnr[i][idx[0]][idx[1]][0],2)}dB, gain:{np.round(Gain[i][idx[0]][idx[1]][0],2)}dB")
