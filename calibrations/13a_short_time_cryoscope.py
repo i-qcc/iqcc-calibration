@@ -40,7 +40,6 @@ class Parameters(NodeParameters):
     qubits: Optional[List[str]] = ['Q3']    
     num_averages: int = 7500
     frequency_offset_in_mhz: float = 600
-    ramsey_offset_in_mhz: float = 0
     cryoscope_len: int = 64
     num_frames: int = 17
     reset_type_active_or_thermal: Literal['active', 'thermal'] = 'active'
@@ -320,21 +319,29 @@ if not node.parameters.simulate:
 if not node.parameters.simulate:
     print('\033[1m\033[32m PLOT STATE, PHASE, FREQUENCY, AND FLUX \033[0m')
     ds.state.sel(frame = 0).plot()
+    plt.gca().set_xlabel('time (ns)')
+    plt.gca().set_ylabel('state')
     node.results['figure1'] = plt.gcf()
     plt.title(f'state vs time \n {date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
     plt.show()
 
     ds.phase.plot()
+    plt.gca().set_xlabel('time (ns)')
+    plt.gca().set_ylabel('phase (radians)')
     node.results['figure2'] = plt.gcf()
     plt.title(f'phase vs time \n {date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
     plt.show()
 
     ds.frequencies.plot()
+    plt.gca().set_xlabel('time (ns)')
+    plt.gca().set_ylabel('frequency (MHz)')
     node.results['figure3'] = plt.gcf()
     plt.title(f'frequency vs time \n {date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
     plt.show()
 
     ds.flux.plot()
+    plt.gca().set_xlabel('time (ns)')
+    plt.gca().set_ylabel('flux (V)')
     node.results['figure4'] = plt.gcf()
     plt.title(f'flux vs time \n {date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
     plt.show()
