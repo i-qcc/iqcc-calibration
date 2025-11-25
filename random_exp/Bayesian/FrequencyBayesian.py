@@ -528,3 +528,28 @@ if not node.parameters.simulate:
     node.machine = machine
     node.save()
 # %%
+# %% {Export time_stamp and estimated_frequency to CSV}
+import pandas as pd
+
+# Extract time_stamp and estimated_frequency from ds
+# Select first qubit if multiple qubits exist, or specify qubit name
+if 'qubit' in ds.time_stamp.dims:
+    qubit_name = ds.time_stamp.qubit.values[0]  # Use first qubit, or specify: qubit_name = "Q5"
+    time_vals = ds.time_stamp.sel(qubit=qubit_name).values
+    freq_vals = ds.estimated_frequency.sel(qubit=qubit_name).values
+else:
+    time_vals = ds.time_stamp.values.flatten()
+    freq_vals = ds.estimated_frequency.values.flatten()
+
+# Create DataFrame and save to CSV
+df = pd.DataFrame({
+    'time': time_vals,
+    'frequency': freq_vals
+})
+
+# Save to CSV
+output_path = r'restimated_frequency_zero_mean_2cols.csv'
+df.to_csv(output_path, index=False)
+print(f"Data exported to {output_path}")
+print(f"Shape: {df.shape}")
+# %%
