@@ -35,9 +35,9 @@ start = time.time()
 
 # %% {Node_parameters}
 class Parameters(NodeParameters):
-    qubits: Optional[List[str]] = ['Q3']    
-    num_averages: int = 7500
-    frequency_offset_in_mhz: float = 600
+    qubits: Optional[List[str]] = ['Q4']    
+    num_averages: int = 10000
+    frequency_offset_in_mhz: float = 1200
     ramsey_offset_in_mhz: float = 0
     cryoscope_len: int = 64
     num_frames: int = 17
@@ -88,7 +88,7 @@ def baked_waveform(waveform_amp, qubit):
     waveform = [waveform_amp] * 16
 
     for i in range(1, 17):  # from first item up to pulse_duration (16)
-        with baking(config, padding_method="left") as b:
+        with baking(config, padding_method="right") as b:
             wf = waveform[:i]
             b.add_op("flux_pulse", qubit.z.name, wf)
             b.play("flux_pulse", qubit.z.name)
@@ -144,7 +144,7 @@ with program() as cryoscope:
             with for_(*from_array(frame, frames)):
                 if reset_type == "active":
                     for qubit in qubits:
-                        active_reset(qubit)
+                        active_reset_simple(qubit)
                 else:
                     wait(qubit.thermalization_time * u.ns)
                 align()
@@ -164,8 +164,8 @@ with program() as cryoscope:
                 for qubit in qubits:
                     qubit.xy.wait((cryoscope_len + 160) // 4)
                     # Play second X/2
-                    qubit.xy.frame_rotation_2pi(-1*virtual_detuning_phases[0])
-                    qubit.xy.frame_rotation_2pi(frame)
+                    qubit.xy.frame_rotation_2pi(frame-1*virtual_detuning_phases[0])
+                    # qubit.xy.frame_rotation_2pi(frame)
                     qubit.xy.play("x90")
                     
                 # Measure resonator state after the sequence
@@ -186,7 +186,7 @@ with program() as cryoscope:
                     # Initialize the qubits
                     if reset_type == "active":
                         for qubit in qubits:
-                            active_reset(qubit)
+                            active_reset_simple(qubit)
                     else:
                         wait(qubit.thermalization_time * u.ns)
                     align()
@@ -200,16 +200,16 @@ with program() as cryoscope:
                     with switch_(idx):
                         for j in range(16):
                             with case_(j):
-                                baked_signals[j].run() 
                                 qubits[0].z.play('const', duration=t, amplitude_scale=flux_amplitudes[qubits[0].name] / qubits[0].z.operations["const"].amplitude)
+                                baked_signals[j].run() 
 
                     # Wait for the idle time set slightly above the maximum flux pulse duration to ensure that the 2nd x90
                     # pulse arrives after the longest flux pulse
                     for qubit in qubits:
                         qubit.xy.wait((cryoscope_len + 160) // 4)
                         # Play second X/2
-                        qubit.xy.frame_rotation_2pi(-1*virtual_detuning_phases[i])
-                        qubit.xy.frame_rotation_2pi(frame)
+                        qubit.xy.frame_rotation_2pi(frame-1*virtual_detuning_phases[i])
+                        # qubit.xy.frame_rotation_2pi(frame)
                         qubit.xy.play("x90")
 
                     # Measure resonator state after the sequence
@@ -548,5 +548,5 @@ if not node.parameters.simulate:
 # %% {save node}
 node.results['initial_parameters'] = node.parameters.model_dump()
 node.machine = machine
-node.save()
+# node.save()
 # %%
