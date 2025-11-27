@@ -377,10 +377,6 @@ if not node.parameters.simulate:
             # plt.show()
 # %% {Plot_results}
 if not node.parameters.simulate:
-    # Get date_time if not already defined
-    if 'date_time' not in locals():
-        date_time = datetime.now(timezone(timedelta(hours=3))).strftime("%Y-%m-%d %H:%M:%S")
-    
     # Organize plots in 3-column grid
     num_pairs = len(qubit_pairs)
     num_cols = 3
@@ -414,7 +410,7 @@ if not node.parameters.simulate:
         ax2.set_ylabel('Flux amplitude [V]')
         ax.set_ylabel('Detuning [MHz]')
         
-    fig_control.suptitle(f'control qubit state \n {date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type}')
+    fig_control.suptitle(f'control qubit state \n {node.date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type}')
     fig_control.tight_layout()
     fig_control.show()
     node.results["figure_control"] = fig_control
@@ -446,7 +442,7 @@ if not node.parameters.simulate:
         ax2.set_ylabel('Flux amplitude [V]')
         ax.set_ylabel('Detuning [MHz]')
         
-    fig_target.suptitle(f'target qubit state \n {date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type}')
+    fig_target.suptitle(f'target qubit state \n {node.date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type}')
     fig_target.tight_layout()
     fig_target.show()
     node.results["figure_target"] = fig_target
