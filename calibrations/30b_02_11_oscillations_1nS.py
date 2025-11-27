@@ -48,13 +48,14 @@ from iqcc_calibration_tools.analysis.plot_utils import QubitPairGrid, grid_iter,
 from scipy.optimize import curve_fit
 from iqcc_calibration_tools.quam_config.components.gates.two_qubit_gates import CZGate
 from iqcc_calibration_tools.quam_config.lib.pulses import FluxPulse
+from quam.components.pulses import Pulse
 
 # %% {Node_parameters}
 class Parameters(NodeParameters):
 
     qubit_pairs: Optional[List[str]] = None
-    num_averages: int = 20
-    max_time_in_ns: int = 96
+    num_averages: int = 100
+    max_time_in_ns: int = 128
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
     reset_type: Literal['active', 'thermal'] = "active"
     simulate: bool = False
@@ -101,7 +102,21 @@ if node.parameters.load_data_id is None:
 ####################
 # Helper functions #
 ####################
+#
+def get_pulse_name(pulse: Pulse) -> str:
+    """
+    Get the name of the pulse. If the pulse has an id, return it.
+    """
+    if pulse.id is not None:
+        return pulse.id
+    elif pulse.parent is not None:
+        return pulse.parent.get_attr_name(pulse)
+    else:
+        raise AttributeError(
+            f"Cannot infer id of {pulse} because it is not attached to a parent"
+        )
 
+    
 def baked_waveform(waveform_amp, qubit):
     pulse_segments = []  # Stores the baking objects
     # Create the different baked sequences, each one corresponding to a different truncated duration
@@ -229,6 +244,10 @@ with program() as CPhase_Oscillations:
                     with switch_(idx):
                         for j in range(node.parameters.max_time_in_ns):
                             with case_(j):
+                                #spectator qubit shift start
+                                for qubit_name, pulse in qp.macros.cz_unipolar.spectator_qubits_control.items():
+                                    if qubit_name in qp.macros.cz_unipolar.spectator_qubits:
+                                        qp.macros.cz_unipolar.spectator_qubits[qubit_name].z.play(get_pulse_name(pulse))
                                 baked_signals[qp.name][j].run(amp_array = [(qp.qubit_control.z.name, amp)]) 
                     # # check if there are any compensations and play the relevant flux pulse
                     for comp_ind, qubit in enumerate(compensation_qubits):
@@ -423,7 +442,9 @@ if not node.parameters.simulate:
     plt.show()
     node.results["figure_target"] = grid.fig
 
-# %%
+# # %%
+# if machine.active_qubit_pair_names== ["qD3-qC4"] or node.parameters.qubit_pairs == ["qD3-qC4"]:
+#     machine.qubits.qD1.z.joint_offset=Fluxpoint_saver
 
 # %% {Update_state}
 
@@ -444,5 +465,4 @@ if not node.parameters.simulate:
     node.results["initial_parameters"] = node.parameters.model_dump()
     node.machine = machine
     node.save()
-        
 # %%
