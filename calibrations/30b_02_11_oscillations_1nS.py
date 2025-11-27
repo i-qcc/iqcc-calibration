@@ -53,7 +53,7 @@ from quam.components.pulses import Pulse
 # %% {Node_parameters}
 class Parameters(NodeParameters):
 
-    qubit_pairs: Optional[List[str]] = None
+    qubit_pairs: Optional[List[str]] = ["qD3-qC4"]
     num_averages: int = 100
     max_time_in_ns: int = 128
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
@@ -245,9 +245,9 @@ with program() as CPhase_Oscillations:
                         for j in range(node.parameters.max_time_in_ns):
                             with case_(j):
                                 #spectator qubit shift start
-                                for qubit_name, pulse in qp.macros.cz_unipolar.spectator_qubits_control.items():
-                                    if qubit_name in qp.macros.cz_unipolar.spectator_qubits:
-                                        qp.macros.cz_unipolar.spectator_qubits[qubit_name].z.play(get_pulse_name(pulse))
+                                for qubit_name, pulse in qp.macros.cz.spectator_qubits_control.items():
+                                    if qubit_name in qp.macros.cz.spectator_qubits:
+                                        qp.macros.cz.spectator_qubits[qubit_name].z.play(get_pulse_name(pulse))
                                 baked_signals[qp.name][j].run(amp_array = [(qp.qubit_control.z.name, amp)]) 
                     # # check if there are any compensations and play the relevant flux pulse
                     for comp_ind, qubit in enumerate(compensation_qubits):
