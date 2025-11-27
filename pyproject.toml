@@ -32,7 +32,7 @@ dependencies = [
     "more-itertools",
     "qiskit==2.0.0",
     "pylatexenc",
-    "iqcc-cloud-client", 
+    "iqcc-cloud-client==0.13.5", 
     "iqcc-qualibrate2cloud",
     "quam-builder@git+https://github.com/qua-platform/quam-builder.git@add-spectator-qubit-control-to-CZ",
     "qualibration-libs@git+https://github.com/qua-platform/qualibration-libs.git",

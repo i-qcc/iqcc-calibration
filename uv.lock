@@ -894,7 +894,7 @@ dependencies = [
 requires-dist = [
     { name = "betterproto", specifier = ">=2.0.0b7" },
     { name = "ipykernel", specifier = ">=6.29.3,<7.0.0" },
-    { name = "iqcc-cloud-client" },
+    { name = "iqcc-cloud-client", specifier = "==0.13.5" },
     { name = "iqcc-qualibrate2cloud" },
     { name = "lmfit" },
     { name = "more-itertools" },
@@ -913,7 +913,7 @@ requires-dist = [
 
 [[package]]
 name = "iqcc-cloud-client"
-version = "0.13.6"
+version = "0.13.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "arrow" },
@@ -936,9 +936,9 @@ dependencies = [
     { name = "typer" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/37/49/2707e5e5461406ce0864f874759ec34a4d810f3a9ad0c06e742472892482/iqcc_cloud_client-0.13.6.tar.gz", hash = "sha256:8ad22a165e73e7be28e0628b972bec3bf9f49b3bf1fd855d30d498495e012d1c", size = 15918 }
+sdist = { url = "https://files.pythonhosted.org/packages/f1/54/07fec6b72768c9e8de4b4d19fcc33832e39e069ca5006c9575139e51f966/iqcc_cloud_client-0.13.5.tar.gz", hash = "sha256:f5ddaba757a3177d736b57394ad5cef31cc53fa4b53896fa92467e009918af93", size = 15057 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/5d/ae/e39c196cd6830ba6a4d3c4e54d651e1b47cecfad1f98927fff9f62c6f668/iqcc_cloud_client-0.13.6-py3-none-any.whl", hash = "sha256:2cf1fe1e7e4541f8d5fd22da7669b673b9738746eb1d19efc86bfbb3645c3f13", size = 18473 },
+    { url = "https://files.pythonhosted.org/packages/ab/21/da337b8f859155f69db49ed043dc98ad76863e6b54034ca4812e666f0ef6/iqcc_cloud_client-0.13.5-py3-none-any.whl", hash = "sha256:89e19c37246ec29076ce1802ba55e543c7e4e2c7c7d0a2e7971d212163346dbb", size = 17662 },
 ]
 
 [[package]]
