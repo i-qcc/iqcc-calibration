@@ -882,6 +882,7 @@ dependencies = [
     { name = "qm-qua" },
     { name = "qualang-tools" },
     { name = "qualibrate" },
+    { name = "qualibrate-core" },
     { name = "qualibration-libs" },
     { name = "quam" },
     { name = "quam-builder" },
@@ -902,16 +903,17 @@ requires-dist = [
     { name = "qm-qua", specifier = "==1.2.3" },
     { name = "qualang-tools", specifier = "<0.22.0" },
     { name = "qualibrate", specifier = ">=0.2.0,<0.4.0" },
+    { name = "qualibrate-core", git = "https://github.com/qua-platform/qualibrate-core.git?rev=read_nodes_unicode" },
     { name = "qualibration-libs", git = "https://github.com/qua-platform/qualibration-libs.git" },
     { name = "quam", specifier = "==0.5.0a1" },
-    { name = "quam-builder", git = "https://github.com/qua-platform/quam-builder.git" },
+    { name = "quam-builder", git = "https://github.com/qua-platform/quam-builder.git?rev=add-spectator-qubit-control-to-CZ" },
     { name = "tqdm" },
     { name = "xarray" },
 ]
 
 [[package]]
 name = "iqcc-cloud-client"
-version = "0.13.5"
+version = "0.13.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "arrow" },
@@ -934,9 +936,9 @@ dependencies = [
     { name = "typer" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f1/54/07fec6b72768c9e8de4b4d19fcc33832e39e069ca5006c9575139e51f966/iqcc_cloud_client-0.13.5.tar.gz", hash = "sha256:f5ddaba757a3177d736b57394ad5cef31cc53fa4b53896fa92467e009918af93", size = 15057 }
+sdist = { url = "https://files.pythonhosted.org/packages/37/49/2707e5e5461406ce0864f874759ec34a4d810f3a9ad0c06e742472892482/iqcc_cloud_client-0.13.6.tar.gz", hash = "sha256:8ad22a165e73e7be28e0628b972bec3bf9f49b3bf1fd855d30d498495e012d1c", size = 15918 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ab/21/da337b8f859155f69db49ed043dc98ad76863e6b54034ca4812e666f0ef6/iqcc_cloud_client-0.13.5-py3-none-any.whl", hash = "sha256:89e19c37246ec29076ce1802ba55e543c7e4e2c7c7d0a2e7971d212163346dbb", size = 17662 },
+    { url = "https://files.pythonhosted.org/packages/5d/ae/e39c196cd6830ba6a4d3c4e54d651e1b47cecfad1f98927fff9f62c6f668/iqcc_cloud_client-0.13.6-py3-none-any.whl", hash = "sha256:2cf1fe1e7e4541f8d5fd22da7669b673b9738746eb1d19efc86bfbb3645c3f13", size = 18473 },
 ]
 
 [[package]]
@@ -1771,7 +1773,7 @@ wheels = [
 
 [[package]]
 name = "pydantic"
-version = "2.12.4"
+version = "2.12.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "annotated-types" },
@@ -1779,9 +1781,9 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "typing-inspection" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/96/ad/a17bc283d7d81837c061c49e3eaa27a45991759a1b7eae1031921c6bd924/pydantic-2.12.4.tar.gz", hash = "sha256:0f8cb9555000a4b5b617f66bfd2566264c4984b27589d3b845685983e8ea85ac", size = 821038 }
+sdist = { url = "https://files.pythonhosted.org/packages/69/44/36f1a6e523abc58ae5f928898e4aca2e0ea509b5aa6f6f392a5d882be928/pydantic-2.12.5.tar.gz", hash = "sha256:4d351024c75c0f085a9febbb665ce8c0c6ec5d30e903bdb6394b7ede26aebb49", size = 821591 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/82/2f/e68750da9b04856e2a7ec56fc6f034a5a79775e9b9a81882252789873798/pydantic-2.12.4-py3-none-any.whl", hash = "sha256:92d3d202a745d46f9be6df459ac5a064fdaa3c1c4cd8adcfa332ccf3c05f871e", size = 463400 },
+    { url = "https://files.pythonhosted.org/packages/5a/87/b70ad306ebb6f9b585f114d0ac2137d792b48be34d732d60e597c2f8465a/pydantic-2.12.5-py3-none-any.whl", hash = "sha256:e561593fccf61e8a20fc46dfc2dfe075b8be7d0188df33f221ad1f0139180f9d", size = 463580 },
 ]
 
 [[package]]
@@ -2176,7 +2178,7 @@ wheels = [
 [[package]]
 name = "qualibrate-core"
 version = "0.4.1"
-source = { registry = "https://pypi.org/simple" }
+source = { git = "https://github.com/qua-platform/qualibrate-core.git?rev=read_nodes_unicode#a2d47a9a1e5c785d7ab0e54987f3d03a0e3ed094" }
 dependencies = [
     { name = "datamodel-code-generator" },
     { name = "jsonpatch" },
@@ -2188,10 +2190,6 @@ dependencies = [
     { name = "qualang-tools" },
     { name = "qualibrate-config" },
     { name = "types-networkx" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/fe/89/9cccb6d8479ea83331100b9a54c530c32483de52b3806884a0cf265a08cd/qualibrate_core-0.4.1.tar.gz", hash = "sha256:969047b8ca0156d2f27f4a838cf1198b32732c51610abf39d426a8c8c2e5949f", size = 43330 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/e7/9d/1512bd2232072975a2be5f22c451497370b826bd5ed33ee1ea72356b1dea/qualibrate_core-0.4.1-py3-none-any.whl", hash = "sha256:c1124aee019e5774079705d5bd04b91e8e2e4911de26a9e16830256a1c13fd83", size = 63885 },
 ]
 
 [[package]]
@@ -2248,8 +2246,8 @@ wheels = [
 
 [[package]]
 name = "quam-builder"
-version = "0.2.0"
-source = { git = "https://github.com/qua-platform/quam-builder.git#9c924713e0255dd293ac1bc18d2dbf38f1c128bd" }
+version = "0.2.2"
+source = { git = "https://github.com/qua-platform/quam-builder.git?rev=add-spectator-qubit-control-to-CZ#6786704d508b2b215384cc865276ea4cec78b5cc" }
 dependencies = [
     { name = "qm-qua" },
     { name = "qualang-tools" },

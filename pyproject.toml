@@ -26,6 +26,7 @@ dependencies = [
     "lmfit",
     "tqdm",
     "qualibrate>=0.2.0,<0.4.0",
+    "qualibrate-core @ git+https://github.com/qua-platform/qualibrate-core.git@read_nodes_unicode",
     "qm-qua==1.2.3",
     "ipykernel>=6.29.3,<7.0.0",
     "more-itertools",
@@ -33,10 +34,11 @@ dependencies = [
     "pylatexenc",
     "iqcc-cloud-client", 
     "iqcc-qualibrate2cloud",
- #  "qualibrate-lab-notebook @ git+https://github.com/i-qcc/qualibrate-lab-notebook.git@main",
-    "quam-builder@git+https://github.com/qua-platform/quam-builder.git",
+    "quam-builder@git+https://github.com/qua-platform/quam-builder.git@add-spectator-qubit-control-to-CZ",
     "qualibration-libs@git+https://github.com/qua-platform/qualibration-libs.git",
     "betterproto>=2.0.0b7", # becuase qua 1.2.3 requires this pre-release version 
+    
+    #  "qualibrate-lab-notebook @ git+https://github.com/i-qcc/qualibrate-lab-notebook.git@main"
 
 ]
 
