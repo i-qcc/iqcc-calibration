@@ -73,20 +73,20 @@ class Parameters(NodeParameters):
         reset_type_active_or_thermal (str): Reset method to use
     """
 
-    qubits: Optional[List[str]] = ["Q3"]
+    qubits: Optional[List[str]] = ["qC2"]
     num_averages: int = 50
     operation: str = "x180"
     operation_amplitude_factor: Optional[float] = 1
-    duration_in_ns: Optional[int] = 200000
+    duration_in_ns: Optional[int] = 10000
     min_wait_time_in_ns: Optional[int] = 16
     time_axis: Literal["linear", "log"] = "log"
     time_step_in_ns: Optional[int] = 48 # for linear time axis
     time_step_num: Optional[int] = 50 # for log time axis
     frequency_span_in_mhz: float = 200
     frequency_step_in_mhz: float = 0.4
-    fitting_base_fractions: List[float] = [0.6, 0.3, 0.02] # fraction of times from which to fit each exponential
+    fitting_base_fractions: List[float] = [0.7, 0.3, 0.05] # fraction of times from which to fit each exponential
     update_state: bool = False
-    flux_amp : float = 0.17
+    flux_amp : float = 0.24
     update_lo: bool = True
     num_fixed_taus: Optional[int] = None
     fit_multiple_exponentials: bool = False
@@ -482,11 +482,14 @@ if node.parameters.load_data_id is None:
                     A_list = [component[0] / fit_results[q.name]["best_a_dc"] for component in fit_results[q.name]["best_components"]]
                     tau_list = [component[1] for component in fit_results[q.name]["best_components"]]
                     A_c, tau_c, scale = cryoscope_tools.decompose_exp_sum_to_cascade(A=A_list, tau=tau_list, A_dc=1)
+                    A_c = np.round(A_c, 6)
+                    tau_c = np.round(tau_c, 6)
                     if q.z.opx_output.exponential_filter is None:
                         q.z.opx_output.exponential_filter = list(zip(A_c, tau_c))
+                        print("updated the exponential filter")
                     else:
                         q.z.opx_output.exponential_filter = merge_tuples(q.z.opx_output.exponential_filter, list(zip(A_c, tau_c)))
-                    print("updated the exponential filter")
+                        print("updated the exponential filter")
 
 # %% {Save_results}
 # Store final results and metadata
