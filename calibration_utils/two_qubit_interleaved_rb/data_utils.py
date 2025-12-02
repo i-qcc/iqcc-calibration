@@ -65,13 +65,11 @@ class RBResult:
         Plots the RB fidelity as a function of circuit depth, including a fit to an exponential decay model.
         The fitted curve is overlaid with the raw data points, and error bars are included.
         
+        Note: This method assumes that fit() has been called first to calculate all metrics.
+        
         Returns:
             matplotlib.figure.Figure: The figure object containing the plot.
         """
-        A, alpha, B = self.fit_exponential()
-        fidelity = self.get_fidelity(alpha)
-        self.fidelity = fidelity
-        
         # std of average
         error_bars = (self.data == 0).stack(combined=("average", "repeat")).std(dim="combined").state.data / np.sqrt(self.num_repeats * self.num_averages)
 
@@ -90,21 +88,39 @@ class RBResult:
         circuit_depths_smooth_axis = np.linspace(self.circuit_depths[0], self.circuit_depths[-1], 100)
         plt.plot(
             circuit_depths_smooth_axis,
-            rb_decay_curve(np.array(circuit_depths_smooth_axis), A, alpha, B),
+            rb_decay_curve(np.array(circuit_depths_smooth_axis), self.A, self.alpha, self.B),
             color="red",
             linestyle="--",
             label="Exponential Fit",
         )
 
+     
+        if isinstance(self, InterleavedRBResult):
+            title = f"target gate fidelity = {self.fidelity * 100:.2f}%"
+        else:
+            title = f"2Q average Clifford fidelity = {self.fidelity * 100:.2f}%"
+            
         plt.text(
             0.5,
             0.95,
-            f"2Q Clifford Fidelity = {fidelity * 100:.2f}%",
+            title,
             horizontalalignment="center",
             verticalalignment="top",
             fontdict={"fontsize": "large", "fontweight": "bold"},
             transform=plt.gca().transAxes,
         )
+        
+        # Add average gate fidelity if it was calculated
+        if hasattr(self, 'average_gate_fidelity'):
+            plt.text(
+                0.5,
+                0.88,
+                f"Average Gate Fidelity = {self.average_gate_fidelity * 100:.2f}%",
+                horizontalalignment="center",
+                verticalalignment="top",
+                fontdict={"fontsize": "large", "fontweight": "bold"},
+                transform=plt.gca().transAxes,
+            )
 
         plt.xlabel("Circuit Depth")
         plt.ylabel(r"Probability to recover to $|00\rangle$")
@@ -177,6 +193,41 @@ class RBResult:
 
         return A, alpha, B
 
+    def fit(self, average_layers_per_clifford=None, average_gates_per_2q_layer=None):
+        """
+        Fits the RB data and calculates all error and fidelity metrics.
+        
+        Args:
+            average_layers_per_clifford (float, optional): Average number of 2q layers per Clifford.
+                If provided, will calculate error_per_2q_layer, error_per_gate, and average_gate_fidelity.
+            average_gates_per_2q_layer (float, optional): Average number of gates per 2q layer.
+                If provided, will calculate error_per_2q_layer, error_per_gate, and average_gate_fidelity.
+        
+        This method calculates and stores the following attributes:
+            - A, alpha, B: Fitted exponential parameters
+            - fidelity: 2Q Clifford fidelity
+            - epc: Error per Clifford
+            - error_per_2q_layer: Error per 2q layer (if constants provided)
+            - error_per_gate: Error per gate (if constants provided)
+            - average_gate_fidelity: Average gate fidelity (if constants provided)
+        """
+        # Fit exponential decay
+        A, alpha, B = self.fit_exponential()
+        self.A = A
+        self.alpha = alpha
+        self.B = B
+        
+        # Calculate fidelity and error per Clifford
+        fidelity = self.get_fidelity(alpha)
+        self.fidelity = fidelity
+        self.epc = 1 - self.fidelity
+        
+        # Calculate additional metrics if constants are provided
+        if average_layers_per_clifford is not None and average_gates_per_2q_layer is not None:
+            self.error_per_2q_layer = (1 - fidelity) / average_layers_per_clifford
+            self.error_per_gate = self.error_per_2q_layer / average_gates_per_2q_layer
+            self.average_gate_fidelity = 1 - self.error_per_gate
+
     def get_fidelity(self, alpha):
         """
         Calculates the average fidelity per Clifford based on the decay constant.
@@ -189,7 +240,7 @@ class RBResult:
         """
         n_qubits = 2  # Assuming 2 qubits as per the context
         d = 2**n_qubits
-        r = 1 - alpha - (1 - alpha) / d
+        r = 1 - alpha - (1 - alpha) / d # error per clifford
         fidelity = 1 - r
 
         return fidelity
@@ -202,6 +253,25 @@ class RBResult:
             np.ndarray: Decay curve representing the fidelity as a function of circuit depth.
         """
         return (self.data.state == 0).sum(("repeat", "average")) / (self.num_repeats * self.num_averages)
+    
+    def get_decay_curve_1q(self, qubit_index: int):
+        """
+        Calculates the decay curve for a single qubit.
+        
+        Args:
+            qubit_index (int): Index of the qubit to calculate the decay curve for.
+
+        Returns:
+            np.ndarray: Decay curve representing the fidelity as a function of circuit depth.
+        """
+        
+        if qubit_index == 0:
+            return ((self.data.state == 0) | (self.data.state == 1)).sum(("repeat", "average")) / (self.num_repeats * self.num_averages)
+        elif qubit_index == 1:
+            return ((self.data.state == 0) | (self.data.state == 2)).sum(("repeat", "average")) / (self.num_repeats * self.num_averages)
+        else:
+            raise ValueError(f"Qubit index {qubit_index} not supported")
+        
 
 
 def rb_decay_curve(x, A, alpha, B):
@@ -232,6 +302,6 @@ class InterleavedRBResult(RBResult):
 
     def get_fidelity(self, alpha: float):
         """
-        Calculates the interleaved gate fidelity using the formula from https://arxiv.org/pdf/1210.7011.
+        Calculates the interleaved gate fidelity using the formula from https://arxiv.org/pdf/1203.4550.
         """
         return 1 - ((2**2 - 1) * (1 - alpha / self.standard_rb_alpha) / 2**2)

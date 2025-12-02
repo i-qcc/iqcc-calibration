@@ -1,4 +1,6 @@
 import logging
+import os
+import requests
 from typing import TypeVar, Generic
 from datetime import datetime, timezone, timedelta
 from qualibrate import QualibrationNode as QualibrationNodeBase
@@ -9,6 +11,8 @@ from qualibrate.utils.node.path_solver import get_node_dir_path
 from qualibrate.config.resolvers import get_quam_state_path
 from qualibrate.storage.local_storage_manager import LocalStorageManager
 from iqcc_calibration_tools.quam_config.components.quam_root import Quam
+from qm import generate_qua_script
+
 # Type variables for generic parameters - using same names and bounds as base class
 ParametersType = TypeVar("ParametersType", bound=NodeParameters)
 MachineType = TypeVar("MachineType", bound=MachineProtocol)
@@ -50,6 +54,44 @@ class QualibrationNode(QualibrationNodeBase, Generic[ParametersType, MachineType
         super().__init__(*args, **kwargs)
         self.node_id = self.get_node_id()
         self.date_time = datetime.now(timezone(timedelta(hours=3))).strftime("%Y-%m-%d %H:%M:%S")
+        self._machine = None  # Initialize machine attribute
+    
+    @property
+    def machine(self):
+        """
+        Property that returns the quam state.
+        
+        Returns:
+            The quam state
+        """
+        return self._machine
+    
+    @machine.setter
+    def machine(self, machine_config):
+        """
+        Setter for machine property that automatically processes the quam state.
+        
+        Args:
+            machine_config: Dictionary containing the quam state
+        """
+        # logger.info("Setting machine configuration and processing...")
+        
+        if machine_config is None:
+            # logger.warning("machine_config is None - cannot process")
+            self._machine = None
+            return
+        
+        # Store the machine configuration
+        self._machine = machine_config
+        # logger.info(f"Machine stored successfully. Type: {type(self._machine)}")
+        
+        # # Activate TWPA SSGs
+        # twpa_ssg_ips = machine_config.network.get("twpa_ssg_ips", [])
+        # response = self.activate_twpa_ssgs(twpa_ssg_ips)
+        # if response is not None:
+        #     logger.info(f"activate_twpa_ssgs response: status_code={response.status_code}, text={response.text}")
+        # else:
+        #     logger.info("activate_twpa_ssgs response: None (no SSG IPs found)")
     
     def save(self):
         """
@@ -290,3 +332,17 @@ class QualibrationNode(QualibrationNodeBase, Generic[ParametersType, MachineType
         
         # Join all parts with newlines
         return "\n".join(subtitle_parts)
+    
+    def serialize_qua_program(self, path: str | None = None, tag_for_file_name: str | None = None):
+        if path is None:
+            file_name = f"debug_{tag_for_file_name}_{self.name}_{self.node_id}.py"
+        else:
+            file_name = os.path.join(path, f"debug_{tag_for_file_name}_{self.name}_{self.node_id}.py")
+        sourceFile = open(file_name, 'w')
+        print(generate_qua_script(self.namespace["qua_program"], self.machine.generate_config()), file=sourceFile) 
+        sourceFile.close()
+        
+    def activate_twpa_ssgs(self, twpa_ssg_ips: list[str]):
+       for ip in twpa_ssg_ips:
+           logger.info(f"Setting SSG IP {ip} to ON")
+           return requests.get(f'http://{ip}/PWD=1234;' +':PWR:RF:ON')

@@ -37,7 +37,6 @@ from datetime import datetime, timezone, timedelta
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
 from iqcc_calibration_tools.quam_config.components import Quam
 from iqcc_calibration_tools.quam_config.macros import active_reset, readout_state
-from iqcc_calibration_tools.analysis.plot_utils import QubitPairGrid, grid_iter, grid_pair_names
 from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset
 from qualang_tools.results import progress_counter, fetching_tool
 from qualang_tools.loops import from_array
@@ -48,7 +47,6 @@ from qm.qua import *
 from typing import Literal, Optional, List
 import matplotlib.pyplot as plt
 import numpy as np
-from iqcc_calibration_tools.analysis.plot_utils import QubitPairGrid, grid_iter, grid_pair_names
 
 # %% {Node_parameters}
 class Parameters(NodeParameters):
@@ -62,6 +60,7 @@ class Parameters(NodeParameters):
     load_data_id: Optional[int] = None
     plot_raw : bool = False
     measure_leak : bool = False
+    targets_name: str = "qubit_pairs"
 
 
 node = QualibrationNode(
@@ -209,13 +208,18 @@ if not node.parameters.simulate:
             conf.append(row)
         confusions[qp.name] = np.array(conf)/node.parameters.num_shots
 
-# %%
+# %% {Plot_results}
 if not node.parameters.simulate:
-    grid_names, qubit_pair_names = grid_pair_names(qubit_pairs)
-    grid = QubitPairGrid(grid_names, qubit_pair_names)
-    for ax, qubit_pair in grid_iter(grid):
-        print(qubit_pair['qubit'])
-        conf = confusions[qubit_pair['qubit']]
+    # Organize plots in 3-column grid
+    num_pairs = len(qubit_pairs)
+    num_cols = 3
+    num_rows = int(np.ceil(num_pairs / num_cols))
+    
+    fig_confusion = plt.figure(figsize=(5 * num_cols, 4 * num_rows))
+    for idx, qp in enumerate(qubit_pairs):
+        ax = fig_confusion.add_subplot(num_rows, num_cols, idx + 1)
+        print(qp.name)
+        conf = confusions[qp.name]
         ax.pcolormesh(['00','01','10','11'],['00','01','10','11'],conf)
         for i in range(4):
             for j in range(4):
@@ -225,9 +229,10 @@ if not node.parameters.simulate:
                     ax.text(i, j, f"{100 * conf[i][j]:.1f}%", ha="center", va="center", color="w")
         ax.set_ylabel('prepared')
         ax.set_xlabel('measured')
-        ax.set_title(f"Confusion matrix {qubit_pair['qubit']} \n {date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type}")
-    plt.show()
-    node.results["figure_confusion"] = grid.fig
+        ax.set_title(f"Confusion matrix {qp.name} \n {node.date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type}")
+    fig_confusion.tight_layout()
+    fig_confusion.show()
+    node.results["figure_confusion"] = fig_confusion
 # %%
 
 # %% {Update_state}

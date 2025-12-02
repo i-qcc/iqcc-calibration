@@ -271,12 +271,13 @@ def update_state(node: QualibrationNode[Parameters, Quam]):
         for qp in node.namespace["qubit_pairs"]:
             if node.outcomes[qp.name] == "failed":
                 continue
-            old_phase_control = qp.macros[cz_operation].phase_shift_control
-            old_phase_target = qp.macros[cz_operation].phase_shift_target
-            qp.macros[cz_operation].phase_shift_control = (
+            operation_id = qp.macros[cz_operation].id # this is for the case where operation is by refrence like with "cz"
+            old_phase_control = qp.macros[operation_id].phase_shift_control
+            old_phase_target = qp.macros[operation_id].phase_shift_target
+            qp.macros[operation_id].phase_shift_control = (
                 old_phase_control - float(node.results["ds_fit"].sel(qubit_pair=qp.name).fitted_control_phase.values)
             ) % 1
-            qp.macros[cz_operation].phase_shift_target = (
+            qp.macros[operation_id].phase_shift_target = (
                 old_phase_target - float(node.results["ds_fit"].sel(qubit_pair=qp.name).fitted_target_phase.values)
             ) % 1
 

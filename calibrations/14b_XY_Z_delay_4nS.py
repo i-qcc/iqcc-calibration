@@ -171,6 +171,10 @@ node.results['ds'] = ds
 delays_0 = (ds.state.sel(sequence=0).where(ds.state.sel(sequence=0) > 0.5) / ds.state.sel(sequence=0).where(ds.state.sel(sequence=0) > 0.5) * ds.relative_time).mean(dim="relative_time")
 delays_1 = (ds.state.sel(sequence=1).where(ds.state.sel(sequence=1) < 0.5) / ds.state.sel(sequence=1).where(ds.state.sel(sequence=1) < 0.5) * ds.relative_time).mean(dim="relative_time")
 delays = (delays_0 + delays_1) / 2
+
+# Check if analysis failed per qubit (delay is NaN)
+failed_qubits = [q.name for q in qubits if np.isnan(delays.sel(qubit=q.name).values)]
+
 # %%
 
 # %%
@@ -200,6 +204,10 @@ node.results['figure'] = grid.fig
 # %% {Update_state}
 with node.record_state_updates():
     for i, q in enumerate(qubits):
+        # Skip update if analysis failed for this qubit (delay is NaN)
+        if q.name in failed_qubits:
+            print(f"Skipping update for qubit {q.name} due to analysis failure")
+            continue
         if delays.sel(qubit=q.name) is not None:
             q.z.opx_output.delay -= int(np.round(delays.sel(qubit=q.name).values))
 

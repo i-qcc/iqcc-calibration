@@ -78,8 +78,9 @@ class Parameters(NodeParameters):
     load_data_id: Optional[int] = None
     timeout: int = 100
     seed: int = 0
+    targets_name = "qubit_pairs"
 
-node = QualibrationNode(name="2Q_interleaved_rb", parameters=Parameters())
+node = QualibrationNode(name="70c_two_qubit_interleaved_rb", parameters=Parameters())
 
 # %% {Initialize_QuAM_and_QOP}
 
@@ -225,17 +226,23 @@ probs_00 = probs_00.astype(int)
 ds_transposed = ds.rename({"shots": "average", "sequence": "repeat", "depths": "circuit_depth"})
 ds_transposed = ds_transposed.transpose("qubit", "repeat", "circuit_depth", "average")
 
+rb_result = {}
+
 for qp in qubit_pairs:
 
-    rb_result = InterleavedRBResult(
-        standard_rb_alpha=node.machine.qubit_pairs[qp.id].macros["cz"].fidelity.get('StandardRB_alpha', 1),
+    rb_result[qp.id] = InterleavedRBResult(
+        standard_rb_alpha=node.machine.qubit_pairs[qp.id].macros["cz"].fidelity.get("StandardRB", 1).get("alpha", 1),
         circuit_depths=list(node.parameters.circuit_lengths),
         num_repeats=node.parameters.num_circuits_per_length,
         num_averages=node.parameters.num_averages,
         state=ds_transposed.sel(qubit=qp.name).state.data
     )
 
-    fig = rb_result.plot_with_fidelity()
+    # Fit the data and calculate all error and fidelity metrics
+    rb_result[qp.id].fit()
+    
+    # Plot the results
+    fig = rb_result[qp.id].plot_with_fidelity()
     fig.suptitle(f"2Q Interleaved Randomized Benchmarking - {qp.name}")
     node.add_node_info_subtitle(fig)
     fig.show()
@@ -245,8 +252,6 @@ for qp in qubit_pairs:
 # %% {Update_state}
 with node.record_state_updates():
     for qp in qubit_pairs:
-        node.machine.qubit_pairs[qp.id].macros["cz"].fidelity['IRB_alpha'] = rb_result.alpha
-        node.machine.qubit_pairs[qp.id].macros["cz"].fidelity['IRB'] = rb_result.fidelity
-
+        node.machine.qubit_pairs[qp.id].macros["cz"].fidelity['Interleaved_RB'] = rb_result[qp.id].fidelity
 # %% {Save_results}
 node.save()

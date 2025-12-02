@@ -217,14 +217,9 @@ def play_gate(gate: QuaVariable, qubit_pair: TransmonPair, state: QuaVariable, s
             assign(state, state_control*2 + state_target)
             save(state, state_st)
             
-            # Initialize the qubits
-            if reset_type == "active":
-                active_reset(qubit_pair.qubit_control, "readout")
-                active_reset(qubit_pair.qubit_target, "readout")
-            else:
-                qubit_pair.qubit_control.resonator.wait(qubit_pair.qubit_control.thermalization_time // 4)
-                qubit_pair.qubit_target.resonator.wait(qubit_pair.qubit_target.thermalization_time // 4)
-            
+            # reset the qubits
+            qubit_pair.qubit_control.reset(reset_type)
+            qubit_pair.qubit_target.reset(reset_type)
             
             # Reset the frame of the qubits in order not to accumulate rotations
             reset_frame(qubit_pair.qubit_control.xy.name, qubit_pair.qubit_target.xy.name)
@@ -276,7 +271,7 @@ class QuaProgramHandler:
                 self.machine.set_all_fluxes(flux_point=self.node.parameters.flux_point_joint_or_independent, target=qubit_pair.qubit_control)
 
                 # Initialize the qubits
-                if self.node.parameters.reset_type_thermal_or_active == "active":
+                if self.node.parameters.reset_type == "active":
                     active_reset(qubit_pair.qubit_control, "readout")
                     active_reset(qubit_pair.qubit_target, "readout")
                 else:
@@ -292,7 +287,7 @@ class QuaProgramHandler:
 
                     with for_(n, 0, n < self.node.parameters.num_averages, n + 1):
                         
-                        play_sequence(sequence, l, qubit_pair, state, state_control, state_target, state_st[i], self.node.parameters.reset_type_thermal_or_active)
+                        play_sequence(sequence, l, qubit_pair, state, state_control, state_target, state_st[i], self.node.parameters.reset_type)
                                     
                         save(n, n_st)
 
@@ -312,39 +307,33 @@ class QuaProgramHandler:
         
         with program() as rb:
     
-            n = declare(int)
             n_st = declare_stream()
-            
             job_sequence_qua = declare(int, value=job_sequence)
-            
             # The relevant streams
-            state_control = declare(int)
-            state_target = declare(int)
-            state = declare(int)
             state_st = [declare_stream() for _ in range(self.num_pairs)]
 
             for i, qubit_pair in enumerate(self.qubit_pairs):
-
+                
+                n = declare(int)
+                state_control = declare(int)
+                state_target = declare(int)
+                state = declare(int)
                 # Bring the active qubits to the desired frequency point
                 self.machine.set_all_fluxes(flux_point=self.node.parameters.flux_point_joint_or_independent, target=qubit_pair.qubit_control)
 
                 # Initialize the qubits
-                if self.node.parameters.reset_type_thermal_or_active == "active":
-                    active_reset(qubit_pair.qubit_control, "readout")
-                    active_reset(qubit_pair.qubit_target, "readout")
-                else:
-                    # qubit_pair.qubit_control.resonator.wait(4)
-                    qubit_pair.qubit_control.resonator.wait(qubit_pair.qubit_control.thermalization_time * self.u.ns)
-                    qubit_pair.qubit_target.resonator.wait(qubit_pair.qubit_target.thermalization_time * self.u.ns)
-                
-                # Align the two elements to play the sequence after qubit initialization
+                qubit_pair.qubit_control.reset(self.node.parameters.reset_type, self.node.parameters.simulate)
+                qubit_pair.qubit_target.reset(self.node.parameters.reset_type, self.node.parameters.simulate)
+                  
                 align()
                 
                 with for_(n, 0, n < self.node.parameters.num_averages, n + 1):
                     
-                    play_sequence(job_sequence_qua, sequence_length, qubit_pair, state, state_control, state_target, state_st[i], self.node.parameters.reset_type_thermal_or_active)
+                    play_sequence(job_sequence_qua, sequence_length, qubit_pair, state, state_control, state_target, state_st[i], self.node.parameters.reset_type)
                                 
                     save(n, n_st)
+                    
+                align() # align between pairs. No multiplexing support for the moment.
 
             with stream_processing():
                 n_st.save("iteration")

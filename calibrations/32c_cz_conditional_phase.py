@@ -77,7 +77,6 @@ def custom_param(node: QualibrationNode[Parameters, Quam]):
     # node.parameters.qubit_pairs = ["q1-q2"]
     pass
 
-
 # Instantiate the QUAM class from the state file
 node.machine = Quam.load()
 
@@ -281,23 +280,22 @@ def plot_data(node: QualibrationNode[Parameters, Quam]):
         qubit_pairs,
     )
     node.add_node_info_subtitle(fig_phase)
-    plt.show()
-
     node.results["phase_figure"] = fig_phase
-
+    plt.show()
 
 # %% {Update_state}
 @node.run_action(skip_if=node.parameters.simulate)
 def update_state(node: QualibrationNode[Parameters, Quam]):
     """Update the relevant parameters if the qubit pair data analysis was successful."""
 
-    operation = node.parameters.operation
+    operation = node.parameters.operation 
     with node.record_state_updates():
         fit_results = node.results["fit_results"]
         for qp in node.namespace["qubit_pairs"]:
             if node.outcomes[qp.name] == "failed":
                 continue
-            qp.macros[operation].flux_pulse_control.amplitude = fit_results[qp.name]["optimal_amplitude"]
+            operation_id = qp.macros[operation].id # this is for the case where operation is by refrence like with "cz"
+            qp.macros[operation_id].flux_pulse_control.amplitude = fit_results[qp.name]["optimal_amplitude"]
 
 
 # %% {Save_results}

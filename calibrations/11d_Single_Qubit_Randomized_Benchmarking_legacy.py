@@ -415,6 +415,8 @@ elif node.parameters.load_data_id is None:
     da_fit = fit_decay_exp(da_state, "m")
     # Extract the decay rate
     alpha = np.exp(da_fit.sel(fit_vals="decay"))
+    # Replace NaN values with 1 to prevent cloud upload issues
+    alpha = alpha.fillna(1.0)
     # average_gate_per_clifford = 45/24 = 1.875
     average_gate_per_clifford = (1 * 3 + 9 * 2 + 1 * 4 + 2 * 3 + 4 * 2 + 2 * 3) / 24
     # EPC from here: https://qiskit.org/textbook/ch-quantum-hardware/randomized-benchmarking.html#Step-5:-Fit-the-results

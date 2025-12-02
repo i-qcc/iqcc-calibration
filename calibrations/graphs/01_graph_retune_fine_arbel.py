@@ -28,7 +28,7 @@ nodes = {
 node_params = {
     "IQ_blobs" : {"multiplexed": multiplexed,
             "reset_type": "thermal"},
-    "ramsey_flux_calibration" : {"multiplexed": False,
+    "ramsey_flux_calibration" : {"multiplexed": multiplexed,
             "num_shots": 300,
             "flux_span": 0.02,
             "max_wait_time_in_ns": 500,
@@ -45,7 +45,7 @@ node_params = {
             "use_state_discrimination": False,
             "multiplexed": multiplexed},
     "single_qubit_randomized_benchmarking" : {"flux_point_joint_or_independent": flux_point, 
-            "multiplexed": True, 
+            "multiplexed": multiplexed, 
             "num_averages": 1,
             "num_random_sequences": 300,
             "log_scale": True,
