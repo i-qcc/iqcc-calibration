@@ -6,7 +6,7 @@ from quam.components.ports import (
     OPXPlusPortsContainer,
 )
 
-from iqcc_calibration_tools.quam_config.components.twpa import TWPA
+from quam_builder.architecture.superconducting.components.twpa import TWPA
 
 from qm import QuantumMachinesManager, QuantumMachine
 from qualang_tools.results.data_handler import DataHandler
