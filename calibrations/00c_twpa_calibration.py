@@ -32,7 +32,6 @@ from iqcc_calibration_tools.quam_config.macros import qua_declaration
 from iqcc_calibration_tools.quam_config.lib.qua_datasets import convert_IQ_to_V
 from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray
 from iqcc_calibration_tools.analysis.twpa_utils import  * 
-from iqcc_calibration_tools.analysis.twpa_optimizer import *
 from qualang_tools.results import  fetching_tool
 from qualang_tools.loops import from_array
 from qualang_tools.multi_user import qm_session

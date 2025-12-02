@@ -83,8 +83,8 @@ with program() as on:
     df = declare(int)  # QUA variable for the readout frequency
 ### test for checking pump with SA
     with infinite_loop_():
-        update_frequency(twpas[0].pump.name,  f_p+ twpas[0].pump.intermediate_frequency)
-        twpas[0].pump.play('pump', amplitude_scale=0.6, duration=pump_duration)
+        update_frequency(twpas[0].pump_.name,  f_p+ twpas[0].pump_.intermediate_frequency)
+        twpas[0].pump_.play('pump_', amplitude_scale=0.677, duration=pump_duration)
 
 #%%
 with qm_session(qmm, config, timeout=node.parameters.timeout) as qm:
