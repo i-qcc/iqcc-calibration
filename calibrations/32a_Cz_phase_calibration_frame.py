@@ -59,12 +59,12 @@ class Parameters(NodeParameters):
     num_averages: int = 500
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
     reset_type: Literal['active', 'thermal'] = "active"
-    cz_macro_name: str = "cz_unipolar"
+    cz_macro_name: str = "Cz"
     simulate: bool = False
     timeout: int = 100
     amp_range : float = 0.06
-    amp_step : float = 0.001
-    num_frames: int = 12
+    amp_step : float = 0.003
+    num_frames: int = 13
     load_data_id: Optional[int] = None # 92417 
     plot_raw : bool = False
     measure_leak : bool = True
@@ -149,8 +149,8 @@ with program() as CPhase_Oscillations:
                     with for_(*from_array(control_initial, [0,1])):
                         # reset
                         if node.parameters.reset_type == "active":
-                            active_reset_gef(qp.qubit_control)
-                            active_reset(qp.qubit_target)
+                            active_reset_simple(qp.qubit_control)
+                            active_reset_simple(qp.qubit_target)
                         else:
                             wait(qp.qubit_control.thermalization_time * u.ns)
                         qp.align()
@@ -165,7 +165,7 @@ with program() as CPhase_Oscillations:
                         if node.parameters.pulsed_element == "coupler":
                             qp.macros[node.parameters.cz_macro_name].apply(amplitude_scale_coupler = amp)
                         elif node.parameters.pulsed_element == "control":
-                            qp.macros[node.parameters.cz_macro_name].apply(amplitude_scale_control = amp)
+                            qp.macros[node.parameters.cz_macro_name].apply(amplitude_scale_qubit_control = amp)
                         elif node.parameters.pulsed_element == "target":
                             qp.macros[node.parameters.cz_macro_name].apply(amplitude_scale_target = amp)
                         else:
@@ -236,7 +236,7 @@ if not node.parameters.simulate:
         if node.parameters.pulsed_element == "coupler":
             return amp * qp.macros[node.parameters.cz_macro_name].coupler_flux_pulse.amplitude
         elif node.parameters.pulsed_element == "control":
-            return amp * qp.macros[node.parameters.cz_macro_name].flux_pulse_control.amplitude
+            return amp * qp.macros[node.parameters.cz_macro_name].flux_pulse_qubit.amplitude
         elif node.parameters.pulsed_element == "target":
             return amp * qp.macros[node.parameters.cz_macro_name].flux_pulse_target.amplitude
         else:
@@ -246,7 +246,7 @@ if not node.parameters.simulate:
         if node.parameters.pulsed_element == "coupler":
             return -(amp * qp.macros[node.parameters.cz_macro_name].coupler_flux_pulse.amplitude)**2 * qp.qubit_control.freq_vs_flux_01_quad_term
         elif node.parameters.pulsed_element == "control":
-            return -(amp * qp.macros[node.parameters.cz_macro_name].flux_pulse_control.amplitude)**2 * qp.qubit_control.freq_vs_flux_01_quad_term
+            return -(amp * qp.macros[node.parameters.cz_macro_name].flux_pulse_qubit.amplitude)**2 * qp.qubit_control.freq_vs_flux_01_quad_term
         elif node.parameters.pulsed_element == "target":
             return -(amp * qp.macros[node.parameters.cz_macro_name].flux_pulse_target.amplitude)**2 * qp.qubit_control.freq_vs_flux_01_quad_term
         else:
@@ -297,7 +297,7 @@ if not node.parameters.simulate:
         if node.parameters.pulsed_element == "coupler":
             optimal_amps[qp.name] = optimal_amp * qp.macros[node.parameters.cz_macro_name].coupler_flux_pulse.amplitude
         elif node.parameters.pulsed_element == "control":
-            optimal_amps[qp.name] = optimal_amp * qp.macros[node.parameters.cz_macro_name].flux_pulse_control.amplitude
+            optimal_amps[qp.name] = optimal_amp * qp.macros[node.parameters.cz_macro_name].flux_pulse_qubit.amplitude
         elif node.parameters.pulsed_element == "target":
             optimal_amps[qp.name] = optimal_amp * qp.macros[node.parameters.cz_macro_name].flux_pulse_target.amplitude
         else:
@@ -373,7 +373,7 @@ if not node.parameters.simulate:
                 if node.parameters.pulsed_element == "coupler":
                     qp.macros[node.parameters.cz_macro_name].coupler_flux_pulse.amplitude = optimal_amps[qp.name]
                 elif node.parameters.pulsed_element == "control":
-                    qp.macros[node.parameters.cz_macro_name].flux_pulse_control.amplitude = optimal_amps[qp.name]
+                    qp.macros[node.parameters.cz_macro_name].flux_pulse_qubit.amplitude = optimal_amps[qp.name]
                 elif node.parameters.pulsed_element == "target":
                     qp.macros[node.parameters.cz_macro_name].flux_pulse_target.amplitude = optimal_amps[qp.name]
                 else:

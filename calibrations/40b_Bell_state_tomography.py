@@ -60,7 +60,7 @@ class Parameters(NodeParameters):
     simulate: bool = False
     timeout: int = 100
     load_data_id: Optional[int] = None
-    cz_macro_name: str = "cz"
+    cz_macro_name: str = "Cz"
     targets_name = "qubit_pairs"
 
 
@@ -545,8 +545,8 @@ if not node.parameters.simulate:
     if node.parameters.load_data_id is None:
         with node.record_state_updates():
             for qp in qubit_pairs:
-                node.machine.qubit_pairs[qp.id].macros[node.parameters.cz_macro_name].fidelity["Bell_State"] = {"Fidelity": fidelity, "Purity": purity}
-                
+                # node.machine.qubit_pairs[qp.id].macros[node.parameters.cz_macro_name].fidelity["Bell_State"] = {"Fidelity": fidelity, "Purity": purity}
+                pass
 
 # %% {Save_results}
 if not node.parameters.simulate:

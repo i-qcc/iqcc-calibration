@@ -64,7 +64,7 @@ class Parameters(NodeParameters):
     amp_step_coarse : float = 0.005
     amp_range_fine : float = 0.05
     amp_step_fine : float = 0.002
-    operation: str = "cz"
+    operation: str = "Cz"
     load_data_id: Optional[int] = None  
     targets_name = "qubit_pairs"
 
@@ -113,7 +113,7 @@ def baked_waveform(waveform_amp, qubit):
                 wf = [0.0] * node.parameters.max_time_in_ns
             else:
                 wf = waveform[:i]
-            pulse_id = qp.macros[node.parameters.operation].flux_pulse_control.id
+            pulse_id = qp.macros[node.parameters.operation].flux_pulse_qubit.id
             b.add_op(pulse_id, qubit.z.name, wf)
             b.play(pulse_id, qubit.z.name)
             # b.add_op(f"flux_pulse_{qp.qubit_target.name}", qubit.z.name, wf)
@@ -165,7 +165,7 @@ if node.parameters.method == "coarse":
         pulse_amplitudes[qp.name] = float(np.sqrt(-detuning/qp.qubit_control.freq_vs_flux_01_quad_term))
 else:
     for qp in qubit_pairs:
-        pulse_amplitudes[qp.name] = qp.macros["cz"].flux_pulse_control.amplitude
+        pulse_amplitudes[qp.name] = qp.macros["Cz"].flux_pulse_qubit.amplitude
         
 
 baked_signals = {qp.name : baked_waveform(pulse_amplitudes[qp.name], qp.qubit_control) for qp in qubit_pairs}
@@ -201,8 +201,8 @@ with program() as CPhase_Oscillations:
         else:
             machine.apply_all_flux_to_zero()
         wait(1000)
-        if hasattr(qp.macros['cz'], 'compensations'):
-            compensation_qubits = [compensation["qubit"] for compensation in qp.macros['cz'].compensations]
+        if hasattr(qp.macros['Cz'], 'compensations'):
+            compensation_qubits = [compensation["qubit"] for compensation in qp.macros['Cz'].compensations]
         else:
             compensation_qubits = []
             
@@ -232,7 +232,7 @@ with program() as CPhase_Oscillations:
                                 baked_signals[qp.name][j].run(amp_array = [(qp.qubit_control.z.name, amp)]) 
                     # # check if there are any compensations and play the relevant flux pulse
                     for comp_ind, qubit in enumerate(compensation_qubits):
-                        shift = qp.macros['cz'].compensations[comp_ind]["shift"]
+                        shift = qp.macros['Cz'].compensations[comp_ind]["shift"]
                         qubit.z.play("const", amplitude_scale= shift / qubit.z.operations["const"].amplitude, 
                                                     duration = node.parameters.max_time_in_ns // 4 + 10)
                     qp.align()
@@ -321,7 +321,7 @@ if not node.parameters.simulate:
             ds_qp.state_target.isel(amp=flux_amp_idx), "time")
         flux_time = int(1/fit_data.sel(fit_vals='f'))
 
-        print(f"parameters for {qp.name}: flux amp={flux_amp}, time={flux_time} \n old flux amp={qp.macros['cz'].flux_pulse_control.amplitude}, old time={qp.macros['cz'].flux_pulse_control.length}")
+        print(f"parameters for {qp.name}: flux amp={flux_amp}, time={flux_time} \n old flux amp={qp.macros['Cz'].flux_pulse_qubit.amplitude}, old time={qp.macros['Cz'].flux_pulse_qubit.length}")
         amplitudes[qp.name] =  flux_amp
         detunings[qp.name] = -flux_amp ** 2 * qp.qubit_control.freq_vs_flux_01_quad_term
         lengths[qp.name] = flux_time-flux_time%4+4
@@ -432,11 +432,11 @@ if not node.parameters.simulate:
     if node.parameters.load_data_id is None:
         with node.record_state_updates():
             for qp in qubit_pairs:
-                if "cz" in qp.macros:
-                    operation_id = qp.macros[operation].id # this is for the case where operation is by refrence like with "cz"
-                    qp.macros[operation_id].flux_pulse_control.amplitude = amplitudes[qp.name]
-                    qp.macros[operation_id].flux_pulse_control.length = lengths[qp.name]
-                    qp.macros[operation_id].flux_pulse_control.zero_padding = zero_paddings[qp.name]
+                if "Cz" in qp.macros:
+                    operation_id = qp.macros[operation].id # this is for the case where operation is by refrence like with "Cz"
+                    qp.macros[operation_id].flux_pulse_qubit.amplitude = amplitudes[qp.name]
+                    qp.macros[operation_id].flux_pulse_qubit.length = lengths[qp.name]
+                    qp.macros[operation_id].flux_pulse_qubit.zero_padding = zero_paddings[qp.name]
                 
 # %% {Save_results}
 if not node.parameters.simulate:
