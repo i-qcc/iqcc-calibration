@@ -37,10 +37,10 @@ start = time.time()
 
 # %% {Node_parameters}
 class Parameters(NodeParameters):
-    qubits: Optional[List[str]] = ['Q3']    
-    num_averages: int = 7500
-    frequency_offset_in_mhz: float = 600
-    cryoscope_len: int = 64
+    qubits: Optional[List[str]] = ['qC2']    
+    num_averages: int = 2500
+    frequency_offset_in_mhz: float = 450
+    cryoscope_len: int = 48
     num_frames: int = 17
     reset_type_active_or_thermal: Literal['active', 'thermal'] = 'active'
     flux_point_joint_or_independent: Literal['joint', 'independent'] = "joint"
@@ -91,9 +91,9 @@ num_qubits = len(qubits)
 def baked_waveform(waveform_amp, qubit):
     pulse_segments = []  # Stores the baking objects
     # Create the different baked sequences, each one corresponding to a different truncated duration
-    waveform = [waveform_amp] * 16
+    waveform = [waveform_amp] * node.parameters.cryoscope_len
 
-    for i in range(1, 17):  # from first item up to pulse_duration (16)
+    for i in range(1, node.parameters.cryoscope_len + 1):  # from first item up to pulse_duration (16)
         with baking(config, padding_method="left") as b:
             wf = waveform[:i]
             b.add_op("flux_pulse", qubit.z.name, wf)
@@ -140,7 +140,7 @@ with program() as cryoscope:
         save(n, n_st)
 
         # The first 16 nanoseconds
-        with for_(idx, 0, idx<16, idx+1):
+        with for_(idx, 0, idx<node.parameters.cryoscope_len, idx+1):
             
             assign(
                 virtual_detuning_phases[0],
@@ -162,7 +162,7 @@ with program() as cryoscope:
                 wait(4)
                 align()
                 with switch_(idx):
-                    for j in range(16):
+                    for j in range(node.parameters.cryoscope_len):
                         with case_(j):
                             baked_signals[j].run()
                 # Wait for the idle time set slightly above the maximum flux pulse duration to ensure that the 2nd x90
@@ -180,49 +180,49 @@ with program() as cryoscope:
                 assign(state[i], Cast.to_int(I[i] > qubit.resonator.operations["readout"].threshold))
                 save(state[i], state_st[i])
 
-        with for_(t, 4, t < cryoscope_len // 4, t + 4):
+        # with for_(t, 16, t < cryoscope_len // 4, t + 16):
 
-            with for_(idx, 0, idx<16, idx+1):
-                assign(
-                virtual_detuning_phases[i],
-                Cast.mul_fixed_by_int(node.parameters.frequency_offset_in_mhz * 1e-3, idx + t * 4),
-                )
+        #     with for_(idx, 0, idx<64, idx+1):
+        #         assign(
+        #         virtual_detuning_phases[i],
+        #         Cast.mul_fixed_by_int(node.parameters.frequency_offset_in_mhz * 1e-3, idx + t * 4),
+        #         )
                 
-                with for_(*from_array(frame, frames)):
-                    # Initialize the qubits
-                    if reset_type == "active":
-                        for qubit in qubits:
-                            active_reset(qubit)
-                    else:
-                        wait(qubit.thermalization_time * u.ns)
-                    align()
-                    # Play first X/2
-                    for qubit in qubits:
-                        qubit.xy.play("x90")
-                    align()
-                    # Delay between x90 and the flux pulse
-                    wait(4)
-                    align()
-                    with switch_(idx):
-                        for j in range(16):
-                            with case_(j):
-                                baked_signals[j].run() 
-                                qubits[0].z.play('const', duration=t, amplitude_scale=flux_amplitudes[qubits[0].name] / qubits[0].z.operations["const"].amplitude)
+        #         with for_(*from_array(frame, frames)):
+        #             # Initialize the qubits
+        #             if reset_type == "active":
+        #                 for qubit in qubits:
+        #                     active_reset(qubit)
+        #             else:
+        #                 wait(qubit.thermalization_time * u.ns)
+        #             align()
+        #             # Play first X/2
+        #             for qubit in qubits:
+        #                 qubit.xy.play("x90")
+        #             align()
+        #             # Delay between x90 and the flux pulse
+        #             wait(4)
+        #             align()
+        #             with switch_(idx):
+        #                 for j in range(16):
+        #                     with case_(j):
+        #                         baked_signals[j].run() 
+        #                         qubits[0].z.play('const', duration=t, amplitude_scale=flux_amplitudes[qubits[0].name] / qubits[0].z.operations["const"].amplitude)
 
-                    # Wait for the idle time set slightly above the maximum flux pulse duration to ensure that the 2nd x90
-                    # pulse arrives after the longest flux pulse
-                    for qubit in qubits:
-                        qubit.xy.wait((cryoscope_len + 160) // 4)
-                        # Play second X/2
-                        qubit.xy.frame_rotation_2pi(-1*virtual_detuning_phases[i])
-                        qubit.xy.frame_rotation_2pi(frame)
-                        qubit.xy.play("x90")
+        #             # Wait for the idle time set slightly above the maximum flux pulse duration to ensure that the 2nd x90
+        #             # pulse arrives after the longest flux pulse
+        #             for qubit in qubits:
+        #                 qubit.xy.wait((cryoscope_len + 160) // 4)
+        #                 # Play second X/2
+        #                 qubit.xy.frame_rotation_2pi(-1*virtual_detuning_phases[i])
+        #                 qubit.xy.frame_rotation_2pi(frame)
+        #                 qubit.xy.play("x90")
 
-                    # Measure resonator state after the sequence
-                    align()
-                    qubit.resonator.measure("readout", qua_vars=(I[i], Q[i]))
-                    assign(state[i], Cast.to_int(I[i] > qubit.resonator.operations["readout"].threshold))
-                    save(state[i], state_st[i])
+        #             # Measure resonator state after the sequence
+        #             align()
+        #             qubit.resonator.measure("readout", qua_vars=(I[i], Q[i]))
+        #             assign(state[i], Cast.to_int(I[i] > qubit.resonator.operations["readout"].threshold))
+        #             save(state[i], state_st[i])
 
     with stream_processing():
         # for the progress counter
