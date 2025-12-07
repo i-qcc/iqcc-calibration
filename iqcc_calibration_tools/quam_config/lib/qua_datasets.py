@@ -158,6 +158,3 @@ def opxoutput(full_scale_power_dbm, amp):
     dbm=10*np.log10(p_w*1000)-10
     rt_cable=-7#-7 is from 4m rt cable
     return dbm
-def mV(full_scale_power_dbm, amp):
-    v=np.sqrt((2*50*10**(full_scale_power_dbm/10))/1000)*amp     
-    return v*1e3
