@@ -42,6 +42,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import math
 import requests
+from iqcc_calibration_tools.quam_config.lib.qua_datasets import opxoutput
 
 # %% {Node_parameters}
 class Parameters(NodeParameters):
@@ -79,12 +80,11 @@ config = machine.generate_config()
 if node.parameters.load_data_id is None:
     qmm = machine.connect()
 #%% # readout pulse information
-from iqcc_calibration_tools.quam_config.lib.qua_datasets import opxoutput, mV
+
 readout_power=[np.round(opxoutput(qubits[i].resonator.opx_output.full_scale_power_dbm,qubits[i].resonator.operations["readout"].amplitude)+node.parameters.signalline_attenuation,2) for i in range(len(qubits))]
 readout_length=[qubits[i].resonator.operations["readout"].length for i in range(len(qubits))]
-readout_voltage=[np.round(mV(qubits[i].resonator.opx_output.full_scale_power_dbm,qubits[i].resonator.operations["readout"].amplitude),2) for i in range(len(qubits))]
 for i in range(len(readout_power)):
-    print(f"{qubits[i].name}: readout power @ resonator={readout_power[i]}dBm, opx output={readout_voltage[i]}mV, readout length={readout_length[i]}")
+    print(f"{qubits[i].name}: readout power @ resonator={readout_power[i]}dBm, readout length={readout_length[i]}, Aro={qubits[i].resonator.operations['readout'].amplitude} ")
 # %% {QUA_program}
 n_avg = node.parameters.num_averages  
 # The frequency sweep around the resonator resonance frequency
@@ -199,7 +199,8 @@ ds = ds.assign({"IQ_abs": 1e3*np.sqrt(ds["I"] ** 2 + ds["Q"] ** 2)})
 ds_ = ds_.assign({"IQ_abs": 1e3*np.sqrt(ds_["I"] ** 2 + ds_["Q"] ** 2)})
 # %% {Data Analysis}
 # Gain & P 1dB point (saturation power)
-Gain = mvTOdbm(ds_.IQ_abs.values[0])-mvTOdbm(ds.IQ_abs.values[0])
+Gain = 20*np.log10((ds_.IQ_abs.values[0])/(ds.IQ_abs.values[0]))
+linear_gain = 10**(Gain/20)
 ps=np.round(opxoutput(twpas[0].spectroscopy.opx_output.full_scale_power_dbm,
                 daps*twpas[0].spectroscopy.operations["readout"].amplitude) # resonator amp should be 0.1 to make ps from -120~-94
                 +node.parameters.signalline_attenuation,2)
@@ -220,10 +221,10 @@ plt.figure(figsize=(4,3))
 for i in range(0, Gain.shape[1], 88):   # take every 5th column
     plt.plot(ps, Gain[:, i], label=f'{np.round(fs[i]*1e-9,3)}GHz')
 # ps VS AvgGain(of all fs)
-plt.plot(ps, np.mean(Gain,axis=1),linewidth=3, color='red',label='Avg Gain')
+plt.plot(ps, np.mean(linear_gain,axis=1),linewidth=3, color='red',label='Avg Gain')
 # get compression point
-avg_gain_of_all_fs=np.mean(Gain,axis=1)
-linear_gain = np.mean(avg_gain_of_all_fs[:10])
+avg_gain_of_all_fs=np.mean(linear_gain,axis=1)
+linear_gain_ = np.mean(avg_gain_of_all_fs[:10])
 gain_1db_compression = linear_gain - 1
 p1db = np.argmax(avg_gain_of_all_fs < gain_1db_compression)
 plt.scatter(ps[p1db], gain_1db_compression, label=f'P1dB={ps[p1db]}dBm', color='black', marker='x',s=35, zorder=10)
