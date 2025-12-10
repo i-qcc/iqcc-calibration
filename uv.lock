@@ -730,7 +730,6 @@ dependencies = [
     { name = "qm-qua" },
     { name = "qualang-tools" },
     { name = "qualibrate" },
-    { name = "qualibrate-core" },
     { name = "qualibration-libs" },
     { name = "quam" },
     { name = "quam-builder" },
@@ -751,7 +750,6 @@ requires-dist = [
     { name = "qm-qua", specifier = "==1.2.4a1" },
     { name = "qualang-tools", specifier = "<0.22.0" },
     { name = "qualibrate", specifier = ">=0.2.0,<0.4.0" },
-    { name = "qualibrate-core", git = "https://github.com/qua-platform/qualibrate-core.git?rev=read_nodes_unicode" },
     { name = "qualibration-libs", git = "https://github.com/qua-platform/qualibration-libs.git" },
     { name = "quam", specifier = "==0.5.0a1" },
     { name = "quam-builder", git = "https://github.com/qua-platform/quam-builder.git?rev=add-spectator-qubit-control-to-CZ" },
@@ -1851,7 +1849,7 @@ wheels = [
 [[package]]
 name = "qualibrate-core"
 version = "0.4.1"
-source = { git = "https://github.com/qua-platform/qualibrate-core.git?rev=read_nodes_unicode#a2d47a9a1e5c785d7ab0e54987f3d03a0e3ed094" }
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "datamodel-code-generator" },
     { name = "jsonpatch" },
@@ -1863,6 +1861,10 @@ dependencies = [
     { name = "qualang-tools" },
     { name = "qualibrate-config" },
     { name = "types-networkx" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/fe/89/9cccb6d8479ea83331100b9a54c530c32483de52b3806884a0cf265a08cd/qualibrate_core-0.4.1.tar.gz", hash = "sha256:969047b8ca0156d2f27f4a838cf1198b32732c51610abf39d426a8c8c2e5949f", size = 43330 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e7/9d/1512bd2232072975a2be5f22c451497370b826bd5ed33ee1ea72356b1dea/qualibrate_core-0.4.1-py3-none-any.whl", hash = "sha256:c1124aee019e5774079705d5bd04b91e8e2e4911de26a9e16830256a1c13fd83", size = 63885 },
 ]
 
 [[package]]
