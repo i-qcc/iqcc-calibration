@@ -52,8 +52,9 @@ class QualibrationNode(QualibrationNodeBase, Generic[ParametersType, MachineType
             **kwargs: Keyword arguments passed to the parent class
         """
         super().__init__(*args, **kwargs)
+        self.time_zone = 2
         self.node_id = self.get_node_id()
-        self.date_time = datetime.now(timezone(timedelta(hours=3))).strftime("%Y-%m-%d %H:%M:%S")
+        self.date_time = datetime.now(timezone(timedelta(hours=self.time_zone))).strftime("%Y-%m-%d %H:%M:%S")
         self._machine = None  # Initialize machine attribute
     
     @property
@@ -271,7 +272,7 @@ class QualibrationNode(QualibrationNodeBase, Generic[ParametersType, MachineType
             fig = plt.gcf()
         
         # Build the base subtitle
-        subtitle_parts = [f"{self.date_time} GMT+3 #{self.node_id}"]
+        subtitle_parts = [f"{self.date_time} GMT+{self.time_zone} #{self.node_id}"]
         
         # Add multiplexed info if the parameter exists
         if hasattr(self.parameters, 'multiplexed'):
