@@ -59,7 +59,6 @@ g = QualibrationGraph(
     parameters=Parameters(),
     nodes=nodes,
     connectivity=[
-        ("single_qubit_randomized_benchmarking", "IQ_blobs"),
         ("IQ_blobs", "ramsey_flux_calibration"),
         ("ramsey_flux_calibration", "power_rabi_x180"),
         ("power_rabi_x180", "single_qubit_randomized_benchmarking")
