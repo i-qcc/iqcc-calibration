@@ -3,10 +3,130 @@ from dataclasses import dataclass
 from typing import Tuple, Dict
 import numpy as np
 import xarray as xr
+from matplotlib import pyplot as plt
+from lmfit import Model, Parameter
 
 from qualibrate import QualibrationNode
 from qualibration_libs.data import add_amplitude_and_phase, convert_IQ_to_V
-from qualibration_libs.analysis import fit_oscillation
+from qualibration_libs.analysis import guess
+from qualibration_libs.analysis.models import oscillation
+
+
+def _fix_initial_value(x, da):
+    """Helper function to fix initial values for scalar vs array cases."""
+    if len(da.dims) == 1:
+        return float(x)
+    else:
+        return x
+
+
+def fit_oscillation(da, dim):
+    """
+    Local copy of fit_oscillation function with improved frequency detection.
+    Fits an oscillatory model to data along a specified dimension using guess-based initial values.
+    This function estimates the frequency, amplitude, and phase of an oscillatory signal in the input
+    data array `da` along the given dimension `dim` using guess functions for initial
+    parameter guesses. It then fits the data to an oscillatory model of the form:
+        y(t) = a * cos(2π * f * t + phi) + offset
+    using non-linear least squares optimization.
+    Parameters
+    ----------
+    da : xarray.DataArray
+        The input data array containing the oscillatory signal to be fitted.
+    dim : str
+        The name of the dimension along which to perform the fit.
+    Returns
+    -------
+    xarray.DataArray
+        An array containing the fitted parameters for each slice along the specified dimension.
+        The output has a new dimension 'fit_vals' with coordinates: ['a', 'f', 'phi', 'offset'],
+        corresponding to amplitude, frequency, phase, and offset of the fitted oscillation.
+    Notes
+    -----
+    - The function uses guess.frequency to estimate initial values for frequency.
+    - Amplitude is estimated as (max - min) / 2.
+    - Phase is estimated based on the sign of the initial value relative to the mean.
+    - The fitting is performed using a model function (oscillation) and the lmfit library.
+    - If the fit fails, diagnostic plots are shown for debugging.
+    """
+    def get_freq_and_amp_and_phase(da, dim):
+        def get_freq(dat):
+            def f(d):
+                return guess.frequency(da[dim], d)
+
+            return np.apply_along_axis(f, -1, dat)
+
+        def get_amp(dat):
+            max_ = np.max(dat, axis=-1)
+            min_ = np.min(dat, axis=-1)
+            return (max_ - min_) / 2
+
+        da_c = da - da.mean(dim=dim)
+        freq_guess = _fix_initial_value(
+            xr.apply_ufunc(get_freq, da_c, input_core_dims=[[dim]]).rename("freq guess"), da_c
+        )
+        amp_guess = _fix_initial_value(
+            xr.apply_ufunc(get_amp, da, input_core_dims=[[dim]]).rename("amp guess"), da
+        )
+        phase_guess = _fix_initial_value(
+            np.pi
+            * (
+                da.sel({dim: np.abs(da.coords[dim]).min()}, method="nearest")
+                < da.mean(dim=dim)
+            ),
+            da,
+        )
+        return freq_guess, amp_guess, phase_guess
+
+    freq_guess, amp_guess, phase_guess = get_freq_and_amp_and_phase(da, dim)
+    offset_guess = da.mean(dim=dim)
+
+    def apply_fit(x, y, a, f, phi, offset):
+        try:
+            model = Model(oscillation, independent_vars=["t"])
+            # Handle invalid frequency guesses
+            if not (f > 1e-6 and np.isfinite(f)):
+                f = 1.0 / (np.max(x) - np.min(x))
+            fit = model.fit(
+                y,
+                t=x,
+                a=Parameter("a", value=a, min=0),
+                f=Parameter("f", value=f, min=np.abs(0.5 * f), max=np.abs(f * 3 + 1e-3)),
+                phi=Parameter("phi", value=phi),
+                offset=offset,
+            )
+            # Retry with period-based frequency guess if fit quality is poor
+            if fit.rsquared < 0.9:
+                f_retry = 1.0 / (np.max(x) - np.min(x))
+                fit = model.fit(
+                    y,
+                    t=x,
+                    a=Parameter("a", value=a, min=0),
+                    f=Parameter("f", value=f_retry, min=0, max=np.abs(f * 3 + 1e-3)),
+                    phi=Parameter("phi", value=phi),
+                    offset=offset,
+                )
+            return np.array([fit.values[k] for k in ["a", "f", "phi", "offset"]])
+        except RuntimeError as e:
+            print(f"{a=}, {f=}, {phi=}, {offset=}")
+            plt.plot(x, oscillation(x, a, f, phi, offset))
+            plt.plot(x, y)
+            plt.show()
+            raise e
+
+    fit_res = xr.apply_ufunc(
+        apply_fit,
+        da[dim],
+        da,
+        amp_guess,
+        freq_guess,
+        phase_guess,
+        offset_guess,
+        input_core_dims=[[dim], [dim], [], [], [], []],
+        output_core_dims=[["fit_vals"]],
+        vectorize=True,
+    )
+    return fit_res.assign_coords(fit_vals=("fit_vals", ["a", "f", "phi", "offset"]))
 
 
 @dataclass
