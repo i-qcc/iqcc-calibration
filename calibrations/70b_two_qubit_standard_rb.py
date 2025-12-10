@@ -257,7 +257,8 @@ for qp in qubit_pairs:
     fig = rb_result[qp.id].plot_with_fidelity()
     
     fig.suptitle(f"2Q Randomized Benchmarking - {qp.name}")
-    node.add_node_info_subtitle(fig)
+    node.add_node_info_subtitle(fig, additional_info=f"reduce_to_1q_cliffords = {node.parameters.reduce_to_1q_cliffords}")
+    
     fig.show()
     
     node.results[f"{qp.id}_figure_RB_decay"] = fig

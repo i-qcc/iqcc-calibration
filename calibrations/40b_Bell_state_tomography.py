@@ -281,7 +281,7 @@ n_shots = node.parameters.num_shots  # The number of averages
 
 flux_point = node.parameters.flux_point_joint_or_independent  # 'independent' or 'joint'
 
-with program() as CPhase_Oscillations:
+with program() as Bell_state_tomography:
     n = declare(int)
     n_st = declare_stream()
     state_control = [declare(int) for _ in range(num_qubit_pairs)]
@@ -351,13 +351,13 @@ with program() as CPhase_Oscillations:
 if node.parameters.simulate:
     # Simulates the QUA program for the specified duration
     simulation_config = SimulationConfig(duration=10_000)  # In clock cycles = 4ns
-    job = qmm.simulate(config, CPhase_Oscillations, simulation_config)
+    job = qmm.simulate(config, Bell_state_tomography, simulation_config)
     job.get_simulated_samples().con1.plot()
     node.results = {"figure": plt.gcf()}
     node.save()
 elif node.parameters.load_data_id is None:
     with qm_session(qmm, config, timeout=node.parameters.timeout ) as qm:
-        job = qm.execute(CPhase_Oscillations)
+        job = qm.execute(Bell_state_tomography)
 
         results = fetching_tool(job, ["n"], mode="live")
         while results.is_processing():
