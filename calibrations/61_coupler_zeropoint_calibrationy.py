@@ -307,7 +307,7 @@ if not node.parameters.simulate:
         sec_ax.set_xlabel('Detuning [MHz]')
         ax.set_xlabel('Qubit flux pulse [mV]')
         ax.set_ylabel('Coupler flux pulse [mV]')
-    grid.fig.suptitle(f'Control: {machine.qubit_pairs[qp["qubit"]].qubit_control.name} \n {date_time} GMT+3 #{node_id} \n reset type = {node.parameters.reset_type}')
+    grid.fig.suptitle(f'Control: {machine.qubit_pairs[qp["qubit"]].qubit_control.name} \n {node.date_time} GMT+{node.time_zone} #{node_id} \n reset type = {node.parameters.reset_type}')
     plt.tight_layout()
     plt.show()
     node.results['figure_control'] = grid.fig
@@ -338,7 +338,7 @@ if not node.parameters.simulate:
         sec_ax.set_xlabel('Detuning [MHz]')
         ax.set_xlabel('Qubit flux shift [mV]')
         ax.set_ylabel('Coupler flux [mV]')
-    grid.fig.suptitle(f'Target: {machine.qubit_pairs[qp["qubit"]].qubit_target.name} \n {date_time} GMT+3 #{node_id}')
+    grid.fig.suptitle(f'Target: {machine.qubit_pairs[qp["qubit"]].qubit_target.name} \n {node.date_time} GMT+{node.time_zone} #{node_id}')
     plt.tight_layout()
     plt.show()
     node.results['figure_target'] = grid.fig

@@ -322,28 +322,28 @@ if not node.parameters.simulate:
     plt.gca().set_xlabel('time (ns)')
     plt.gca().set_ylabel('state')
     node.results['figure1'] = plt.gcf()
-    plt.title(f'state vs time \n {date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
+    plt.title(f'state vs time \n {node.date_time} GMT+{node.time_zone} #{node.node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
     plt.show()
 
     ds.phase.plot()
     plt.gca().set_xlabel('time (ns)')
     plt.gca().set_ylabel('phase (radians)')
     node.results['figure2'] = plt.gcf()
-    plt.title(f'phase vs time \n {date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
+    plt.title(f'phase vs time \n {node.date_time} GMT+{node.time_zone} #{node.node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
     plt.show()
 
     ds.frequencies.plot()
     plt.gca().set_xlabel('time (ns)')
     plt.gca().set_ylabel('frequency (MHz)')
     node.results['figure3'] = plt.gcf()
-    plt.title(f'frequency vs time \n {date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
+    plt.title(f'frequency vs time \n {node.date_time} GMT+{node.time_zone} #{node.node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
     plt.show()
 
     ds.flux.plot()
     plt.gca().set_xlabel('time (ns)')
     plt.gca().set_ylabel('flux (V)')
     node.results['figure4'] = plt.gcf()
-    plt.title(f'flux vs time \n {date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
+    plt.title(f'flux vs time \n {node.date_time} GMT+{node.time_zone} #{node.node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
     plt.show()
 
 # %% {data analysis - Calculate FIR filter}
@@ -391,7 +391,7 @@ if not node.parameters.simulate:
     ax.legend()
     ax.set_xlabel('time (ns)')
     ax.set_ylabel('normalized amplitude')
-    ax.set_title(f'Final Results - {qubit.name} \n {date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
+    ax.set_title(f'Final Results - {qubit.name} \n {node.date_time} GMT+{node.time_zone} #{node.node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
     node.results['figure7'] = fig  
 
 # %% {Update state}

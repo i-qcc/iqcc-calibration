@@ -243,7 +243,7 @@ if not node.parameters.simulate:
         ax.set_ylabel("Trans. amp. I [mV]")
         ax.set_xlabel("Amplitude [mV]")
         ax.set_title(qubit["qubit"])
-    grid.fig.suptitle(f"EF Rabi : sqrt(I^2 + Q^2) vs. amplitude \n {date_time} GMT+3 #{node.node_id}")
+    grid.fig.suptitle(f"EF Rabi : sqrt(I^2 + Q^2) vs. amplitude \n {node.date_time} GMT+{node.time_zone} #{node.node_id}")
     plt.tight_layout()
     plt.show()
     node.results["figure"] = grid.fig

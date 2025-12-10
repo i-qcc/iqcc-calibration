@@ -298,7 +298,7 @@ if not node.parameters.simulate:
             optimal_amp_str = f" (Opt: {rr_optimal_amps_absolute[qubit['qubit']]:.3f})"
             ax.set_title(current_title + optimal_amp_str)
     
-    grid.fig.suptitle(f"Resonator spectroscopy VS. amplitude factor at base \n {date_time} GMT+3 #{node.node_id} \n multiplexed = {node.parameters.multiplexed}")
+    grid.fig.suptitle(f"Resonator spectroscopy VS. amplitude factor at base \n {node.date_time} GMT+{node.time_zone} #{node.node_id} \n multiplexed = {node.parameters.multiplexed}")
     plt.tight_layout()
     plt.show()
     node.results["figure"] = grid.fig

@@ -262,7 +262,7 @@ if not node.parameters.simulate:
         ax.set_ylabel("Freq (GHz)")
         ax.set_xlabel("Flux (V)")
         ax.set_title(f"{qubit["qubit"]} - {qubit_pair.coupler.name}")
-    grid.fig.suptitle(f"Qubit spectroscopy vs coupler flux \n {date_time} GMT+3  #{node.node_id}")
+    grid.fig.suptitle(f"Qubit spectroscopy vs coupler flux \n {node.date_time} GMT+{node.time_zone}  #{node.node_id}")
     
     plt.tight_layout()
     plt.show()

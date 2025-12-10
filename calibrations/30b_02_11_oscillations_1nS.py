@@ -410,7 +410,7 @@ if not node.parameters.simulate:
         ax2.set_ylabel('Flux amplitude [V]')
         ax.set_ylabel('Detuning [MHz]')
         
-    fig_control.suptitle(f'control qubit state \n {node.date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type}')
+    fig_control.suptitle(f'control qubit state \n {node.date_time} GMT+{node.time_zone} #{node.node_id} \n reset type = {node.parameters.reset_type}')
     fig_control.tight_layout()
     fig_control.show()
     node.results["figure_control"] = fig_control
@@ -442,7 +442,7 @@ if not node.parameters.simulate:
         ax2.set_ylabel('Flux amplitude [V]')
         ax.set_ylabel('Detuning [MHz]')
         
-    fig_target.suptitle(f'target qubit state \n {node.date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type}')
+    fig_target.suptitle(f'target qubit state \n {node.date_time} GMT+{node.time_zone} #{node.node_id} \n reset type = {node.parameters.reset_type}')
     fig_target.tight_layout()
     fig_target.show()
     node.results["figure_target"] = fig_target

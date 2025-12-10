@@ -1,4 +1,5 @@
 from typing import List
+import numpy as np
 import xarray as xr
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
@@ -79,10 +80,44 @@ def plot_individual_raw_data_with_fit(ax: Axes, ds: xr.Dataset, qubit: dict[str,
     ax2.set_zorder(ax.get_zorder() - 1)
     ax.patch.set_visible(False)
     # Plot using the flux x-axis
+    qubit_ds = ds.loc[qubit]
     ds.assign_coords(freq_GHz=ds.full_freq / 1e9).loc[qubit].IQ_abs.plot(
         ax=ax, add_colorbar=False, x="flux_bias", y="freq_GHz", robust=True
     )
+    
+    # Get RF frequency (full_freq = detuning + RF_frequency)
+    RF_frequency = qubit_ds.full_freq.isel(detuning=0).values - ds.detuning.values[0]
+    
+    # Plot peak frequency data points
+    peak_freq = qubit_ds.IQ_abs.idxmin(dim="detuning").dropna(dim="flux_bias")
+    ax.plot(
+        peak_freq.flux_bias.values,
+        (peak_freq + RF_frequency).values * 1e-9,
+        "o",
+        color="yellow",
+        markersize=4,
+        label="peak freq data",
+        zorder=6,
+        alpha=0.7,
+    )
+    
     if fit.fit_results.success.values:
+        # Extract fit parameters and calculate cosine fit
+        fit_params = {k: fit.fit_results.sel(fit_vals=k).values for k in ["a", "f", "phi", "offset"]}
+        flux_bias_smooth = np.linspace(ds.flux_bias.values.min(), ds.flux_bias.values.max(), 200)
+        fit_detuning = fit_params["a"] * np.cos(2 * np.pi * fit_params["f"] * flux_bias_smooth + fit_params["phi"]) + fit_params["offset"]
+        
+        # Plot cosine fit curve
+        ax.plot(
+            flux_bias_smooth,
+            (fit_detuning + RF_frequency) * 1e-9,
+            color="cyan",
+            linestyle="-",
+            linewidth=2,
+            label="cos fit",
+            zorder=5,
+        )
+        
         ax.axvline(
             fit.fit_results.idle_offset,
             linestyle="dashed",
@@ -104,5 +139,7 @@ def plot_individual_raw_data_with_fit(ax: Axes, ds: xr.Dataset, qubit: dict[str,
             "r*",
             markersize=10,
         )
+        # Add legend if we have fit
+        ax.legend(loc="best")
     ax.set_title(qubit["qubit"])
     ax.set_xlabel("Flux (V)")

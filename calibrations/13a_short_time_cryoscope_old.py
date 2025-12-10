@@ -323,22 +323,22 @@ ds = extract_flux(ds)
 print('\033[1m\033[32m PLOT STATE, PHASE, FREQUENCY, AND FLUX \033[0m')
 ds.state.sel(frame = 0).plot()
 node.results['figure1'] = plt.gcf()
-plt.title(f'state vs time \n {date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
+plt.title(f'state vs time \n {node.date_time} GMT+{node.time_zone} #{node.node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
 plt.show()
 
 ds.phase.plot()
 node.results['figure2'] = plt.gcf()
-plt.title(f'phase vs time \n {date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
+plt.title(f'phase vs time \n {node.date_time} GMT+{node.time_zone} #{node.node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
 plt.show()
 
 ds.frequencies.plot()
 node.results['figure3'] = plt.gcf()
-plt.title(f'frequency vs time \n {date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
+plt.title(f'frequency vs time \n {node.date_time} GMT+{node.time_zone} #{node.node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
 plt.show()
 
 ds.flux.plot()
 node.results['figure4'] = plt.gcf()
-plt.title(f'flux vs time \n {date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
+plt.title(f'flux vs time \n {node.date_time} GMT+{node.time_zone} #{node.node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
 plt.show()
 
 # %% {data analysis - setting rise and drop indices}
@@ -388,7 +388,7 @@ if not node.parameters.simulate and not node.parameters.only_FIR: # exponential 
         
         plt.axvline(x=exponential_fit_time_interval[0], color='red', linestyle='--', label='Exponential Fit Time Interval')
         plt.axvline(x=exponential_fit_time_interval[1], color='red', linestyle='--')
-        plt.title(f'Exponential Fit - {qubit.name} \n {date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
+        plt.title(f'Exponential Fit - {qubit.name} \n {node.date_time} GMT+{node.time_zone} #{node.node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
         plt.legend()
         plt.show()
 
@@ -418,7 +418,7 @@ if not node.parameters.simulate and not node.parameters.only_FIR: # exponential 
         ax.legend()
         ax.set_xlabel('time (ns)')
         ax.set_ylabel('flux')
-        ax.set_title(f'Filtered Response - {qubit.name} \n {date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
+        ax.set_title(f'Filtered Response - {qubit.name} \n {node.date_time} GMT+{node.time_zone} #{node.node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
         plt.show()
         node.results['figure5'] = plt.gcf()
 
@@ -478,7 +478,7 @@ if not node.parameters.simulate:
     #     plt.axhline(final_vals*1.001, color = 'k')
     #     plt.axhline(final_vals*0.999, color = 'k')
     #     plt.ylim([final_vals*0.95,final_vals*1.05])
-    #     plt.title(f'Filtered Response - {qubit.name} \n {date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
+    #     plt.title(f'Filtered Response - {qubit.name} \n {node.date_time} GMT+{node.time_zone} #{node.node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
     #     plt.legend()
     #     plt.show()
 
@@ -498,7 +498,7 @@ if not node.parameters.simulate:
     ax.legend()
     ax.set_xlabel('time (ns)')
     ax.set_ylabel('normalized amplitude')
-    ax.set_title(f'Final Results - {qubit.name} \n {date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
+    ax.set_title(f'Final Results - {qubit.name} \n {node.date_time} GMT+{node.time_zone} #{node.node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
     node.results['figure8'] = fig
 
 # %%
