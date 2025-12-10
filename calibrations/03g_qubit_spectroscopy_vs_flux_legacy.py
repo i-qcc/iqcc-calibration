@@ -272,7 +272,7 @@ if not node.parameters.simulate:
         ax.set_ylabel("Freq (GHz)")
         ax.set_xlabel("Flux (V)")
         ax.set_title(qubit["qubit"])
-    grid.fig.suptitle(f"Qubit spectroscopy vs flux \n {date_time} GMT+3 #{node_id} \n multiplexed = {node.parameters.multiplexed}")
+    grid.fig.suptitle(f"Qubit spectroscopy vs flux \n {node.date_time} GMT+{node.time_zone} #{node_id} \n multiplexed = {node.parameters.multiplexed}")
     
     plt.tight_layout()
     plt.show()

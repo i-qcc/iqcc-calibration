@@ -285,7 +285,7 @@ for ax, qubit in grid_iter(grid):
 
         ax.set_xlabel("Relative Time")
         ax.set_ylabel("State")
-        ax.set_title(f"{qubit} \n {date_time} GMT+3 #{node_id} \n reset type = {node.parameters.reset_type_thermal_or_active}")
+        ax.set_title(f"{qubit} \n {node.date_time} GMT+{node.time_zone} #{node_id} \n reset type = {node.parameters.reset_type_thermal_or_active}")
 
         margin = 2
         ax.set_xlim(flux_delay - margin, max(x) + margin)
@@ -305,7 +305,7 @@ for ax, qubit in grid_iter(grid):
     ds.sel(qubit=qubit).state.plot(hue="sequence", ax=raw_state_ax)
 
     # Add title, axis labels, and legend
-    raw_state_ax.set_title(f"Raw State Data for {qubit} \n {date_time} GMT+3 #{node_id} \n reset type = {node.parameters.reset_type_thermal_or_active}")
+    raw_state_ax.set_title(f"Raw State Data for {qubit} \n {node.date_time} GMT+{node.time_zone} #{node_id} \n reset type = {node.parameters.reset_type_thermal_or_active}")
     raw_state_ax.set_xlabel("Index")
     raw_state_ax.set_ylabel("State")
     raw_state_ax.legend(title="Sequence")

@@ -331,7 +331,7 @@ if not node.parameters.simulate:
         # Add colorbar
         plt.colorbar(im, ax=ax, label=plot_label)
     
-    grid.fig.suptitle(f"2D Stark-DRAG Calibration\n{date_time} GMT+3 #{node.node_id}\nmultiplexed = {node.parameters.multiplexed} reset Type = {node.parameters.reset_type_thermal_or_active}\nState Discrimination = {node.parameters.use_state_discrimination}")
+    grid.fig.suptitle(f"2D Stark-DRAG Calibration\n{node.date_time} GMT+{node.time_zone} #{node.node_id}\nmultiplexed = {node.parameters.multiplexed} reset Type = {node.parameters.reset_type_thermal_or_active}\nState Discrimination = {node.parameters.use_state_discrimination}")
     plt.tight_layout()
     plt.show()
     node.results["figure"] = grid.fig

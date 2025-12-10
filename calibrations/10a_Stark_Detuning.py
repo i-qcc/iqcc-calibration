@@ -225,7 +225,7 @@ if not node.parameters.simulate:
         ax.set_ylabel("num. of pulses")
         ax.set_xlabel("detuning [MHz]")
         ax.set_title(qubit["qubit"])
-    grid.fig.suptitle(f"Stark detuning \n {date_time} GMT+3 #{node.node_id} \n multiplexed = {node.parameters.multiplexed} reset type = {node.parameters.reset_type_thermal_or_active}")
+    grid.fig.suptitle(f"Stark detuning \n {node.date_time} GMT+{node.time_zone} #{node.node_id} \n multiplexed = {node.parameters.multiplexed} reset type = {node.parameters.reset_type_thermal_or_active}")
     plt.tight_layout()
     plt.show()
     node.results["figure"] = grid.fig

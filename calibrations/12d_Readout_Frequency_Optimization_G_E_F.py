@@ -272,7 +272,7 @@ if not node.parameters.simulate:
         ax.set_xlabel("Frequency [MHz]")
         ax.set_ylabel("Distance between IQ blobs [m.v.]")
         ax.legend()
-    grid.fig.suptitle(f"Maximal difference between g.e.f. resonance \n {date_time} GMT+3 #{node.node_id}")
+    grid.fig.suptitle(f"Maximal difference between g.e.f. resonance \n {node.date_time} GMT+{node.time_zone} #{node.node_id}")
     plt.tight_layout()
     plt.show()
     node.results["figure"] = grid.fig

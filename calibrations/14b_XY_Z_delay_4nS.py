@@ -195,7 +195,7 @@ for ax, qubit in grid_iter(grid):
 
     ax.legend()
 
-grid.fig.suptitle(f'XY Z Delay Fitting \n {date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type_thermal_or_active}')
+grid.fig.suptitle(f'XY Z Delay Fitting \n {node.date_time} GMT+{node.time_zone} #{node.node_id} \n reset type = {node.parameters.reset_type_thermal_or_active}')
 plt.tight_layout()
 plt.show()
 

@@ -263,7 +263,7 @@ if not node.parameters.simulate:
         ax.set_title(f"{qubit['qubit']} @ opt relative angle={min_angle_val:.2f} rad")
 
     grid.fig.suptitle(
-        f"Axis angle calibration - 2D map \n {date_time} GMT+3 #{node.node_id} \n multiplexed = {node.parameters.multiplexed} reset Type = {node.parameters.reset_type_thermal_or_active}"
+        f"Axis angle calibration - 2D map \n {node.date_time} GMT+{node.time_zone} #{node.node_id} \n multiplexed = {node.parameters.multiplexed} reset Type = {node.parameters.reset_type_thermal_or_active}"
     )
     
     plt.tight_layout()
@@ -287,10 +287,10 @@ if not node.parameters.simulate:
         ax.legend(loc="upper right", fontsize=6)
 
     grid_1d.fig.suptitle(
-        f"Axis angle calibration - 1D average \n {date_time} GMT+3 #{node.node_id} \n multiplexed = {node.parameters.multiplexed} reset Type = {node.parameters.reset_type_thermal_or_active}"
+        f"Axis angle calibration - 1D average \n {node.date_time} GMT+{node.time_zone} #{node.node_id} \n multiplexed = {node.parameters.multiplexed} reset Type = {node.parameters.reset_type_thermal_or_active}"
     )
     grid_opt_meas.fig.suptitle(
-        f"Measurement vs amp len @ optimal angle \n {date_time} GMT+3 #{node.node_id} \n multiplexed = {node.parameters.multiplexed} reset Type = {node.parameters.reset_type_thermal_or_active}"
+        f"Measurement vs amp len @ optimal angle \n {node.date_time} GMT+{node.time_zone} #{node.node_id} \n multiplexed = {node.parameters.multiplexed} reset Type = {node.parameters.reset_type_thermal_or_active}"
     )
     plt.tight_layout()
     plt.show()

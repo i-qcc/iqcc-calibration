@@ -335,7 +335,7 @@ if not node.parameters.simulate:
         ax.set_xlabel('Amplitude (V)')
         ax.set_ylabel('Phase difference')
         
-    plt.suptitle(f'Cz phase calibration \n {date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type}', y=0.95)
+    plt.suptitle(f'Cz phase calibration \n {node.date_time} GMT+{node.time_zone} #{node.node_id} \n reset type = {node.parameters.reset_type}', y=0.95)
     plt.tight_layout()
     plt.show()
     node.results["figure_phase"] = grid.fig
