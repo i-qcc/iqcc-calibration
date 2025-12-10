@@ -266,7 +266,7 @@ if not node.parameters.simulate:
             bbox=dict(facecolor="white", alpha=0.5),
         )
         ax.legend()
-    grid.fig.suptitle(f"Ramsey : I vs. idle time \n {date_time} GMT+3 #{node_id} \n multiplexed = {node.parameters.multiplexed}")
+    grid.fig.suptitle(f"Ramsey : I vs. idle time \n {node.date_time} GMT+{node.time_zone} #{node_id} \n multiplexed = {node.parameters.multiplexed}")
     plt.tight_layout()
     plt.show()
     node.results["figure"] = grid.fig
@@ -347,7 +347,7 @@ if not node.parameters.simulate:
             bbox=dict(facecolor="white", alpha=0.5),
         )
         ax.legend()
-    grid.fig.suptitle(f"Ramsey : I vs. idle time \n {date_time} GMT+3 #{node_id} \n multiplexed = {node.parameters.multiplexed}")
+    grid.fig.suptitle(f"Ramsey : I vs. idle time \n {node.date_time} GMT+{node.time_zone} #{node_id} \n multiplexed = {node.parameters.multiplexed}")
     plt.tight_layout()
     plt.show()
     node.results["figure_gaussian"] = grid.fig

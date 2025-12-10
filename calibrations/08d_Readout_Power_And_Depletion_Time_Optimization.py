@@ -309,7 +309,7 @@ for ax, qubit in grid_iter(grid):
     ax.set_title(f"{qubit['qubit']}\nBest fidelity: {fidelities.max().values:.3f}")
     plt.colorbar(im, ax=ax)
 
-grid.fig.suptitle(f"Measurement Fidelity vs Readout Amplitude and Depletion Time\n{date_time} GMT+3 #{node.node_id}")
+grid.fig.suptitle(f"Measurement Fidelity vs Readout Amplitude and Depletion Time\n{node.date_time} GMT+{node.time_zone} #{node.node_id}")
 plt.tight_layout()
 node.results["figure_fidelity_heatmap"] = grid.fig
 
@@ -363,7 +363,7 @@ for ax, qubit in grid_iter(grid):
     ax.set_title(f"{qn}\nFidelity: {node.results['results'][qn]['fidelity']:.3f}")
 
 ax.legend(loc="center left", bbox_to_anchor=(1, 0.5))
-grid.fig.suptitle(f"IQ Blobs at Optimal Parameters\n{date_time} GMT+3 #{node.node_id}")
+grid.fig.suptitle(f"IQ Blobs at Optimal Parameters\n{node.date_time} GMT+{node.time_zone} #{node.node_id}")
 plt.tight_layout()
 node.results["figure_optimal_blobs"] = grid.fig
 

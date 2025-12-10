@@ -63,14 +63,14 @@ from calibration_utils.two_qubit_interleaved_rb.plot_utils import gate_mapping
 # %% {Node_parameters}
 
 class Parameters(NodeParameters):
-    qubit_pairs: Optional[List[str]] = None
-    circuit_lengths: tuple[int] = (0,1,2,4,8,16,32,48) # in number of cliffords
-    num_circuits_per_length: int = 15
-    num_averages: int = 20
+    qubit_pairs: Optional[List[str]] = ["qD1-qD3"]
+    circuit_lengths: list[int] = [0,1,2,4,8,16,32] # in number of cliffords
+    num_circuits_per_length: int = 10
+    num_averages: int = 10
     target_gate: str = "cz" # "idle_2q" or "cz" supported 
     basis_gates: list[str] = ['rz', 'sx', 'x', 'cz'] 
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
-    reset_type_thermal_or_active: Literal["thermal", "active"] = "thermal"
+    reset_type: Literal["thermal", "active"] = "thermal"
     reduce_to_1q_cliffords: bool = True
     use_input_stream: bool = False
     simulate: bool = False
@@ -244,7 +244,7 @@ for qp in qubit_pairs:
     # Plot the results
     fig = rb_result[qp.id].plot_with_fidelity()
     fig.suptitle(f"2Q Interleaved Randomized Benchmarking - {qp.name}")
-    node.add_node_info_subtitle(fig)
+    node.add_node_info_subtitle(fig, additional_info=f"reduce_to_1q_cliffords = {node.parameters.reduce_to_1q_cliffords}")
     fig.show()
     
     node.results[f"{qp.id}_figure_IRB_decay"] = fig

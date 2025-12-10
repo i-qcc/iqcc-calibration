@@ -245,7 +245,7 @@ if not node.parameters.simulate:
         ax.axvline(x = phases_target[qubit_pair['qubit']], color = 'C0', linestyle = '--')
         ax.axvline(x = phases_control[qubit_pair['qubit']], color = 'C1', linestyle = '--')
         ax.legend()
-    plt.suptitle(f'Cz single qubit phase calibration \n {date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type}')
+    plt.suptitle(f'Cz single qubit phase calibration \n {node.date_time} GMT+{node.time_zone} #{node.node_id} \n reset type = {node.parameters.reset_type}')
     plt.tight_layout()
     plt.show()
     node.results["figure_phase"] = grid.fig

@@ -336,7 +336,7 @@ if not node.parameters.simulate:
         ax.set_ylim(0.98*node.parameters.readout_amp_start, 1.02*node.parameters.readout_amp_stop)
         ax.set_title(f'{qubit_name}')
     
-    grid_2d.fig.suptitle(f"Qubit Spectroscopy vs Readout Amplitude Optimization \n {date_time} GMT+3 #{node.node_id} \n multiplexed = {node.parameters.multiplexed}")
+    grid_2d.fig.suptitle(f"Qubit Spectroscopy vs Readout Amplitude Optimization \n {node.date_time} GMT+{node.time_zone} #{node.node_id} \n multiplexed = {node.parameters.multiplexed}")
     plt.tight_layout()
     plt.show()
     
@@ -375,7 +375,7 @@ if not node.parameters.simulate:
                 ax.set_xlim(freq_ghz[max(0, peak_idx - width_pts)], 
                             freq_ghz[min(len(freq_ghz)-1, peak_idx + width_pts)])
     
-    grid_slice.fig.suptitle(f"Qubit Spectroscopy vs Readout Amplitude Optimization \n {date_time} GMT+3 #{node.node_id} \n multiplexed = {node.parameters.multiplexed}")
+    grid_slice.fig.suptitle(f"Qubit Spectroscopy vs Readout Amplitude Optimization \n {node.date_time} GMT+{node.time_zone} #{node.node_id} \n multiplexed = {node.parameters.multiplexed}")
     plt.tight_layout()
     plt.show()
     
