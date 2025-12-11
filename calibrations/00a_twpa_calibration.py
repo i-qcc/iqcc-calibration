@@ -370,13 +370,13 @@ plt.show()
 
 # operation window
 plt.plot(figzise=(4,3))
-mingain=10#min_gain(qubits, twpas)
-mindsnr=min_dsnr(qubits,dsnr_avg, 2.5, 0.95, dfps, daps)
-optimized_pump=optimizer(mingain, mindsnr, gain_avg, dsnr_avg, daps, dfps, p_lo,p_if)
+
+
+optimized_pump=optimizer(11, 10,  Gain, dsnr,  dsnr_avg, dfps, daps, p_lo,p_if)
+for i in range(len(qubits)):
+    print(f"qB{i+1}:dSNR:{np.round(dsnr[i][optimized_pump[0]][optimized_pump[1]][0],2)}dB, gain:{np.round(Gain[i][optimized_pump[0]][optimized_pump[1]][0],2)}dB")
 plt.scatter(gain_avg, dsnr_avg, s=4)
 plt.scatter(gain_avg[optimized_pump],  dsnr_avg[optimized_pump], s=10, color='red')
-plt.axhline(y=mindsnr, color='red', linestyle='--', linewidth=1)
-plt.axvline(x=mingain, color='red', linestyle='--', linewidth=1)
 plt.title(f'{twpas[0].id} operation window \n {date_time}', fontsize=20)
 plt.xlabel('Average Gain', fontsize=20)
 plt.ylabel('Average dSNR', fontsize=20)
