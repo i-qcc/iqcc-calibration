@@ -1,24 +1,24 @@
 from typing import Literal
 from more_itertools import flatten
 import numpy as np
-from iqcc_calibration_tools.quam_config.components import Transmon, TransmonPair
+from iqcc_calibration_tools.quam_config.components import TransmonPair
 from qm.qua import * 
 from qm.qua._expressions import QuaVariable, QuaArrayVariable
 from iqcc_calibration_tools.analysis.data_utils import split_list_by_integer_count
 from iqcc_calibration_tools.quam_config.macros import active_reset, readout_state, align, assign, reset_frame
-from qualibrate import NodeParameters, QualibrationNode
+from qualibrate import QualibrationNode
 from iqcc_calibration_tools.quam_config.components import Quam
 from qualang_tools.units import unit
 
-def reset_qubits(node, control: Transmon, target: Transmon, thermalization_time: float | None = None):
-    if node.parameters.reset_type == "active":
-        active_reset(control, "readout")
-        active_reset(target, "readout")
-    else:
-        control.resonator.wait(thermalization_time//4)
+# def reset_qubits(node, control: Transmon, target: Transmon, thermalization_time: float | None = None):
+#     if node.parameters.reset_type == "active":
+#         active_reset(control, "readout")
+#         active_reset(target, "readout")
+#     else:
+#         control.resonator.wait(thermalization_time//4)
 
 
-def play_gate(gate: QuaVariable, qubit_pair: TransmonPair, state: QuaVariable, state_control: QuaVariable, state_target: QuaVariable, state_st: "_ResultSource", reset_type: Literal["thermal", "active"]):
+def play_gate(gate: QuaVariable, qubit_pair: TransmonPair, state: QuaVariable, state_control: QuaVariable, state_target: QuaVariable, state_st: "_ResultSource", reset_type: Literal["thermal", "active"], simulate: bool = False):
     with switch_(gate, unsafe=True):
                                
         with case_(0):
@@ -210,7 +210,9 @@ def play_gate(gate: QuaVariable, qubit_pair: TransmonPair, state: QuaVariable, s
         
         with case_(66):
             
+            # qubit_pair.qubit_control.xy.align(qubit_pair.qubit_target.xy.name, qubit_pair.qubit_control.resonator.name, qubit_pair.qubit_target.resonator.name)
             align()
+            wait(4)
             
             readout_state(qubit_pair.qubit_control, state_control, wait_depletion_time=False)
             readout_state(qubit_pair.qubit_target, state_target, wait_depletion_time=False)
@@ -218,19 +220,20 @@ def play_gate(gate: QuaVariable, qubit_pair: TransmonPair, state: QuaVariable, s
             save(state, state_st)
             
             # reset the qubits
-            qubit_pair.qubit_control.reset(reset_type)
-            qubit_pair.qubit_target.reset(reset_type)
+            qubit_pair.qubit_control.reset(reset_type, simulate)
+            qubit_pair.qubit_target.reset(reset_type, simulate)
             
-            # Reset the frame of the qubits in order not to accumulate rotations
-            reset_frame(qubit_pair.qubit_control.xy.name, qubit_pair.qubit_target.xy.name)
+            # # Reset the frame of the qubits in order not to accumulate rotations
+            # reset_frame(qubit_pair.qubit_control.xy.name, qubit_pair.qubit_target.xy.name)
             
             align()
+            # qubit_pair.qubit_control.xy.align(qubit_pair.qubit_target.xy.name, qubit_pair.qubit_control.resonator.name, qubit_pair.qubit_target.resonator.name)
             
-def play_sequence(sequence: QuaArrayVariable, depth: int, qubit_pair: TransmonPair, state: list[QuaVariable], state_control: QuaVariable, state_target: QuaVariable, state_st, reset_type: Literal["thermal", "active"]): 
+def play_sequence(sequence: QuaArrayVariable, depth: int, qubit_pair: TransmonPair, state: list[QuaVariable], state_control: QuaVariable, state_target: QuaVariable, state_st, reset_type: Literal["thermal", "active"], simulate: bool = False): 
     
     i = declare(int)
     with for_(i, 0, i < depth, i + 1):
-        play_gate(sequence[i], qubit_pair, state, state_control, state_target, state_st, reset_type)    
+        play_gate(sequence[i], qubit_pair, state, state_control, state_target, state_st, reset_type, simulate)    
 
 class QuaProgramHandler:
     
@@ -287,7 +290,7 @@ class QuaProgramHandler:
 
                     with for_(n, 0, n < self.node.parameters.num_averages, n + 1):
                         
-                        play_sequence(sequence, l, qubit_pair, state, state_control, state_target, state_st[i], self.node.parameters.reset_type)
+                        play_sequence(sequence, l, qubit_pair, state, state_control, state_target, state_st[i], self.node.parameters.reset_type, self.node.parameters.simulate)
                                     
                         save(n, n_st)
 
@@ -322,14 +325,14 @@ class QuaProgramHandler:
                 self.machine.set_all_fluxes(flux_point=self.node.parameters.flux_point_joint_or_independent, target=qubit_pair.qubit_control)
 
                 # Initialize the qubits
-                qubit_pair.qubit_control.reset(self.node.parameters.reset_type, self.node.parameters.simulate)
-                qubit_pair.qubit_target.reset(self.node.parameters.reset_type, self.node.parameters.simulate)
+                qubit_pair.qubit_control.reset(self.node.parameters.reset_type, simulate=self.node.parameters.simulate)
+                qubit_pair.qubit_target.reset(self.node.parameters.reset_type, simulate=self.node.parameters.simulate)
                   
                 align()
                 
                 with for_(n, 0, n < self.node.parameters.num_averages, n + 1):
                     
-                    play_sequence(job_sequence_qua, sequence_length, qubit_pair, state, state_control, state_target, state_st[i], self.node.parameters.reset_type)
+                    play_sequence(job_sequence_qua, sequence_length, qubit_pair, state, state_control, state_target, state_st[i], self.node.parameters.reset_type, self.node.parameters.simulate)
                                 
                     save(n, n_st)
                     
