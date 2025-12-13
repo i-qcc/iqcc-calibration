@@ -50,8 +50,8 @@ def custom_param(node: QualibrationNode[Parameters, Quam]):
     node.parameters.min_wait_time_in_ns = 16
     node.parameters.max_wait_time_in_ns = 600
     node.parameters.num_time_steps = 600
-    node.parameters.qubits = ["qB4"]
-    node.parameters.drive_amp_scale = 0.4
+    node.parameters.qubits = ["Q5"]
+    node.parameters.drive_amp_scale = 0.25
     pass
 
 
