@@ -16,7 +16,7 @@ from qualang_tools.units import unit
 
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode
 from iqcc_calibration_tools.quam_config.components.quam_root import Quam
-from calibration_utils.T2SL import (
+from calibration_utils.spin_echo_sl import (
     Parameters,
     process_raw_dataset,
     fit_raw_data,

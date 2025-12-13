@@ -63,5 +63,5 @@ def save_quam_state_to_cloud(quam_state_folder_path: str = None, as_new_parent: 
     logger.info("Done !")
 
 if __name__ == "__main__":
-    save_quam_state_to_cloud(as_new_parent=True)
+    save_quam_state_to_cloud(as_new_parent=False)
    

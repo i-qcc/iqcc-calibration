@@ -50,17 +50,17 @@ from datetime import datetime, timezone, timedelta
 # %% {Node_parameters}
 class Parameters(NodeParameters):
 
-    qubits: Optional[List[str]] = None
-    num_averages: int = 200
+    qubits: Optional[List[str]] = ["qB4"]
+    num_averages: int = 250
     operation: str = "saturation"
-    operation_amplitude_factor: Optional[float] = 0.5
+    operation_amplitude_factor: Optional[float] = 0.1
     operation_len_in_ns: Optional[int] = None
-    frequency_span_in_mhz: float = 30
-    frequency_step_in_mhz: float = 0.5
+    frequency_span_in_mhz: float = 100
+    frequency_step_in_mhz: float = 0.25
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
     simulate: bool = False
     timeout: int = 100
-    multiplexed: bool = False
+    multiplexed: bool = True
     load_data_id: Optional[int] = None
 
 

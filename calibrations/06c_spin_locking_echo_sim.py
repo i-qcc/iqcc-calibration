@@ -1,6 +1,8 @@
 # %% {Imports}
 import matplotlib.pyplot as plt
 import xarray as xr
+from dataclasses import asdict
+
 from qm.qua import *
 
 from qualang_tools.multi_user import qm_session
@@ -9,7 +11,7 @@ from qualang_tools.units import unit
 
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode
 from iqcc_calibration_tools.quam_config.components.quam_root import Quam
-from calibration_utils.T2SL import (
+from calibration_utils.spin_echo_sl import (
     Parameters,
     process_raw_dataset,
     fit_raw_data,
@@ -18,7 +20,6 @@ from calibration_utils.T2SL import (
 )
 from qualibration_libs.parameters import get_qubits, get_idle_times_in_clock_cycles
 from qualibration_libs.runtime import simulate_and_plot
-from qualibration_libs.data import XarrayDataFetcher
 
 
 # %% {Description}
@@ -33,7 +34,7 @@ node = QualibrationNode[Parameters, Quam](name="06c_spin_locking", description=d
 @node.run_action(skip_if=node.modes.external)
 def custom_param(node: QualibrationNode[Parameters, Quam]):
     # You can get type hinting in your IDE by typing node.parameters.
-    node.parameters.qubits = ["Q2"]
+    node.parameters.qubits = ["Q3"]
     pass
 
 # Instantiate the QUAM class from the state file
@@ -84,7 +85,9 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                         # Qubit manipulation
                         for i, qubit in multiplexed_qubits.items():
                             qubit.xy.play("-y90")
-                            qubit.xy.play("x180_FlatTopTanhPulse",duration = 12+2*t, amplitude_scale=1.0)
+                            qubit.xy_SL.play("x180_BlackmanIntegralPulse_Rise")
+                            qubit.xy_SL.play("x180_Square",duration = 12+2*t, amplitude_scale=1.0)
+                            qubit.xy_SL.play("x180_BlackmanIntegralPulse_Fall")
                             qubit.xy.play("-y90")
                             qubit.align()
                         align()

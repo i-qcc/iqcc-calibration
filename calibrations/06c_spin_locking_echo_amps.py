@@ -15,7 +15,7 @@ from qualang_tools.units import unit
 
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode
 from iqcc_calibration_tools.quam_config.components.quam_root import Quam
-from calibration_utils.T2SL import (
+from calibration_utils.spin_echo_sl import (
     Parameters,
     process_raw_dataset,
     fit_raw_data,
@@ -39,7 +39,7 @@ node = QualibrationNode[Parameters, Quam](name="06c_spin_locking", description=d
 @node.run_action(skip_if=node.modes.external)
 def custom_param(node: QualibrationNode[Parameters, Quam]):
     # You can get type hinting in your IDE by typing node.parameters.
-    node.parameters.qubits = ["Q6"]
+    node.parameters.qubits = ["qB2"]
     pass
 
 # Instantiate the QUAM class from the state file
@@ -61,7 +61,7 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
     node.namespace["sweep_axes"] = {
         "qubit": xr.DataArray(qubits.get_names()),
         "amp_scale": xr.DataArray(amp_scales, attrs={"long_name": "amplitude scale", "units": "a.u."}),
-        "idle_time": xr.DataArray(8 * idle_times, attrs={"long_name": "idle time", "units": "ns"}),
+        "idle_time": xr.DataArray(4 * idle_times, attrs={"long_name": "idle time", "units": "ns"}),
     }
     # Expected final shape: (1, 3, 100) assuming 1 qubit, 3 amp scales, 100 idle times.
     
@@ -95,7 +95,9 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                             # Qubit manipulation
                             for i, qubit in multiplexed_qubits.items():
                                 qubit.xy.play("-y90")
-                                qubit.xy.play("x180_FlatTopTanhPulse", duration=12 + 2 * t, amplitude_scale=amp)
+                                qubit.xy.play("x180_BlackmanIntegralPulse_Rise",amplitude_scale=amp)
+                                qubit.xy.play("x180_Square",duration = 2*t, amplitude_scale=amp)
+                                qubit.xy.play("x180_BlackmanIntegralPulse_Fall",amplitude_scale=amp)
                                 qubit.xy.play("-y90")
                                 qubit.align()
                             align()
@@ -330,7 +332,7 @@ def plot_data(node: QualibrationNode[Parameters, Quam]):
         # Update plot title/subtitle to reflect the amplitude scale
         fig_raw_fit.suptitle(f"Spin-Locking T2 with Amp Scale: {amp_scale_val:.2f}", fontsize=14, y=1.02)
         node.add_node_info_subtitle(fig_raw_fit)
-        plt.show()
+        # plt.show()
         
         # Store the generated figure with a descriptive key
         figures[f"raw_fit_amp_{amp_scale_val}"] = fig_raw_fit

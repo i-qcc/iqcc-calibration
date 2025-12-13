@@ -42,7 +42,7 @@ import xarray as xr
 # %% {Node_parameters}
 class Parameters(NodeParameters):
 
-    qubits: Optional[List[str]] = None
+    qubits: Optional[List[str]] = ["qC2"]
     use_state_discrimination: bool = True
     use_strict_timing: bool = False
     num_random_sequences: int = 500  # Number of random sequences

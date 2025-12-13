@@ -19,6 +19,7 @@ from calibration_utils.time_rabi import (
     fit_raw_data,
     log_fitted_results,
     plot_raw_data_with_fit,
+    plot_raw_data
 )
 from qualibration_libs.parameters import get_qubits, get_idle_times_in_clock_cycles
 from qualibration_libs.runtime import simulate_and_plot
@@ -46,9 +47,11 @@ node = QualibrationNode[Parameters, Quam](
 
 @node.run_action(skip_if=node.modes.external)
 def custom_param(node: QualibrationNode[Parameters, Quam]):
-    node.parameters.min_wait_time_in_ns = 48
-    node.parameters.max_wait_time_in_ns = 500
-    node.parameters.num_time_steps = 500
+    node.parameters.min_wait_time_in_ns = 16
+    node.parameters.max_wait_time_in_ns = 600
+    node.parameters.num_time_steps = 600
+    node.parameters.qubits = ["qB4"]
+    node.parameters.drive_amp_scale = 0.4
     pass
 
 
@@ -105,9 +108,9 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                     align()
                     # Qubit manipulation
                     for i, qubit in multiplexed_qubits.items():
-                        qubit.xy.play("x180",
-                                      amplitude_scale=node.parameters.drive_amp_scale, 
-                                      duration = t)
+                        qubit.xy.play("x180_BlackmanIntegralPulse_Rise",amplitude_scale=node.parameters.drive_amp_scale)
+                        qubit.xy.play("x180_Square",amplitude_scale=node.parameters.drive_amp_scale,duration = t)
+                        qubit.xy.play("x180_BlackmanIntegralPulse_Fall",amplitude_scale=node.parameters.drive_amp_scale)
                     align()
                     # Qubit readout
                     for i, qubit in multiplexed_qubits.items():
@@ -144,6 +147,7 @@ def simulate_qua_program(node: QualibrationNode[Parameters, Quam]):
     samples, fig, wf_report = simulate_and_plot(qmm, config, node.namespace["qua_program"], node.parameters)
     # Store the figure, waveform report and simulated samples
     node.results["simulation"] = {"figure": fig, "wf_report": wf_report, "samples": samples}
+    plt.show()
 
 
 # %% {Execute}
@@ -190,11 +194,8 @@ def analyse_data(node: QualibrationNode[Parameters, Quam]):
     node.results["ds_raw"] = process_raw_dataset(node.results["ds_raw"], node)
     node.results["ds_fit"], fit_results = fit_raw_data(node.results["ds_raw"], node)
     node.results["fit_results"] = {k: asdict(v) for k, v in fit_results.items()}
-
     # Log the relevant information extracted from the data analysis
     log_fitted_results(node.results["fit_results"], log_callable=node.log)
-    
-    # *** THIS IS THE FIX ***
     # Use dictionary key access 'fit_result["success"]' instead of 'fit_result.success'
     node.outcomes = {
         qubit_name: ("successful" if fit_result["success"] else "failed")
@@ -204,17 +205,23 @@ def analyse_data(node: QualibrationNode[Parameters, Quam]):
 # %% {Plot_data}
 @node.run_action(skip_if=node.parameters.simulate)
 def plot_data(node: QualibrationNode[Parameters, Quam]):
-    """Plot the raw and fitted data in specific figures whose shape is given by qubit.grid_location."""
+    """Plot the raw data and the fitted data in separate figures."""
+    
+    # --- 1. Plot Raw Data Only ---
+    fig_raw = plot_raw_data(
+        node.results["ds_raw"], 
+        node.namespace["qubits"]
+    )
+    node.add_node_info_subtitle(fig_raw)
+    plt.show() # Show the first figure (raw data)
+
+    # --- 2. Plot Raw Data with Fit ---
     fig_raw_fit = plot_raw_data_with_fit(
         node.results["ds_raw"], 
         node.namespace["qubits"], 
-        node.results["ds_fit"]
+        node.results["ds_fit"],
+        node.results["fit_results"]
     )
     node.add_node_info_subtitle(fig_raw_fit)
-    plt.show()
-    # Store the generated figures
-    node.results["figures"] = {
-        "raw_fit": fig_raw_fit,
-    }
-
+    plt.show() # Show the second figure (raw + fit)
 # %% {Update_state}

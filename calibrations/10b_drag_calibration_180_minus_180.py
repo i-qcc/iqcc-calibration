@@ -61,7 +61,7 @@ node = QualibrationNode[Parameters, Quam](
 @node.run_action(skip_if=node.modes.external)
 def custom_param(node: QualibrationNode[Parameters, Quam]):
     # You can get type hinting in your IDE by typing node.parameters.
-    node.parameters.qubits = ["Q5"]
+    # node.parameters.qubits = ["Q3"]
     pass
 
 
@@ -113,7 +113,10 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
             for qubit in multiplexed_qubits.values():
                 node.machine.initialize_qpu(target=qubit)
             align()
-
+            
+            n = declare(int)  # QUA variable for the number of averages
+            a = declare(fixed)  # QUA variable for the qubit drive amplitude pre-factor
+            npi = declare(int)  # QUA variable for the number of qubit pulses
             with for_(n, 0, n < n_avg, n + 1):
                 save(n, n_st)
                 with for_(*from_array(npi, N_pi_vec)):
@@ -277,3 +280,4 @@ def update_state(node: QualibrationNode[Parameters, Quam]):
 @node.run_action()
 def save_results(node: QualibrationNode[Parameters, Quam]):
     node.save()
+# %%

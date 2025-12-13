@@ -5,12 +5,12 @@ from typing import List
 from dataclasses import field
 
 class NodeSpecificParameters(RunnableParameters):
-    num_shots: int = 50
+    num_shots: int = 500
     min_wait_time_in_ns: int = 48
     max_wait_time_in_ns: int = 500
     num_time_steps: int = 500
-    drive_amp_scale: float = 1.0 # 1.0
-    target_freq_in_Mhz: float = 50 #50
+    drive_amp_scale: float = 0.6 # 1.0
+    target_freq_in_Mhz: float = 20 
 
 class Parameters(
     NodeParameters,
