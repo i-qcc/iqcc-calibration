@@ -67,6 +67,8 @@ def custom_param(node: QualibrationNode[Parameters, Quam]):
     """
     # You can get type hinting in your IDE by typing node.parameters.
     # node.parameters.qubits = ["q1", "q2"]
+    node.parameters.multiplexed=True
+    node.parameters.reset_type = "thermal"
     pass
 
 
@@ -240,8 +242,18 @@ def plot_data(node: QualibrationNode[Parameters, Quam]):
         "confusion_matrix": fig_confusion,
         "histograms": fig_histogram,
     }
-
-
+# %%
+from iqcc_calibration_tools.quam_config.lib.qua_datasets import opxoutput
+readout_power=[np.round(opxoutput(node.namespace["qubits"][i].resonator.opx_output.full_scale_power_dbm,node.namespace["qubits"][i].resonator.operations["readout"].amplitude)-69-0,2) for i in range(len(node.namespace["qubits"]))]
+readout_length=[node.namespace["qubits"][i].resonator.operations["readout"].length for i in range(len(node.namespace["qubits"]))]
+node.results["ds_fit"], fit_results = fit_raw_data(node.results["ds_raw"], node)
+for i in range(len(readout_power)):
+    print(
+        f"{node.namespace['qubits'][i].name}: "
+        f"Ps={readout_power[i]} dBm, "
+        f"Tro={readout_length[i]}, "
+        f"Aro={node.namespace['qubits'][i].resonator.operations['readout'].amplitude}",
+        f"F={fit_results[node.namespace['qubits'][i].name].readout_fidelity:.2f}%")
 # %% {Update_state}
 @node.run_action(skip_if=node.parameters.simulate)
 def update_state(node: QualibrationNode[Parameters, Quam]):
@@ -265,3 +277,5 @@ def update_state(node: QualibrationNode[Parameters, Quam]):
 @node.run_action()
 def save_results(node: QualibrationNode[Parameters, Quam]):
     node.save()
+
+# %%
