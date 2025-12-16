@@ -65,18 +65,18 @@ node = QualibrationNode(name="11d_Single_Qubit_Randomized_Benchmarking_legacy", 
 # Class containing tools to help handling units and conversions.
 u = unit(coerce_to_integer=True)
 # Instantiate the QuAM class from the state file
-machine = Quam.load()
+node.machine = Quam.load()
 # Generate the OPX and Octave configurations
 
-config = machine.generate_config()
+config = node.machine.generate_config()
 # Open Communication with the QOP
 if node.parameters.load_data_id is None:
-    qmm = machine.connect()
+    qmm = node.machine.connect()
 
 if node.parameters.qubits is None or node.parameters.qubits == "":
-    qubits = machine.active_qubits
+    qubits = node.machine.active_qubits
 else:
-    qubits = [machine.qubits[q] for q in node.parameters.qubits]
+    qubits = [node.machine.qubits[q] for q in node.parameters.qubits]
 num_qubits = len(qubits)
 
 
@@ -231,12 +231,12 @@ with program() as randomized_benchmarking_individual:
 
     if flux_point == "joint":
         # Bring the active qubits to the desired frequency point
-        machine.set_all_fluxes(flux_point=flux_point, target=qubits[0])
+        node.machine.set_all_fluxes(flux_point=flux_point, target=qubits[0])
     
     for i, qubit in enumerate(qubits):
         # Bring the active qubits to the desired frequency point
         if flux_point != "joint":
-            machine.set_all_fluxes(flux_point=flux_point, target=qubit)
+            node.machine.set_all_fluxes(flux_point=flux_point, target=qubit)
 
     # QUA for_ loop over the random sequences
     with for_(m, 0, m < num_of_sequences, m + 1):
@@ -298,13 +298,13 @@ with program() as randomized_benchmarking_multiplexed:
     state_st = [declare_stream() for _ in range(num_qubits)]
     
     if flux_point == "joint":
-        machine.set_all_fluxes(flux_point=flux_point, target=qubits[0])
+        node.machine.initialize_qpu(target=qubits[0])
 
     for i, qubit in enumerate(qubits):
         
         if flux_point != "joint":
             # Bring the active qubits to the desired frequency point
-            machine.set_all_fluxes(flux_point=flux_point, target=qubit)
+            node.machine.initialize_qpu(target=qubit)
 
     # QUA for_ loop over the random sequences
     with for_(m, 0, m < num_of_sequences, m + 1):
@@ -337,7 +337,7 @@ with program() as randomized_benchmarking_multiplexed:
                     else:
                         play_sequence(sequence_list, depth, qubit)
 
-                qubit.align()
+                align(qubit.resonator.name, qubit.xy.name, *tuple(f"{twpa_id}.pump" for twpa_id in node.machine.twpas))
 
                 # Align the two elements to measure after playing the circuit.
                 for i, qubit in enumerate(qubits):
@@ -369,7 +369,6 @@ if node.parameters.simulate:
         plt.title(con)
     plt.tight_layout()
     node.results["figure"] = plt.gcf()
-    node.machine = machine
     node.save()
 
 elif node.parameters.load_data_id is None:
@@ -402,6 +401,7 @@ elif node.parameters.load_data_id is None:
         ds = node.results["ds"]
     # Add the dataset to the node
     node.results = {"ds": ds}
+    
     # %% {Data_analysis}
     da_state = 1 - ds["state"].mean(dim="sequence")
     da_state: xr.DataArray
@@ -482,7 +482,6 @@ if not node.parameters.simulate:
     if not node.parameters.simulate:
         node.outcomes = {q.name: "successful" for q in qubits}
         node.results["initial_parameters"] = node.parameters.model_dump()
-        node.machine = machine
         node.save()
 
 
