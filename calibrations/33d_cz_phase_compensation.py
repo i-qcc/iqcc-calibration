@@ -140,7 +140,7 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                                 qp.macros[cz_operation].apply(phase_shift_target=frame + extra_phase_t)
                             # Final x90 pulse to complete the Ramsey sequence
                             qubit.xy.play("x90")
-                            qp.align()
+                            align() # qp.align()
 
                             # Measure the corresponding qubit and save the results in the appropriate stream
                             if node.parameters.use_state_discrimination:

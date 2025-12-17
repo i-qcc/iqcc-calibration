@@ -118,10 +118,12 @@ with program() as CPhase_Oscillations:
     for i, qp in enumerate(qubit_pairs):
         # Bring the active qubits to the minimum frequency point
         if flux_point == "independent":
-            machine.apply_all_flux_to_min()
+            machine.initialize_qpu(target=qp.qubit_control)
+            # machine.apply_all_flux_to_min()
             # qp.apply_mutual_flux_point()
         elif flux_point == "joint":
-            machine.apply_all_flux_to_joint_idle()
+            machine.initialize_qpu(target=qp.qubit_control)
+            # machine.apply_all_flux_to_joint_idle()
         else:
             machine.apply_all_flux_to_zero()
         wait(1000)
@@ -145,7 +147,7 @@ with program() as CPhase_Oscillations:
                     with if_(target_initial==1):
                         qp.qubit_target.xy.play("x180")
                     
-                    qp.align()
+                    align() # qp.align()
                     # readout
                     readout_state(qp.qubit_control, state_control[i])
                     readout_state(qp.qubit_target, state_target[i])
