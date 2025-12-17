@@ -10,7 +10,7 @@ class NodeSpecificParameters(RunnableParameters):
     max_wait_time_in_ns: int = 500
     num_time_steps: int = 500
     drive_amp_scale: float = 0.1 # 1.0
-    target_freq_in_Mhz: float = 20 
+    target_freq_in_Mhz: float = 60 
 
 class Parameters(
     NodeParameters,

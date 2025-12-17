@@ -48,10 +48,10 @@ node = QualibrationNode[Parameters, Quam](
 @node.run_action(skip_if=node.modes.external)
 def custom_param(node: QualibrationNode[Parameters, Quam]):
     node.parameters.min_wait_time_in_ns = 16
-    node.parameters.max_wait_time_in_ns = 600
-    node.parameters.num_time_steps = 600
+    node.parameters.max_wait_time_in_ns = 800
+    node.parameters.num_time_steps = 800
     node.parameters.qubits = ["Q5"]
-    node.parameters.drive_amp_scale = 0.25
+    node.parameters.drive_amp_scale = 0.6
     pass
 
 
@@ -108,9 +108,9 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                     align()
                     # Qubit manipulation
                     for i, qubit in multiplexed_qubits.items():
-                        qubit.xy.play("x180_BlackmanIntegralPulse_Rise",amplitude_scale=node.parameters.drive_amp_scale)
-                        qubit.xy.play("x180_Square",amplitude_scale=node.parameters.drive_amp_scale,duration = t)
-                        qubit.xy.play("x180_BlackmanIntegralPulse_Fall",amplitude_scale=node.parameters.drive_amp_scale)
+                        qubit.xy.play("x180_BlackmanIntegralPulse_Rise")
+                        qubit.xy.play("x180_Square",duration = t)
+                        qubit.xy.play("x180_BlackmanIntegralPulse_Fall")
                     align()
                     # Qubit readout
                     for i, qubit in multiplexed_qubits.items():
@@ -224,4 +224,4 @@ def plot_data(node: QualibrationNode[Parameters, Quam]):
     )
     node.add_node_info_subtitle(fig_raw_fit)
     plt.show() # Show the second figure (raw + fit)
-# %% {Update_state}
+# %%

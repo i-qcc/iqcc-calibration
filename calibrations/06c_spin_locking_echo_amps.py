@@ -39,7 +39,7 @@ node = QualibrationNode[Parameters, Quam](name="06c_spin_locking", description=d
 @node.run_action(skip_if=node.modes.external)
 def custom_param(node: QualibrationNode[Parameters, Quam]):
     # You can get type hinting in your IDE by typing node.parameters.
-    node.parameters.qubits = ["qB2"]
+    node.parameters.qubits = ["Q5"]
     pass
 
 # Instantiate the QUAM class from the state file
@@ -95,9 +95,9 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                             # Qubit manipulation
                             for i, qubit in multiplexed_qubits.items():
                                 qubit.xy.play("-y90")
-                                qubit.xy.play("x180_BlackmanIntegralPulse_Rise",amplitude_scale=amp)
-                                qubit.xy.play("x180_Square",duration = 2*t, amplitude_scale=amp)
-                                qubit.xy.play("x180_BlackmanIntegralPulse_Fall",amplitude_scale=amp)
+                                qubit.xy.play("x180_BlackmanIntegralPulse_Rise")
+                                qubit.xy.play("x180_Square",duration = 2*t)
+                                qubit.xy.play("x180_BlackmanIntegralPulse_Fall")
                                 qubit.xy.play("-y90")
                                 qubit.align()
                             align()
