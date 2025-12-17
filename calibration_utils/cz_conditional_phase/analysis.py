@@ -152,15 +152,31 @@ def fit_routine(da):
             -np.mean(phase_diff.amp_full.values) / amp_range,  # c
             0.5,  # d
         ]
-        fit_params, _ = curve_fit(tanh_fit, phase_diff.amp_full.values[0], phase_diff.values[0], p0=p0)
+        fit_params, _ = curve_fit(
+            tanh_fit, 
+            phase_diff.amp_full.values[0], 
+            phase_diff.values[0], 
+            p0=p0,
+            maxfev=2000,  # Increase max function evaluations to help convergence
+        )
         optimal_amp = (np.arctanh((0.5 - fit_params[3]) / fit_params[0]) - fit_params[2]) / fit_params[1]
-        fitted_curve = tanh_fit(phase_diff.amp_full, *fit_params)
+        fitted_curve_values = tanh_fit(phase_diff.amp_full.values, *fit_params)
+        # Ensure fitted_curve is a DataArray with the same dimensions as phase_diff
+        fitted_curve = xr.DataArray(
+            fitted_curve_values,
+            dims=phase_diff.dims,
+            coords=phase_diff.coords
+        )
         success = True
 
     except Exception as e:
         # Fallback: find amplitude closest to π phase difference (0.5 in normalized units)
-        optimal_amp = float(np.abs(phase_diff - 0.5).idxmin("amp_full"))
-        fitted_curve = np.full_like(phase_diff.values, np.nan)
+        # Find the amp coordinate value where the difference is minimum
+        min_amp_coord = np.abs(phase_diff - 0.5).idxmin("amp")
+        # Get the corresponding amp_full coordinate value
+        optimal_amp = float(phase_diff.amp_full.sel(amp=min_amp_coord).item())
+        # Create a DataArray with the same dimensions as phase_diff, filled with NaN
+        fitted_curve = xr.full_like(phase_diff, np.nan)
         success = False
 
     da = da.assign(
