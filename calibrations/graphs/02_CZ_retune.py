@@ -29,14 +29,14 @@ g = QualibrationGraph(
     parameters=Parameters(),
     nodes={
         # "chevron": library.nodes["30c_chevron_11_02"].copy(name="chevron"),
-        "chevron": library.nodes["30b_02_11_oscillations_1nS"].copy(name="chevron"),
+        # "chevron": library.nodes["30b_02_11_oscillations_1nS"].copy(name="chevron"),
         "conditional_phase": library.nodes["32c_cz_conditional_phase"].copy(name="conditional_phase"),
         "phase_compensation": library.nodes["33d_cz_phase_compensation"].copy(name="phase_compensation"),
         "confusion_matrix": library.nodes["34_2Q_confusion_matrix"].copy(name="confusion_matrix"),
         "bell_state_tomography": library.nodes["40b_Bell_state_tomography"].copy(name="bell_state_tomography")
     },
     connectivity=[
-        ("chevron", "conditional_phase"),
+        # ("chevron", "conditional_phase"),
         ("conditional_phase", "phase_compensation"),
         ("phase_compensation", "confusion_matrix"),
         ("confusion_matrix", "bell_state_tomography")
