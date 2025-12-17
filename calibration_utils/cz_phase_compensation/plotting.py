@@ -1,9 +1,7 @@
 import matplotlib.pyplot as plt
 import xarray as xr
-from qualibrate import QualibrationNode
 from iqcc_calibration_tools.quam_config.components.quam_root import Quam
 
-from .parameters import Parameters
 
 
 def plot_raw_data_with_fit(ds_raw: xr.Dataset, qubit_pairs: Quam, ds_fit: xr.Dataset = None):
@@ -11,10 +9,20 @@ def plot_raw_data_with_fit(ds_raw: xr.Dataset, qubit_pairs: Quam, ds_fit: xr.Dat
     Plot the raw data with the fit for each qubit pair in a single figure.
     """
     n_pairs = len(qubit_pairs)
-
-    fig, axes = plt.subplots(1, n_pairs, figsize=(5 * n_pairs, 4))
+    
+    # Create a grid with at most 4 columns
+    ncols = min(4, n_pairs)
+    nrows = (n_pairs + ncols - 1) // ncols  # Ceiling division
+    
+    fig, axes = plt.subplots(nrows, ncols, figsize=(5 * ncols, 4 * nrows))
+    
+    # Flatten axes array for easier indexing
+    # plt.subplots returns a single Axes when nrows=ncols=1, otherwise an array
     if n_pairs == 1:
         axes = [axes]
+    else:
+        # Flatten the axes array (works for both 1D and 2D numpy arrays)
+        axes = axes.flatten() if hasattr(axes, 'flatten') else list(axes) if isinstance(axes, (list, tuple)) else [axes]
 
     for i, qp_name in enumerate(qubit_pairs):
         ax = axes[i]
@@ -47,6 +55,10 @@ def plot_raw_data_with_fit(ds_raw: xr.Dataset, qubit_pairs: Quam, ds_fit: xr.Dat
 
         ax.set_xlabel(r"x90 frame rotation [$\mathrm{rad}/2\pi$]")
         ax.legend()
+    
+    # Hide extra subplots if there are more subplots than qubit pairs
+    for i in range(n_pairs, len(axes)):
+        axes[i].set_visible(False)
 
     plt.tight_layout()
     return fig
