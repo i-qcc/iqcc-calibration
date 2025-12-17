@@ -295,12 +295,14 @@ with program() as Bell_state_tomography:
     
     if flux_point == "joint":
         # Bring the active qubits to the desired frequency point
-        node.machine.set_all_fluxes(flux_point=flux_point, target=qubit_pairs[0].qubit_control)
+        node.machine.initialize_qpu(target=qubit_pairs[0].qubit_control)
+        #node.machine.set_all_fluxes(flux_point=flux_point, target=qubit_pairs[0].qubit_control)
     
     for i, qp in enumerate(qubit_pairs):
         # Bring the active qubits to the minimum frequency point
         if flux_point != "joint":
-            node.machine.set_all_fluxes(flux_point=flux_point, target=qp.qubit_control)
+            node.machine.initialize_qpu(target=qp.qubit_control)
+            # node.machine.set_all_fluxes(flux_point=flux_point, target=qp.qubit_control)
 
         with for_(n, 0, n < n_shots, n + 1):
             save(n, n_st) 
@@ -330,7 +332,7 @@ with program() as Bell_state_tomography:
                         qp.qubit_target.xy.play("y90")
                     with elif_(tomo_axis_target == 1): #Y axis
                         qp.qubit_target.xy.play("x90")
-                    qp.align()            
+                    align() # qp.align()            
                     # readout
                     readout_state(qp.qubit_control, state_control[i])
                     readout_state(qp.qubit_target, state_target[i])
