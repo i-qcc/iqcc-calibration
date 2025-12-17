@@ -753,7 +753,7 @@ requires-dist = [
     { name = "qiskit", specifier = "==2.0.0" },
     { name = "qm-qua", specifier = "==1.2.4a1" },
     { name = "qualang-tools", specifier = "<0.22.0" },
-    { name = "qualibrate", specifier = ">=0.2.0,<0.4.0" },
+    { name = "qualibrate", specifier = ">=0.4.0" },
     { name = "qualibration-libs", git = "https://github.com/qua-platform/qualibration-libs.git" },
     { name = "quam", specifier = "==0.5.0a1" },
     { name = "quam-builder", git = "https://github.com/qua-platform/quam-builder.git?rev=add-spectator-qubit-control-to-CZ" },
@@ -1796,7 +1796,7 @@ wheels = [
 
 [[package]]
 name = "qualibrate"
-version = "0.3.1"
+version = "0.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "a2wsgi" },
@@ -1811,14 +1811,14 @@ dependencies = [
     { name = "tomli-w" },
     { name = "uvicorn" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a0/78/2fb9213f9c2d1689b90f5193bc8c7884c825ecd28ca564f0d30c724b0543/qualibrate-0.3.1.tar.gz", hash = "sha256:d95fb8557bb5c410cb8431e944c91c9abe763960f6b6ac6cf6041d0eb8668f65", size = 10566 }
+sdist = { url = "https://files.pythonhosted.org/packages/14/82/9c66ae705c032336b36f367b91133a3e3028a00b24f5458d219d70c069ce/qualibrate-0.4.0.tar.gz", hash = "sha256:cb2c77db2b0ffa187c4731e813d43f4e76144952a4bfd7cfc8a0edd82cfe8289", size = 22936 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/48/c6/209259939949070e3170f76c1ce39df947e2301a63511a8447fd24003174/qualibrate-0.3.1-py3-none-any.whl", hash = "sha256:aa2adde1a62beb27d99681096a46cb71c5a45abf90e6928f1c307490f2801a67", size = 12795 },
+    { url = "https://files.pythonhosted.org/packages/23/7e/511c53b6db120c3b87b6810aecf6f2eaf68f524012a72b7d4f5aa1a940b9/qualibrate-0.4.0-py3-none-any.whl", hash = "sha256:ad3ab970768fd10db3c0954ebc693e83ede02396c3ff9a2c2b4eade7f3f98a76", size = 39101 },
 ]
 
 [[package]]
 name = "qualibrate-app"
-version = "0.4.1"
+version = "0.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
@@ -1829,9 +1829,9 @@ dependencies = [
     { name = "tomli-w" },
     { name = "uvicorn" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/74/ac/f62f2a82f5c5e8dfe7855eacafad6ceb362b140cc711139c76f3d1480024/qualibrate_app-0.4.1.tar.gz", hash = "sha256:f948bfd764042d158ad59e59889a8560c9674813121800f4594e4d466cbeb829", size = 3157536 }
+sdist = { url = "https://files.pythonhosted.org/packages/48/af/7d9e24d7ccbadb1c055464544bc5aaf95c89120a13adfb125aaea4a0d3f5/qualibrate_app-0.5.0.tar.gz", hash = "sha256:0624beede0fee53867dd2ebf1a1c2604c81575dc98ba4e0258430958da4aea49", size = 3533054 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/bf/bd/e60c0f99df20a129fe59eb07aee4c2608d791a5e89c6ea8bd2f6653f8487/qualibrate_app-0.4.1-py3-none-any.whl", hash = "sha256:7157d3996ddfa38fad551666f14d368beac6b544c76fbc3cf5c2d1f84e26d49f", size = 3827319 },
+    { url = "https://files.pythonhosted.org/packages/cd/c9/99fe636cfedf7d79f19edf99ebefa7faf0aa17bec432546aeb5e17d3a02d/qualibrate_app-0.5.0-py3-none-any.whl", hash = "sha256:caab38285d80090e12d30f287587181a2ef7d3d99bf3242de151381933c208b0", size = 4204930 },
 ]
 
 [[package]]
@@ -1852,7 +1852,7 @@ wheels = [
 
 [[package]]
 name = "qualibrate-core"
-version = "0.4.1"
+version = "0.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "datamodel-code-generator" },
@@ -1866,14 +1866,14 @@ dependencies = [
     { name = "qualibrate-config" },
     { name = "types-networkx" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fe/89/9cccb6d8479ea83331100b9a54c530c32483de52b3806884a0cf265a08cd/qualibrate_core-0.4.1.tar.gz", hash = "sha256:969047b8ca0156d2f27f4a838cf1198b32732c51610abf39d426a8c8c2e5949f", size = 43330 }
+sdist = { url = "https://files.pythonhosted.org/packages/2e/04/f582869f44e2ea2d9f72fa7608f102cba62d21c14377b6f4cdfe6e95bb4b/qualibrate_core-0.5.0.tar.gz", hash = "sha256:8116e498f49a72625ed944151f6dcdbb52b3bfc8628d5bacf2c29dfae3c343ce", size = 50520 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e7/9d/1512bd2232072975a2be5f22c451497370b826bd5ed33ee1ea72356b1dea/qualibrate_core-0.4.1-py3-none-any.whl", hash = "sha256:c1124aee019e5774079705d5bd04b91e8e2e4911de26a9e16830256a1c13fd83", size = 63885 },
+    { url = "https://files.pythonhosted.org/packages/ef/10/d581b16cceb550e46e0fbf320e4e7ce9df894a82fc8263a904d351f3e1af/qualibrate_core-0.5.0-py3-none-any.whl", hash = "sha256:f9dd676d48c35c69cbfbe4d0d8e36e39c00347c781e4665c2710db152c2db7f8", size = 71337 },
 ]
 
 [[package]]
 name = "qualibrate-runner"
-version = "0.4.0"
+version = "0.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
@@ -1886,9 +1886,9 @@ dependencies = [
     { name = "uvicorn" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/2f/b3/f327146d6fbe847b4e25fb0f2cf0309f2b588937812505a7165ee025cb02/qualibrate_runner-0.4.0.tar.gz", hash = "sha256:5103e894fd282d22071feeca9905dc41b69c70b0225525a82fdec4568e788e2f", size = 15681 }
+sdist = { url = "https://files.pythonhosted.org/packages/1a/06/6c6ac0d05f661626a52a9677bf607741d84bc1f7543c35b185e8a1906e9c/qualibrate_runner-0.5.0.tar.gz", hash = "sha256:8b517a90a75a7ceafde26699355a516ccfd08709723980610b04178d5372b508", size = 15973 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/92/0e/720fb11e56ce416a9908ffd7b6db46ec8d1c07982744280691e8c967dc7a/qualibrate_runner-0.4.0-py3-none-any.whl", hash = "sha256:4b63fcf343e785715469c78bf533546d20181334ebda3f06dedb9f1939183b1a", size = 27896 },
+    { url = "https://files.pythonhosted.org/packages/8c/72/1eb95829a9d760595de4ce09240e41302a63b504a29a84ff67629a6f635a/qualibrate_runner-0.5.0-py3-none-any.whl", hash = "sha256:cf58012d2651c698f71e6f58030633bd5f1cbf33dee56d8777ef4d977be89e87", size = 28092 },
 ]
 
 [[package]]
