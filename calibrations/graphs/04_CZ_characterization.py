@@ -23,6 +23,15 @@ node_params = {
 # %% 
 library = QualibrationLibrary.get_active_library()
 
+node_params = {
+    "ramsey_flux_calibration" : {"multiplexed": multiplexed,
+            "num_shots": 300,
+            "flux_span": 0.02,
+            "max_wait_time_in_ns": 500,
+            "wait_time_step_in_ns": 5,
+            "flux_num": 11,
+            "frequency_detuning_in_mhz": 4}
+}
 
 class Parameters(GraphParameters):
     targets_name = "qubit_pairs"
