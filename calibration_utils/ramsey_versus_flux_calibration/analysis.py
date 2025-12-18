@@ -90,6 +90,7 @@ def fit_raw_data(ds: xr.Dataset, node: QualibrationNode) -> Tuple[xr.Dataset, di
     freq_offset = {}
     t2_star = {}
     fit_norm = {}
+    freq_range = {}
 
     qubits = ds.qubit.values
 
@@ -104,13 +105,16 @@ def fit_raw_data(ds: xr.Dataset, node: QualibrationNode) -> Tuple[xr.Dataset, di
         freq_q = frequency.sel(qubit=q)
         flux_q = freq_q.flux_bias
         
+        # Calculate frequency range (max - min) in MHz
+        freq_range[q] = float(freq_q.max() - freq_q.min())
+        
         # Calculate fitted values using polynomial: y = c2*x^2 + c1*x + c0
         freq_fitted = c2 * flux_q**2 + c1 * flux_q + c0
         
         # Calculate norm of the difference between fit and data, after excluding the 25% points with largest residuals
         diff = freq_q - freq_fitted
         abs_diff = np.abs(diff.values)
-        n_remove = int(0.25 * len(abs_diff))
+        n_remove = int(0.1 * len(abs_diff))
         if n_remove > 0:
             # Indices that sort abs_diff descending (largest first)
             sorted_indices = np.argsort(-abs_diff)
@@ -139,19 +143,30 @@ def fit_raw_data(ds: xr.Dataset, node: QualibrationNode) -> Tuple[xr.Dataset, di
     ds_fit["fit_norm"] = xr.DataArray(
         [fit_norm[q] for q in qubits], dims=["qubit"], coords={"qubit": qubits}
     )
+    ds_fit["freq_range"] = xr.DataArray(
+        [freq_range[q] for q in qubits], dims=["qubit"], coords={"qubit": qubits}
+    )
     ds_fit["artifitial_detuning"] = xr.DataArray(
         node.parameters.frequency_detuning_in_mhz, dims=["qubit"], coords={"qubit": qubits}
     )
     
-    success_threshold = 0.02
+    success_threshold = 0.005
+    min_freq_range_mhz = 500000e-9
+    
+    # Calculate success once for all qubits
+    success_dict = {
+        q: fit_norm[q] < success_threshold and freq_range[q] > min_freq_range_mhz
+        for q in qubits
+    }
     
     ds_fit["success"] = xr.DataArray(
-        [fit_norm[q] < success_threshold for q in qubits], dims=["qubit"], coords={"qubit": qubits}
+        [success_dict[q] for q in qubits], 
+        dims=["qubit"], coords={"qubit": qubits}
     )
     
     fit_results = {
         q: FitParameters(
-            success=fit_norm[q] < success_threshold,
+            success=success_dict[q],
             quad_term=a[q],
             flux_offset=flux_offset[q],
             freq_offset=freq_offset[q],
