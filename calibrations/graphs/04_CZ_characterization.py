@@ -38,15 +38,16 @@ class Parameters(GraphParameters):
     qubit_pairs: List[str] = None
 
 g = QualibrationGraph(
-    name="CZ_retune",
+    name="CZ_characterization",
     parameters=Parameters(),
     nodes={
         "bell_state_tomography": library.nodes["40b_Bell_state_tomography"].copy(name="bell_state_tomography"),
         "ramsey_flux_calibration": library.nodes["09_ramsey_vs_flux_calibration"].copy(name="ramsey_flux_calibration"),
+        "bell_state_tomography_2": library.nodes["40b_Bell_state_tomography"].copy(name="bell_state_tomography"),
     },
     connectivity=[
         ("bell_state_tomography", "ramsey_flux_calibration"),
-        ("ramsey_flux_calibration", "bell_state_tomography"),
+        ("ramsey_flux_calibration", "bell_state_tomography_2")
     ],
     orchestrator=BasicOrchestrator(skip_failed=False),
 )
