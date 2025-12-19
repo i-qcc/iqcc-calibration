@@ -38,18 +38,18 @@ def get_qubit_color(rb_fidelity_pct: float) -> str:
     # Clamp value to range
     normalized = np.clip((rb_fidelity_pct - min_fidelity) / (max_fidelity - min_fidelity), 0, 1)
     
-    # Interpolate between dark red (#400000), orange (#FFA500), and dark green (#008000)
-    # Dark red RGB: (0.25, 0, 0), Dark green RGB: (0, 0.5, 0)
+    # Interpolate between dark red (#B30000), orange (#FFA500), and dark green (#008000)
+    # Dark red RGB: (0.7, 0, 0), Dark green RGB: (0, 0.5, 0)
     if normalized < 0.5:
         # Dark red to orange
         t = normalized * 2
-        r = 0.25 + t * (1.0 - 0.25)  # From dark red (0.25) to orange (1.0)
-        g = t * 0.647  # 165/255 for orange
+        r = 0.9 + t * (1.0 - 0.9)   # From dark red (0.9) to orange (1.0)
+        g = t * 0.647               # 165/255 for orange
         b = 0.0
     else:
         # Orange to dark green
         t = (normalized - 0.5) * 2
-        r = 1.0 - t * 1.0  # From orange (1.0) to dark green (0.0)
+        r = 1.0 - t * 1.0           # From orange (1.0) to dark green (0.0)
         g = 0.647 + t * (0.5 - 0.647)  # From orange (0.647) to dark green (0.5)
         b = 0.0
     
@@ -73,18 +73,18 @@ def get_pair_color(bell_fidelity_pct: float) -> str:
     # Clamp value to range
     normalized = np.clip((bell_fidelity_pct - min_fidelity) / (max_fidelity - min_fidelity), 0, 1)
     
-    # Interpolate between dark red (#400000), orange (#FFA500), and dark green (#008000)
-    # Dark red RGB: (0.25, 0, 0), Dark green RGB: (0, 0.5, 0)
+    # Interpolate between dark red (#B30000), orange (#FFA500), and dark green (#008000)
+    # Dark red RGB: (0.7, 0, 0), Dark green RGB: (0, 0.5, 0)
     if normalized < 0.5:
         # Dark red to orange
         t = normalized * 2
-        r = 0.25 + t * (1.0 - 0.25)  # From dark red (0.25) to orange (1.0)
-        g = t * 0.647  # 165/255 for orange
+        r = 0.7 + t * (1.0 - 0.7)   # From dark red (0.7) to orange (1.0)
+        g = t * 0.647               # 165/255 for orange
         b = 0.0
     else:
         # Orange to dark green
         t = (normalized - 0.5) * 2
-        r = 1.0 - t * 1.0  # From orange (1.0) to dark green (0.0)
+        r = 1.0 - t * 1.0           # From orange (1.0) to dark green (0.0)
         g = 0.647 + t * (0.5 - 0.647)  # From orange (0.647) to dark green (0.5)
         b = 0.0
     
@@ -289,7 +289,7 @@ def plot_qubit_grid(
                 # Default blue if no fidelity data
                 line_color = 'blue'
             
-            ax.plot([x1, x2], [y1, y2], color=line_color, linewidth=2.5, alpha=0.6, zorder=1)
+            ax.plot([x1, x2], [y1, y2], color=line_color, linewidth=6, alpha=0.6, zorder=1)
             
             # Add fidelity label if available
             if fidelity is not None:
@@ -469,4 +469,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
