@@ -67,7 +67,7 @@ def get_pair_color(bell_fidelity_pct: float) -> str:
         Color string (hex format)
     """
     # Dark Red: ≤ 95%, Dark Green: ≥ 99%, gradient in between
-    min_fidelity = 95.0
+    min_fidelity = 92.5
     max_fidelity = 99.0
     
     # Clamp value to range
