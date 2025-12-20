@@ -9,11 +9,14 @@ from iqcc_calibration_tools.quam_config.components.quam_root import Quam
 machine = Quam.load()
 qubit_pairs = machine.active_qubit_pair_names
 multiplexed = True
+reset_type = "thermal" # I find that active reset gives reduced performance
 
 node_params = {
-    "chevron": {"max_time_in_ns": 96, "reset_type": "active", "num_averages": 20},
-    "conditional_phase": {"operation": "cz"},
-    "phase_compensation": {"operation": "cz"}
+    # "chevron": {"max_time_in_ns": 96, "reset_type": "active", "num_averages": 20},
+    "confusion_matrix": {"reset_type": reset_type, "multiplexed": multiplexed},
+    "conditional_phase": {"operation": "cz", "amp_range": 0.015, "reset_type": reset_type, "multiplexed": multiplexed},
+    "phase_compensation": {"operation": "cz", "reset_type": reset_type, "multiplexed": multiplexed},
+    "bell_state_tomography": {"reset_type": "thermal", "multiplexed": multiplexed} # active reset hangs
     }
 
 # %% 

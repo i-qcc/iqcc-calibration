@@ -45,8 +45,15 @@ from qm import SimulationConfig
 from qm.qua import *
 from typing import Literal, Optional, List
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 import numpy as np
 import xarray as xr
+from calibration_utils.bell_state_tomography import (
+    plot_3d_hist_with_frame_real,
+    plot_3d_hist_with_frame_imag,
+    get_pauli_data,
+    get_density_matrix,
+)
 
 # %% {Node_parameters}
 class Parameters(NodeParameters):
@@ -60,6 +67,7 @@ class Parameters(NodeParameters):
     load_data_id: Optional[int] = None
     cz_macro_name: str = "cz"
     targets_name = "qubit_pairs"
+    multiplexed: bool = True
 
 
 node = QualibrationNode(
@@ -76,11 +84,14 @@ node.machine = Quam.load()
 
 # Get the relevant QuAM components
 if node.parameters.qubit_pairs is None or node.parameters.qubit_pairs == "":
-    qubit_pairs = node.machine.active_qubit_pairs
+    qubit_pairs_raw = node.machine.active_qubit_pairs
+    qubit_pairs = node.get_multiplexed_pair_batches(node.machine.active_qubit_pair_names)
 else:
-    qubit_pairs = [node.machine.qubit_pairs[qp] for qp in node.parameters.qubit_pairs]
-
+    qubit_pairs_raw = [node.machine.qubit_pairs[qp] for qp in node.parameters.qubit_pairs]
+    qubit_pairs = node.get_multiplexed_pair_batches([qp.id for qp in qubit_pairs_raw])
+    
 num_qubit_pairs = len(qubit_pairs)
+
 
 # Generate the OPX and Octave configurations
 config = node.machine.generate_config()
@@ -90,199 +101,13 @@ if node.parameters.load_data_id is None:
     qmm = node.machine.connect()
 # %%
 
-####################
-# Helper functions #
-####################
-from matplotlib.colors import LinearSegmentedColormap
-
-def plot_3d_hist_with_frame(data,ideal, title = '', fidelity=None, purity=None):
-    fig, axs = plt.subplots(1, 2, figsize=(8, 4), subplot_kw={'projection': '3d'})
-    # Create a grid of positions for the bars
-    xpos, ypos = np.meshgrid(np.arange(4) + 0.5, np.arange(4) + 0.5, indexing="ij")
-    xpos = xpos.ravel()
-    ypos = ypos.ravel()
-    zpos = np.zeros_like(xpos)
-    # Create a custom colormap with two distinct colors for positive and negative values
-    colors = [(0.1, 0.1, 0.6), (0.55, 0.55, 1.0)]  # Light blue for positive, dark blue for negative
-    cmap = LinearSegmentedColormap.from_list('custom_cmap', colors, N=256)
-
-    # finding global min,max
-    gmin = np.min([np.min(np.real(data)),np.min(np.imag(data)),np.min(np.real(ideal)),np.min(np.imag(ideal))])
-    gmax = np.max([np.max(np.real(data)),np.max(np.imag(data)),np.max(np.real(ideal)),np.max(np.imag(ideal))])
-
-    # Use the bar3d function with the 'color' parameter to color the bars
-    for i in range(2):
-        if i == 0:
-            dz = np.real(data).ravel()
-            dzi = np.real(ideal).ravel()
-            axs[i].set_title('real')
-        else:
-            dz = np.imag(data).ravel()
-            dzi = np.imag(ideal).ravel()
-            axs[i].set_title('imaginary')            
-        axs[i].bar3d(xpos, ypos, zpos, dx=0.4, dy=0.4, dz=dz, alpha= 1, color=cmap(np.sign(dz)))
-        axs[i].bar3d(xpos, ypos, zpos, dx=0.4, dy=0.4, dz=dzi, alpha= 0.1, edgecolor = 'k')
-        # Set tick labels for x and y axes
-        axs[i].set_xticks(np.arange(1, 5))
-        axs[i].set_yticks(np.arange(1, 5))
-        axs[i].set_xticklabels(['00', '01', '10', '11'])
-        axs[i].set_yticklabels(['00', '01', '10', '11'])
-        axs[i].set_xticklabels(['00', '01', '10', '11'], rotation=45)
-        axs[i].set_yticklabels(['00', '01', '10', '11'], rotation=45)
-        axs[i].set_zlim([gmin,gmax])
-        # Add fidelity and purity text to the first subplot (real part)
-        if i == 0 and fidelity is not None and purity is not None:
-            # Convert 3D axes coordinates to 2D for text placement
-            axs[i].text2D(0.02, 0.98, f"Fidelity: {fidelity:.3f}\nPurity: {purity:.3f}", 
-                         transform=axs[i].transAxes, fontsize=10, verticalalignment='top',
-                         bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
-    fig.suptitle(title)
-    # Show the plot
-    
-    return fig
-
-
-def plot_3d_hist_with_frame_real(data,ideal, ax ):
-    xpos, ypos = np.meshgrid(np.arange(4) + 0.5, np.arange(4) + 0.5, indexing="ij")
-    xpos = xpos.ravel()
-    ypos = ypos.ravel()
-    zpos = np.zeros_like(xpos)
-    # Create a custom colormap with two distinct colors for positive and negative values
-    colors = [(0.1, 0.1, 0.6), (0.55, 0.55, 1.0)]  # Light blue for positive, dark blue for negative
-    cmap = LinearSegmentedColormap.from_list('custom_cmap', colors, N=256)
-
-    # finding global min,max
-    gmin = np.min([np.min(np.real(data)),np.min(np.imag(data)),np.min(np.real(ideal)),np.min(np.imag(ideal))])
-    gmax = np.max([np.max(np.real(data)),np.max(np.imag(data)),np.max(np.real(ideal)),np.max(np.imag(ideal))])
-
-    # Use the bar3d function with the 'color' parameter to color the bars
-    dz = np.real(data).ravel()
-    dzi = np.real(ideal).ravel()
-    ax.set_title('real')
-    
-    ax.bar3d(xpos, ypos, zpos, dx=0.4, dy=0.4, dz=dz, alpha= 1, color=cmap(np.sign(dz)))
-    ax.bar3d(xpos, ypos, zpos, dx=0.4, dy=0.4, dz=dzi, alpha= 0.1, edgecolor = 'k')
-    # Set tick labels for x and y axes
-    ax.set_xticks(np.arange(1, 5))
-    ax.set_yticks(np.arange(1, 5))
-    ax.set_xticklabels(['00', '01', '10', '11'])
-    ax.set_yticklabels(['00', '01', '10', '11'])
-    ax.set_xticklabels(['00', '01', '10', '11'], rotation=45)
-    ax.set_yticklabels(['00', '01', '10', '11'], rotation=45)
-    ax.set_zlim([gmin,gmax])
-    # Show the plot
-
-def plot_3d_hist_with_frame_imag(data,ideal, ax):
-    xpos, ypos = np.meshgrid(np.arange(4) + 0.5, np.arange(4) + 0.5, indexing="ij")
-    xpos = xpos.ravel()
-    ypos = ypos.ravel()
-    zpos = np.zeros_like(xpos)
-    # Create a custom colormap with two distinct colors for positive and negative values
-    colors = [(0.1, 0.1, 0.6), (0.55, 0.55, 1.0)]  # Light blue for positive, dark blue for negative
-    cmap = LinearSegmentedColormap.from_list('custom_cmap', colors, N=256)
-
-    # finding global min,max
-    gmin = np.min([np.min(np.real(data)),np.min(np.imag(data)),np.min(np.real(ideal)),np.min(np.imag(ideal))])
-    gmax = np.max([np.max(np.real(data)),np.max(np.imag(data)),np.max(np.real(ideal)),np.max(np.imag(ideal))])
-
-    # Use the bar3d function with the 'color' parameter to color the bars
-    dz = np.imag(data).ravel()
-    dzi = np.imag(ideal).ravel()
-    ax.set_title('imaginary')
-    
-    ax.bar3d(xpos, ypos, zpos, dx=0.4, dy=0.4, dz=dz, alpha= 1, color=cmap(np.sign(dz)))
-    ax.bar3d(xpos, ypos, zpos, dx=0.4, dy=0.4, dz=dzi, alpha= 0.1, edgecolor = 'k')
-    # Set tick labels for x and y axes
-    ax.set_xticks(np.arange(1, 5))
-    ax.set_yticks(np.arange(1, 5))
-    ax.set_xticklabels(['00', '01', '10', '11'])
-    ax.set_yticklabels(['00', '01', '10', '11'])
-    ax.set_xticklabels(['00', '01', '10', '11'], rotation=45)
-    ax.set_yticklabels(['00', '01', '10', '11'], rotation=45)
-    ax.set_zlim([gmin,gmax])
-    # Show the plot
-    
-
-def flatten(data):
-    if isinstance(data, tuple):
-        if len(data) == 0:
-            return ()
-        else:
-            return flatten(data[0]) + flatten(data[1:])
-    else:
-        return (data,)
-    
-def generate_pauli_basis(n_qubits):    
-    pauli = np.array([0,1,2,3])
-    paulis = pauli
-    for i in range(n_qubits-1):
-        new_paulis = []
-        for ps in paulis:
-            for p in pauli:
-                new_paulis.append(flatten((ps, p)))
-        paulis = new_paulis
-    return paulis
-        
-def gen_inverse_hadamard(n_qubits):
-    H = np.array([[1,1],[1,-1]])/2
-    for _ in range(n_qubits-1):
-        H = np.kron(H, H)
-    return np.linalg.inv(H)
-
-def get_pauli_data(da):
-
-    pauli_basis = generate_pauli_basis(2)
-
-    inverse_hadamard = gen_inverse_hadamard(2)
-
-    # Create an xarray Dataset with dimensions and coordinates based on pauli_basis
-    paulis_data = xr.Dataset(
-        {
-            "value": (["pauli_op"], np.zeros(len(pauli_basis))),
-            "appearances": (["pauli_op"], np.zeros(len(pauli_basis), dtype=int))
-        },
-        coords={'pauli_op': [','.join(map(str, op)) for op in pauli_basis]}
-    )
-
-    for tomo_axis in da.coords['tomo_axis'].values:
-        tomo_data = da.sel(tomo_axis = tomo_axis)
-        pauli_data = inverse_hadamard @ tomo_data.data
-        paulis = ["0,0", f"{tomo_axis[0]+1},0", f"0,{tomo_axis[1]+1}", f"{tomo_axis[0]+1},{tomo_axis[1]+1}"]
-        for i, pauli in enumerate(paulis):
-            paulis_data.value.loc[{'pauli_op': pauli}] += pauli_data[i]
-            paulis_data.appearances.loc[{'pauli_op': pauli}] += 1
-        
-    paulis_data = xr.where(paulis_data.appearances != 0, paulis_data.value / paulis_data.appearances, paulis_data.value)
-    
-    return paulis_data
-
-
-def get_density_matrix(paulis_data):
-    # 2Q
-    # Define the Pauli matrices
-    I = np.array([[1, 0], [0, 1]])
-    X = np.array([[0, 1], [1, 0]])
-    Y = np.array([[0, -1j], [1j, 0]])
-    Z = np.array([[1, 0], [0, -1]])
-
-    # Create a vector of the Pauli matrices
-    pauli_matrices = [I, X, Y, Z]
-
-    rho = np.zeros((4,4))
-
-    for i, pauli_i in enumerate(pauli_matrices):
-        for j, pauli_j in enumerate(pauli_matrices):
-            rho = rho + 0.25*paulis_data.sel(pauli_op = f"{i},{j}").values * np.kron(pauli_i, pauli_j)
-    
-    return rho
-
 # %% {QUA_program}
 n_shots = node.parameters.num_shots  # The number of averages
 
 flux_point = node.parameters.flux_point_joint_or_independent  # 'independent' or 'joint'
 
 with program() as Bell_state_tomography:
-    n = declare(int)
+    
     n_st = declare_stream()
     state_control = [declare(int) for _ in range(num_qubit_pairs)]
     state_target = [declare(int) for _ in range(num_qubit_pairs)]
@@ -290,57 +115,62 @@ with program() as Bell_state_tomography:
     state_st_control = [declare_stream() for _ in range(num_qubit_pairs)]
     state_st_target = [declare_stream() for _ in range(num_qubit_pairs)]
     state_st = [declare_stream() for _ in range(num_qubit_pairs)]
-    tomo_axis_control = declare(int)
-    tomo_axis_target = declare(int)
+    
     
     if flux_point == "joint":
         # Bring the active qubits to the desired frequency point
         node.machine.initialize_qpu(target=qubit_pairs[0].qubit_control)
         #node.machine.set_all_fluxes(flux_point=flux_point, target=qubit_pairs[0].qubit_control)
+    else:
+        raise ValueError("flux_point must be 'joint'")
     
-    for i, qp in enumerate(qubit_pairs):
-        # Bring the active qubits to the minimum frequency point
-        if flux_point != "joint":
-            node.machine.initialize_qpu(target=qp.qubit_control)
-            # node.machine.set_all_fluxes(flux_point=flux_point, target=qp.qubit_control)
-
+    for multiplexed_qubit_pairs in qubit_pairs.batch():
+        n = declare(int)
+        tomo_axis_control = declare(int)
+        tomo_axis_target = declare(int)
+        
         with for_(n, 0, n < n_shots, n + 1):
             save(n, n_st) 
+            wait(100) # I think this is needed this otherwise data is not streaming properly. Need to verify. 
             with for_(tomo_axis_control, 0, tomo_axis_control < 3, tomo_axis_control + 1):
                 with for_(tomo_axis_target, 0, tomo_axis_target < 3, tomo_axis_target + 1):
+                    
                     # reset
-                    if node.parameters.reset_type == "active":
-                            wait(2*qp.qubit_control.thermalization_time * u.ns)
-                            active_reset(qp.qubit_control)
-                            active_reset(qp.qubit_target)
-                    else:
-                        wait(5*qp.qubit_control.thermalization_time * u.ns)
-                    qp.align()
+                    for qp in multiplexed_qubit_pairs.values():
+                        qp.qubit_control.reset(node.parameters.reset_type, node.parameters.simulate)
+                        qp.qubit_target.reset(node.parameters.reset_type, node.parameters.simulate)
+                    
+                    align()
+                    
                     # Bell state
-                    qp.qubit_control.xy.play("-y90")
-                    qp.qubit_target.xy.play("y90")
-                    qp.align()
-                    qp.macros[node.parameters.cz_macro_name].apply()
-                    qp.qubit_control.xy.play("y90")
-                    qp.align()
-                    # tomography pulses
-                    with if_(tomo_axis_control == 0): #X axis
-                        qp.qubit_control.xy.play("y90")
-                    with elif_(tomo_axis_control == 1): #Y axis
-                        qp.qubit_control.xy.play("x90")
-                    with if_(tomo_axis_target == 0): #X axis
+                    for qp in multiplexed_qubit_pairs.values():
+                        qp.qubit_control.xy.play("-y90")
                         qp.qubit_target.xy.play("y90")
-                    with elif_(tomo_axis_target == 1): #Y axis
-                        qp.qubit_target.xy.play("x90")
-                    align() # qp.align()            
+                        qp.align()
+                        qp.macros[node.parameters.cz_macro_name].apply()
+                        qp.qubit_control.xy.play("y90")
+                        qp.align()
+                        # tomography pulses
+                        with if_(tomo_axis_control == 0): #X axis
+                            qp.qubit_control.xy.play("y90")
+                        with elif_(tomo_axis_control == 1): #Y axis
+                            qp.qubit_control.xy.play("x90")
+                        with if_(tomo_axis_target == 0): #X axis
+                            qp.qubit_target.xy.play("y90")
+                        with elif_(tomo_axis_target == 1): #Y axis
+                            qp.qubit_target.xy.play("x90")
+                    align()
+                    
                     # readout
-                    readout_state(qp.qubit_control, state_control[i])
-                    readout_state(qp.qubit_target, state_target[i])
-                    assign(state[i], state_control[i]*2 + state_target[i])
-                    save(state_control[i], state_st_control[i])
-                    save(state_target[i], state_st_target[i])
-                    save(state[i], state_st[i])
-                align()
+                    for ii, qp in multiplexed_qubit_pairs.items():
+                        readout_state(qp.qubit_control, state_control[ii])
+                        readout_state(qp.qubit_target, state_target[ii])
+                        assign(state[ii], state_control[ii]*2 + state_target[ii])
+                        save(state_control[ii], state_st_control[ii])
+                        save(state_target[ii], state_st_target[ii])
+                        save(state[ii], state_st[ii])
+                    
+        align()
         
     with stream_processing():
         n_st.save("n")
@@ -348,6 +178,8 @@ with program() as Bell_state_tomography:
             state_st_control[i].buffer(3).buffer(3).buffer(n_shots).save(f"state_control{i + 1}")
             state_st_target[i].buffer(3).buffer(3).buffer(n_shots).save(f"state_target{i + 1}")
             state_st[i].buffer(3).buffer(3).buffer(n_shots).save(f"state{i + 1}")
+
+node.namespace['qua_program'] = Bell_state_tomography
 
 # %% {Simulate_or_execute}
 if node.parameters.simulate:
@@ -367,6 +199,8 @@ elif node.parameters.load_data_id is None:
             n = results.fetch_all()[0]
             # Progress bar
             progress_counter(n, n_shots, start_time=results.start_time)
+
+print(job.result_handles.__qpu_execution_time_seconds)
 
 # %% {Data_fetching_and_dataset_creation}
 if not node.parameters.simulate:
@@ -446,9 +280,18 @@ for qp in qubit_pairs:
 
 # %% {Plot_results}
 if not node.parameters.simulate:
+    import matplotlib.patches as mpatches
+    
+    # Create mapping from pair name to batch index (1-indexed) and sort pairs by batch order
+    pair_to_batch = {}
+    qubit_pairs_sorted_by_batch = []
+    for batch_idx, batch in enumerate(qubit_pairs.batch(), start=1):
+        for pair_idx, qp in batch.items():
+            pair_to_batch[qp.name] = batch_idx
+            qubit_pairs_sorted_by_batch.append(qp)
     
     # Create separate 3D city plots for real and imaginary parts
-    num_pairs = len(qubit_pairs)
+    num_pairs = len(qubit_pairs_sorted_by_batch)
     num_cols = 3
     num_rows_3d = int(np.ceil(num_pairs / num_cols))
     ideal_dat = np.array([[1,0,0,1],[0,0,0,0],[0,0,0,0],[1,0,0,1]])/2
@@ -457,7 +300,7 @@ if not node.parameters.simulate:
     fig_3d_real, axes_3d_real = plt.subplots(num_rows_3d, num_cols, figsize=(6 * num_cols, 4.5 * num_rows_3d), 
                                              subplot_kw={'projection': '3d'}, squeeze=False)
     
-    for idx, qp in enumerate(qubit_pairs):
+    for idx, qp in enumerate(qubit_pairs_sorted_by_batch):
         fidelity = node.results[f"{qp.name}_fidelity"]
         purity = node.results[f"{qp.name}_purity"]
         
@@ -467,6 +310,12 @@ if not node.parameters.simulate:
         ax_real = axes_3d_real[row, col]
         plot_3d_hist_with_frame_real(rhos[qp.name], ideal_dat, ax_real)
         ax_real.set_title(f"{qp.name}\nFidelity: {fidelity:.3f}, Purity: {purity:.3f}")
+        
+        # Add batch number indicator at the bottom right
+        batch_num = pair_to_batch.get(qp.name, 0)
+        ax_real.text2D(0.98, 0.02, str(batch_num), transform=ax_real.transAxes, 
+                      fontsize=8, ha='right', va='bottom',
+                      bbox=dict(boxstyle='circle', facecolor='plum', edgecolor='magenta', linewidth=1.2))
     
     # Hide unused subplots
     for i in range(num_pairs, num_rows_3d * num_cols):
@@ -475,7 +324,11 @@ if not node.parameters.simulate:
         axes_3d_real[row, col].axis('off')
     
     fig_3d_real.suptitle(f"Bell state tomography - Real part (3D city plots) \n {node.date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type}", y=0.98)
-    fig_3d_real.subplots_adjust(top=0.82, hspace=0.4, wspace=0.3)
+    fig_3d_real.subplots_adjust(top=0.92, hspace=0.4, wspace=0.3)
+    # Add legend explaining the batch number indicator
+    legend_circle = mpatches.Circle((0, 0), 0.5, facecolor='plum', edgecolor='magenta', linewidth=1.2)
+    fig_3d_real.legend([legend_circle], ['Batch number (pairs run in parallel)'], 
+                       loc='upper right', fontsize=8, framealpha=0.9)
     fig_3d_real.show()
     node.results["figure_city_real"] = fig_3d_real
     
@@ -483,13 +336,19 @@ if not node.parameters.simulate:
     fig_3d_imag, axes_3d_imag = plt.subplots(num_rows_3d, num_cols, figsize=(6 * num_cols, 4.5 * num_rows_3d), 
                                               subplot_kw={'projection': '3d'}, squeeze=False)
     
-    for idx, qp in enumerate(qubit_pairs):
+    for idx, qp in enumerate(qubit_pairs_sorted_by_batch):
         row = idx // num_cols
         col = idx % num_cols
         
         ax_imag = axes_3d_imag[row, col]
         plot_3d_hist_with_frame_imag(rhos[qp.name], ideal_dat, ax_imag)
         ax_imag.set_title(f"{qp.name} - Imaginary")
+        
+        # Add batch number indicator at the bottom right
+        batch_num = pair_to_batch.get(qp.name, 0)
+        ax_imag.text2D(0.98, 0.02, str(batch_num), transform=ax_imag.transAxes, 
+                      fontsize=8, ha='right', va='bottom',
+                      bbox=dict(boxstyle='circle', facecolor='plum', edgecolor='magenta', linewidth=1.2))
     
     # Hide unused subplots
     for i in range(num_pairs, num_rows_3d * num_cols):
@@ -498,7 +357,11 @@ if not node.parameters.simulate:
         axes_3d_imag[row, col].axis('off')
     
     fig_3d_imag.suptitle(f"Bell state tomography - Imaginary part (3D city plots) \n {node.date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type}", y=0.98)
-    fig_3d_imag.subplots_adjust(top=0.87, hspace=0.4, wspace=0.3)
+    fig_3d_imag.subplots_adjust(top=0.92, hspace=0.4, wspace=0.3)
+    # Add legend explaining the batch number indicator
+    legend_circle = mpatches.Circle((0, 0), 0.5, facecolor='plum', edgecolor='magenta', linewidth=1.2)
+    fig_3d_imag.legend([legend_circle], ['Batch number (pairs run in parallel)'], 
+                       loc='upper right', fontsize=8, framealpha=0.9)
     fig_3d_imag.show()
     node.results["figure_city_imag"] = fig_3d_imag
     
@@ -508,7 +371,7 @@ if not node.parameters.simulate:
     
     # Real part density matrix plot
     fig_real = plt.figure(figsize=(5 * num_cols, 4 * num_rows))
-    for idx, qp in enumerate(qubit_pairs):
+    for idx, qp in enumerate(qubit_pairs_sorted_by_batch):
         ax = fig_real.add_subplot(num_rows, num_cols, idx + 1)
         rho = np.real(rhos[qp.name])
         ax.pcolormesh(rho, vmin = -0.5, vmax = 0.5, cmap = "RdBu")
@@ -527,14 +390,24 @@ if not node.parameters.simulate:
         ax.set_yticks(range(4), ['00', '01', '10', '11'])
         ax.set_xticklabels(['00', '01', '10', '11'], rotation=45, ha='right')
         ax.set_yticklabels(['00', '01', '10', '11'])
+        
+        # Add batch number indicator at the bottom right
+        batch_num = pair_to_batch.get(qp.name, 0)
+        ax.text(0.98, -0.08, str(batch_num), transform=ax.transAxes, 
+               fontsize=8, ha='right', va='top',
+               bbox=dict(boxstyle='circle', facecolor='plum', edgecolor='magenta', linewidth=1.2))
     fig_real.suptitle(f"Bell state tomography (real part) \n {node.date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type}")
     fig_real.tight_layout()
+    # Add legend explaining the batch number indicator
+    legend_circle = mpatches.Circle((0, 0), 0.5, facecolor='plum', edgecolor='magenta', linewidth=1.2)
+    fig_real.legend([legend_circle], ['Batch number (pairs run in parallel)'], 
+                   loc='upper right', fontsize=8, framealpha=0.9)
     fig_real.show()
     node.results["figure_rho_real"] = fig_real
     
     # Imaginary part density matrix plot
     fig_imag = plt.figure(figsize=(5 * num_cols, 4 * num_rows))
-    for idx, qp in enumerate(qubit_pairs):
+    for idx, qp in enumerate(qubit_pairs_sorted_by_batch):
         ax = fig_imag.add_subplot(num_rows, num_cols, idx + 1)
         rho = np.imag(rhos[qp.name])
         ax.pcolormesh(rho, vmin = -0.1, vmax = 0.1, cmap = "RdBu")
@@ -553,14 +426,24 @@ if not node.parameters.simulate:
         ax.set_yticks(range(4), ['00', '01', '10', '11'])
         ax.set_xticklabels(['00', '01', '10', '11'], rotation=45, ha='right')
         ax.set_yticklabels(['00', '01', '10', '11'])
+        
+        # Add batch number indicator at the bottom right
+        batch_num = pair_to_batch.get(qp.name, 0)
+        ax.text(0.98, -0.08, str(batch_num), transform=ax.transAxes, 
+               fontsize=8, ha='right', va='top',
+               bbox=dict(boxstyle='circle', facecolor='plum', edgecolor='magenta', linewidth=1.2))
     fig_imag.suptitle(f"Bell state tomography (imaginary part) \n {node.date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type}")
     fig_imag.tight_layout()
+    # Add legend explaining the batch number indicator
+    legend_circle = mpatches.Circle((0, 0), 0.5, facecolor='plum', edgecolor='magenta', linewidth=1.2)
+    fig_imag.legend([legend_circle], ['Batch number (pairs run in parallel)'], 
+                   loc='upper right', fontsize=8, framealpha=0.9)
     fig_imag.show()
     node.results["figure_rho_imag"] = fig_imag
     
     # Pauli operators plot
     fig_paulis = plt.figure(figsize=(5 * num_cols, 4 * num_rows))
-    for idx, qp in enumerate(qubit_pairs):
+    for idx, qp in enumerate(qubit_pairs_sorted_by_batch):
         ax = fig_paulis.add_subplot(num_rows, num_cols, idx + 1)
         # Extract the values and labels for plotting
         values = paulis_data[qp.name].values
@@ -581,8 +464,18 @@ if not node.parameters.simulate:
             ax.text(bar.get_x() + bar.get_width()/2., height,
                     f'{height:.2f}',
                     ha='center', va='bottom')
+        
+        # Add batch number indicator at the bottom right
+        batch_num = pair_to_batch.get(qp.name, 0)
+        ax.text(0.98, -0.08, str(batch_num), transform=ax.transAxes, 
+               fontsize=8, ha='right', va='top',
+               bbox=dict(boxstyle='circle', facecolor='plum', edgecolor='magenta', linewidth=1.2))
     
     fig_paulis.tight_layout()
+    # Add legend explaining the batch number indicator
+    legend_circle = mpatches.Circle((0, 0), 0.5, facecolor='plum', edgecolor='magenta', linewidth=1.2)
+    fig_paulis.legend([legend_circle], ['Batch number (pairs run in parallel)'], 
+                     loc='upper right', fontsize=8, framealpha=0.9)
     fig_paulis.show()
     node.results["figure_paulis"] = fig_paulis
 

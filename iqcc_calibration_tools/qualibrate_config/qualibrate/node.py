@@ -1,7 +1,7 @@
 import logging
 import os
 import requests
-from typing import TypeVar, Generic
+from typing import TypeVar, Generic, List, Dict, Set, Tuple, Union
 from datetime import datetime, timezone, timedelta
 from qualibrate import QualibrationNode as QualibrationNodeBase
 from qualibrate.parameters import NodeParameters
@@ -12,6 +12,7 @@ from qualibrate.config.resolvers import get_quam_state_path
 from qualibrate.storage.local_storage_manager import LocalStorageManager
 from iqcc_calibration_tools.quam_config.components.quam_root import Quam
 from qm import generate_qua_script
+from qualibration_libs.core import BatchableList
 
 # Type variables for generic parameters - using same names and bounds as base class
 ParametersType = TypeVar("ParametersType", bound=NodeParameters)
@@ -334,3 +335,205 @@ class QualibrationNode(QualibrationNodeBase, Generic[ParametersType, MachineType
         sourceFile = open(file_name, 'w')
         print(generate_qua_script(self.namespace["qua_program"], self.machine.generate_config()), file=sourceFile) 
         sourceFile.close()
+    
+    def get_multiplexed_pair_batches(self, qubit_pairs: Union[List[str], List]) -> BatchableList:
+        """
+        Collect all active qubit pair names and group them into multiplexed batches
+        such that pairs in the same batch do not share any qubits and do not have
+        qubits that are nearest neighbors. Includes spectator qubits from CZ gates
+        in the constraint checking.
+        
+        Args:
+            qubit_pairs: Either a list of pair name strings or a list of pair objects.
+                        If strings, they will be converted to pair objects.
+        
+        Returns:
+            BatchableList: A BatchableList containing qubit pair objects, with batch_groups
+                          set according to multiplexing constraints.
+                          Pairs within the same batch:
+                          - Do not share any qubits (including control, target, and spectator qubits)
+                          - Do not have qubits that are nearest neighbors (including spectator qubits)
+                          Pairs are processed starting with those having the most spectator qubits
+                          to optimize the greedy algorithm.
+                          If multiplexed is False or not set, each pair is in its own batch.
+        
+        Raises:
+            AttributeError: If machine is None or doesn't have required attributes
+        """
+        if self.machine is None:
+            raise AttributeError("Machine is not set. Cannot collect qubit pairs.")
+        
+        # Convert input to list of pair objects and pair names
+        pair_objects: List = []
+        pair_names: List[str] = []
+        
+        if len(qubit_pairs) > 0:
+            # Check if first element is a string (pair name) or an object
+            if isinstance(qubit_pairs[0], str):
+                # Input is list of pair name strings
+                pair_names = qubit_pairs
+                for pair_name in pair_names:
+                    if pair_name not in self.machine.qubit_pairs:
+                        logger.warning(f"Pair '{pair_name}' not found in machine.qubit_pairs, skipping")
+                        continue
+                    pair_objects.append(self.machine.qubit_pairs[pair_name])
+            else:
+                # Input is list of pair objects
+                pair_objects = qubit_pairs
+                for pair_obj in pair_objects:
+                    # Get pair name/id
+                    if hasattr(pair_obj, 'id'):
+                        pair_names.append(pair_obj.id)
+                    elif hasattr(pair_obj, 'name'):
+                        pair_names.append(pair_obj.name)
+                    else:
+                        # Try to construct name from qubits
+                        if hasattr(pair_obj, 'qubit_control') and hasattr(pair_obj, 'qubit_target'):
+                            pair_name = f"{pair_obj.qubit_control.name}-{pair_obj.qubit_target.name}"
+                            pair_names.append(pair_name)
+                        else:
+                            raise ValueError(f"Cannot determine pair name for object {pair_obj}")
+        
+        # Check if multiplexed is enabled
+        is_multiplexed = hasattr(self.parameters, 'multiplexed') and self.parameters.multiplexed
+        
+        if not is_multiplexed:
+            # If not multiplexed, return batches of size 1 (each pair in its own batch)
+            batch_groups = [[i] for i in range(len(pair_objects))]
+        else:
+            # Helper function to parse grid location
+            def parse_grid_location(location_str: str) -> Tuple[int, int]:
+                """Parse grid location string like '2,4' into (x, y) tuple."""
+                x, y = map(int, location_str.split(','))
+                return (x, y)
+            
+            # Helper function to compute Manhattan distance
+            def manhattan_distance(a: Tuple[int, int], b: Tuple[int, int]) -> int:
+                return abs(a[0] - b[0]) + abs(a[1] - b[1])
+            
+            # Extract grid locations for all qubits
+            qubit_grid_locations: Dict[str, Tuple[int, int]] = {}
+            for qubit_name, qubit in self.machine.qubits.items():
+                if hasattr(qubit, 'grid_location') and qubit.grid_location:
+                    try:
+                        qubit_grid_locations[qubit_name] = parse_grid_location(qubit.grid_location)
+                    except (ValueError, AttributeError):
+                        # Skip qubits without valid grid locations
+                        pass
+            
+            # Build set of nearest neighbor pairs (as sets for easy lookup)
+            nearest_neighbor_pairs: Set[Tuple[str, str]] = set()
+            qubit_names = list(qubit_grid_locations.keys())
+            for i in range(len(qubit_names)):
+                q1 = qubit_names[i]
+                if q1 not in qubit_grid_locations:
+                    continue
+                p1 = qubit_grid_locations[q1]
+                for j in range(i + 1, len(qubit_names)):
+                    q2 = qubit_names[j]
+                    if q2 not in qubit_grid_locations:
+                        continue
+                    p2 = qubit_grid_locations[q2]
+                    if manhattan_distance(p1, p2) == 1:
+                        # Store both orderings for easy lookup
+                        nearest_neighbor_pairs.add((q1, q2))
+                        nearest_neighbor_pairs.add((q2, q1))
+            
+            # Helper function to check if two qubits are nearest neighbors
+            def are_nearest_neighbors(q1: str, q2: str) -> bool:
+                return (q1, q2) in nearest_neighbor_pairs
+            
+            # Collect pair information and group into batches
+            batch_groups: List[List[int]] = []  # Initialize batches list with indices
+            # Map pair_index -> set of qubits in that pair (including spectator qubits)
+            pair_qubits: Dict[int, Set[str]] = {}
+            # Map pair_index -> number of spectator qubits (for sorting)
+            pair_spectator_count: Dict[int, int] = {}
+            
+            for idx, pair_obj in enumerate(pair_objects):
+                # Start with control and target qubits
+                qubits_set = {
+                    pair_obj.qubit_control.name,
+                    pair_obj.qubit_target.name
+                }
+                
+                # Add spectator qubits if they exist
+                spectator_count = 0
+                if hasattr(pair_obj, 'macros') and 'cz' in pair_obj.macros:
+                    cz_macro = pair_obj.macros['cz']
+                    if hasattr(cz_macro, 'spectator_qubits') and cz_macro.spectator_qubits:
+                        # spectator_qubits is a dictionary where keys are qubit names
+                        for spectator_qubit_name in cz_macro.spectator_qubits.keys():
+                            qubits_set.add(spectator_qubit_name)
+                            spectator_count += 1
+                
+                pair_qubits[idx] = qubits_set
+                pair_spectator_count[idx] = spectator_count
+            
+            # Sort pairs by number of spectator qubits (most first) to optimize greedy algorithm
+            sorted_pair_indices = sorted(
+                pair_qubits.keys(),
+                key=lambda idx: pair_spectator_count[idx],
+                reverse=True
+            )
+            
+            # Group pairs into batches using greedy algorithm
+            batch_qubits: List[Set[str]] = []  # Track qubits used in each batch
+            
+            for pair_idx in sorted_pair_indices:
+                qubits_in_pair = pair_qubits[pair_idx]
+                # Try to find a batch where this pair doesn't conflict
+                batch_found = False
+                for i, batch_qubit_set in enumerate(batch_qubits):
+                    # Check if pairs share any qubits (original constraint)
+                    if not qubits_in_pair.isdisjoint(batch_qubit_set):
+                        continue
+                    
+                    # Check if any qubit in this pair is nearest neighbor to any qubit in this batch
+                    conflict_with_nn = False
+                    for qubit_in_pair in qubits_in_pair:
+                        for existing_qubit in batch_qubit_set:
+                            if are_nearest_neighbors(qubit_in_pair, existing_qubit):
+                                conflict_with_nn = True
+                                break
+                        if conflict_with_nn:
+                            break
+                    
+                    if conflict_with_nn:
+                        continue
+                    
+                    # No conflict, add to this batch
+                    batch_groups[i].append(pair_idx)
+                    batch_qubits[i].update(qubits_in_pair)
+                    batch_found = True
+                    break
+                
+                # If no existing batch works, create a new one
+                if not batch_found:
+                    batch_groups.append([pair_idx])
+                    batch_qubits.append(qubits_in_pair.copy())
+    
+        return BatchableList(pair_objects, batch_groups)
+
+    def get_job_billable_cloud_time(self):
+        """
+        Get the billable cloud execution time from the job's result handles.
+        
+        Returns:
+            float or None: The QPU execution time in seconds if available, None otherwise
+        """
+        try:
+            job = self.namespace.get('job')
+            if job is None:
+                return None
+            
+            result_handles = getattr(job, 'result_handles', None)
+            if result_handles is None:
+                return None
+            
+            execution_time = getattr(result_handles, '__qpu_execution_time_seconds', None)
+            return execution_time
+        except (AttributeError, KeyError):
+            return None
+
+    

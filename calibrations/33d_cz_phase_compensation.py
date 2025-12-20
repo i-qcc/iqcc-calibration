@@ -2,6 +2,7 @@
 from dataclasses import asdict
 
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 import numpy as np
 import xarray as xr
 from calibration_utils.cz_phase_compensation import (
@@ -58,7 +59,8 @@ node = QualibrationNode[Parameters, Quam](
 def custom_param(node: QualibrationNode[Parameters, Quam]):
     """Allow the user to locally set the node parameters for debugging purposes, or execution in the Python IDE."""
     # You can get type hinting in your IDE by typing node.parameters.
-    # node.parameters.qubit_pairs = ["q1-q2"]
+    node.parameters.multiplexed = True
+    node.parameters.reset_type = "active"
     pass
 
 
@@ -74,7 +76,9 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
     # Class containing tools to help handle units and conversions.
     u = unit(coerce_to_integer=True)
     # Get the active qubit pairs from the node and organize them by batches
-    node.namespace["qubit_pairs"] = qubit_pairs = get_qubit_pairs(node)
+    qubit_pairs_raw = get_qubit_pairs(node)
+    # Get multiplexed pair batches as BatchableList
+    node.namespace["qubit_pairs"] = qubit_pairs = node.get_multiplexed_pair_batches(qubit_pairs_raw.get_names())
     num_qubit_pairs = len(qubit_pairs)
 
     # Extract the sweep parameters and axes from the node parameters
@@ -140,7 +144,7 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                                 qp.macros[cz_operation].apply(phase_shift_target=frame + extra_phase_t)
                             # Final x90 pulse to complete the Ramsey sequence
                             qubit.xy.play("x90")
-                            align() # qp.align()
+                            qp.align()
 
                             # Measure the corresponding qubit and save the results in the appropriate stream
                             if node.parameters.use_state_discrimination:
@@ -156,6 +160,9 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                                     qp.qubit_target.resonator.measure("readout", qua_vars=(I_t[ii], Q_t[ii]))
                                     save(I_t[ii], I_t_st[ii])
                                     save(Q_t[ii], Q_t_st[ii])
+                            
+                            qp.align()
+            align()
 
         with stream_processing():
             n_st.save("n")
@@ -253,7 +260,34 @@ def analyse_data(node: QualibrationNode[Parameters, Quam]):
 @node.run_action(skip_if=node.parameters.simulate)
 def plot_data(node: QualibrationNode[Parameters, Quam]):
     """Plot the raw and fitted data in specific figures whose shape is given by qubit.grid_location."""
-    fig_raw_fit = plot_raw_data_with_fit(node.results["ds_raw"], node.namespace["qubit_pairs"], node.results["ds_fit"])
+    qubit_pairs = node.namespace["qubit_pairs"]
+    
+    # Get multiplexed pair batches for batch number visualization
+    # Create mapping from pair name to batch index (1-indexed) and sort pairs by batch order
+    pair_to_batch = {}
+    qubit_pairs_sorted_by_batch = []
+    for batch_idx, batch in enumerate(qubit_pairs.batch(), start=1):
+        for pair_idx, qp in batch.items():
+            pair_to_batch[qp.name] = batch_idx
+            qubit_pairs_sorted_by_batch.append(qp)
+    
+    fig_raw_fit = plot_raw_data_with_fit(node.results["ds_raw"], qubit_pairs_sorted_by_batch, node.results["ds_fit"])
+    
+    # Add batch number indicators to the plot
+    axes = fig_raw_fit.get_axes()
+    for i, qp in enumerate(qubit_pairs_sorted_by_batch):
+        if i < len(axes):
+            ax = axes[i]
+            batch_num = pair_to_batch.get(qp.name, 0)
+            ax.text(0.98, 0.02, str(batch_num), transform=ax.transAxes, 
+                   fontsize=8, ha='right', va='bottom',
+                   bbox=dict(boxstyle='circle', facecolor='plum', edgecolor='magenta', linewidth=1.2))
+    
+    # Add legend explaining the batch number indicator
+    legend_circle = mpatches.Circle((0, 0), 0.5, facecolor='plum', edgecolor='magenta', linewidth=1.2)
+    fig_raw_fit.legend([legend_circle], ['Batch number (pairs run in parallel)'], 
+                   loc='upper right', fontsize=8, framealpha=0.9)
+    
     node.add_node_info_subtitle(fig_raw_fit)
     plt.show()
     # Store the generated figures
