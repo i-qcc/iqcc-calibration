@@ -66,7 +66,7 @@ def custom_param(node: QualibrationNode[Parameters, Quam]):
     execution in the Python IDE.
     """
     # You can get type hinting in your IDE by typing node.parameters.
-    # node.parameters.qubits = ["q1", "q2"]
+    # node.parameters.qubits = ["qB2","qB1","qB3"]
     node.parameters.multiplexed=True
     node.parameters.reset_type = "thermal"
     pass
@@ -244,7 +244,7 @@ def plot_data(node: QualibrationNode[Parameters, Quam]):
     }
 # %%
 from iqcc_calibration_tools.quam_config.lib.qua_datasets import opxoutput
-readout_power=[np.round(opxoutput(node.namespace["qubits"][i].resonator.opx_output.full_scale_power_dbm,node.namespace["qubits"][i].resonator.operations["readout"].amplitude)-69-0,2) for i in range(len(node.namespace["qubits"]))]
+readout_power=[np.round(opxoutput(node.namespace["qubits"][i].resonator.opx_output.full_scale_power_dbm,node.namespace["qubits"][i].resonator.operations["readout"].amplitude)-69-21,2) for i in range(len(node.namespace["qubits"]))]
 readout_length=[node.namespace["qubits"][i].resonator.operations["readout"].length for i in range(len(node.namespace["qubits"]))]
 node.results["ds_fit"], fit_results = fit_raw_data(node.results["ds_raw"], node)
 for i in range(len(readout_power)):

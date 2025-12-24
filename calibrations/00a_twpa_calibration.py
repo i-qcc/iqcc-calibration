@@ -386,10 +386,19 @@ plt.tight_layout()
 window=plt.gcf()
 plt.show()
 # %% {Update_state}
-operation_point={'fp':np.round((p_lo+p_if+dfps[optimized_pump[0]]),3), 
-                 'Pp': node.parameters.pumpline_attenuation+opxoutput(full_scale_power_dbm,daps[optimized_pump[1]]),
-                 'Pamp': np.round(daps[optimized_pump[1]],3)}
-node.results["operation point"] = operation_point
+operation_point = {
+    'fp': np.round(p_lo + p_if + dfps[optimized_pump[0]], 3),
+    'Pp': node.parameters.pumpline_attenuation
+          + opxoutput(full_scale_power_dbm, daps[optimized_pump[1]]),
+    'Pamp': np.round(daps[optimized_pump[1]], 3),
+    'twpa_condition_per_qubit': {
+        f"qB{i+1}": {
+            "dSNR": np.round(dsnr[i][optimized_pump[0]][optimized_pump[1]][0], 2),
+            "gain": np.round(Gain[i][optimized_pump[0]][optimized_pump[1]][0], 2),
+        }
+        for i in range(len(qubits))
+    }
+}
 node.results["Ps"]={"Ps":readout_power}
 node.results["figures"]={"signal": s,
                          "noise": n,

@@ -178,7 +178,6 @@ def optimizer(mingain, mindsnr, Gain, dsnr,  average_dsnr, dfps, daps, p_lo,p_if
     print(f"Optimized ap={np.round(optimal_pp,5)},fp={np.round((p_lo+p_if+optimal_fp)*1e-9,3)}GHz ")
     return (pump_idx_gain_mask[optimal_pump_idx][0], pump_idx_gain_mask[optimal_pump_idx][1])
 
-
 #---------------------------------MULTIPLXED READOUT OPTIMIZER----------------------------
 def multiplexed_optimizer(qubit, Gain, dsnr, qubits): #qubit = worst snr qubit 
     idx=np.unravel_index(np.argmax(dsnr[qubit-1]),dsnr[qubit-1].shape)
