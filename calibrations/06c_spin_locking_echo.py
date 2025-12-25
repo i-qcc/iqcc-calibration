@@ -5,7 +5,7 @@ from dataclasses import asdict
 from datetime import datetime
 import os
 import json
-
+import numpy as np
 from qm.qua import *
 
 from qualang_tools.multi_user import qm_session
@@ -21,7 +21,7 @@ from calibration_utils.spin_echo_sl import (
     log_fitted_results,
     plot_raw_data_with_fit,
 )
-from qualibration_libs.parameters import get_qubits, get_idle_times_in_clock_cycles
+from qualibration_libs.parameters import get_qubits, get_sl_times_in_clock_cycles
 from qualibration_libs.runtime import simulate_and_plot
 from qualibration_libs.data import XarrayDataFetcher
 
@@ -29,16 +29,16 @@ from qualibration_libs.data import XarrayDataFetcher
 # %% {Description}
 description = """ T2 SL MEASUREMENT
 The sequence consists in playing an SL sequence (y90 - SL(x,t) - -y90 - measurement) for 
-different idle times.
+different sl times (spin locking times).
 """
+QUBIT = "Q6"
 node = QualibrationNode[Parameters, Quam](name="06c_spin_locking", description=description, parameters=Parameters())
-
 # Any parameters that should change for debugging purposes only should go in here
 # These parameters are ignored when run through the GUI or as part of a graph
 @node.run_action(skip_if=node.modes.external)
 def custom_param(node: QualibrationNode[Parameters, Quam]):
     # You can get type hinting in your IDE by typing node.parameters.
-    node.parameters.qubits = ["Q5"]
+    node.parameters.qubits = [QUBIT]
     pass
 
 # Instantiate the QUAM class from the state file
@@ -50,18 +50,17 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
     """Create the sweep axes and generate the QUA program from the pulse sequence and the node parameters."""
     # Class containing tools to help handle units and conversions.
     u = unit(coerce_to_integer=True)
-
     # Get the active qubits from the node and organize them by batches
     node.namespace["qubits"] = qubits = get_qubits(node)
     num_qubits = len(qubits)
 
     n_avg = node.parameters.num_shots  # The number of averages
     # Dephasing time sweep (in clock cycles = 4ns) - minimum is 4 clock cycles
-    idle_times = get_idle_times_in_clock_cycles(node.parameters)
-    # Register the sweep axes to be added to the dataset when fetching data
+    raw_cycles = get_sl_times_in_clock_cycles(node.parameters)
+    pulse_counts = np.unique(raw_cycles // 10).astype(int) #    # Register the sweep axes to be added to the dataset when fetching data
     node.namespace["sweep_axes"] = {
         "qubit": xr.DataArray(qubits.get_names()),
-        "idle_time": xr.DataArray(4 * idle_times, attrs={"long_name": "idle time", "units": "ns"}),
+        "spin_locking_time": xr.DataArray(40 * pulse_counts, attrs={"long_name": "spin_locking_time", "units": "ns"}),
     }
 
     with program() as node.namespace["qua_program"]:
@@ -69,53 +68,54 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
         if node.parameters.use_state_discrimination:
             state = [declare(int) for _ in range(num_qubits)]
             state_st = [declare_stream() for _ in range(num_qubits)]
-
+        n_pulses = declare(int)
         shot = declare(int)
-        t = declare(int)
+        t_sl = declare(int)
 
         for multiplexed_qubits in qubits.batch():
+            
             # Initialize the QPU in terms of flux points (flux tunable transmons and/or tunable couplers)
             for qubit in multiplexed_qubits.values():
                 node.machine.initialize_qpu(target=qubit)
             align()
-            for i, qubit in multiplexed_qubits.items():
-                with for_(shot, 0, shot < n_avg, shot + 1):
-                    save(shot, n_st)
-                    with for_each_(t, idle_times):
-                        # Qubit initialization
-                        for i, qubit in multiplexed_qubits.items():
-                            reset_frame(qubit.xy.name)
-                            qubit.reset(node.parameters.reset_type, node.parameters.simulate)
-                        align()
-                        # Qubit manipulation
-                        for i, qubit in multiplexed_qubits.items():
+        
+            with for_(shot, 0, shot < n_avg, shot + 1):
+                save(shot, n_st)
+                with for_each_(t_sl, pulse_counts):
+                    # Qubit initialization
+                    for i, qubit in multiplexed_qubits.items():
+                        reset_frame(qubit.xy.name)
+                        qubit.reset(node.parameters.reset_type, node.parameters.simulate)
+                    align()
+                    
+                    # Qubit manipulation
+                    for i, qubit in multiplexed_qubits.items():
                             qubit.xy.play("-y90")
                             qubit.xy.play("x180_BlackmanIntegralPulse_Rise")
-                            qubit.xy.play("x180_Square",duration = 2*t)
+                            with for_(n_pulses, 0, n_pulses<t_sl, n_pulses+1):
+                                qubit.xy.play("x180_DetunedSquare")
                             qubit.xy.play("x180_BlackmanIntegralPulse_Fall")
                             qubit.xy.play("-y90")
-                            qubit.align()
-                        align()
-                        # Qubit readout
-                        for i, qubit in multiplexed_qubits.items():
-                            # Measure the state of the resonators
-                            if node.parameters.use_state_discrimination:
-                                qubit.readout_state(state[i])
-                                save(state[i], state_st[i])
-                            else:
-                                qubit.resonator.measure("readout", qua_vars=(I[i], Q[i]))
-                                # save data
-                                save(I[i], I_st[i])
-                                save(Q[i], Q_st[i])
-
+                    align()
+                    # Qubit readout
+                    for i, qubit in multiplexed_qubits.items():
+                        # Measure the state of the resonators
+                        if node.parameters.use_state_discrimination:
+                            qubit.readout_state(state[i])
+                            save(state[i], state_st[i])
+                        else:
+                            qubit.resonator.measure("readout", qua_vars=(I[i], Q[i]))
+                            # save data
+                            save(I[i], I_st[i])
+                            save(Q[i], Q_st[i])
         with stream_processing():
             n_st.save("n")
             for i in range(num_qubits):
                 if node.parameters.use_state_discrimination:
-                    state_st[i].buffer(len(idle_times)).average().save(f"state{i + 1}")
+                    state_st[i].buffer(len(pulse_counts)).average().save(f"state{i + 1}")
                 else:
-                    I_st[i].buffer(len(idle_times)).average().save(f"I{i + 1}")
-                    Q_st[i].buffer(len(idle_times)).average().save(f"Q{i + 1}")
+                    I_st[i].buffer(len(pulse_counts)).average().save(f"I{i + 1}")
+                    Q_st[i].buffer(len(pulse_counts)).average().save(f"Q{i + 1}")
 
 
 # %% {Simulate}
@@ -174,17 +174,20 @@ def load_data(node: QualibrationNode[Parameters, Quam]):
 # %% {Analyse_data}
 @node.run_action(skip_if=node.parameters.simulate)
 def analyse_data(node: QualibrationNode[Parameters, Quam]):
-    """Analyse the raw data and store the fitted data in another xarray dataset "ds_fit" and the fitted results in the "fit_results" dictionary."""
-    node.results["ds_raw"] = process_raw_dataset(node.results["ds_raw"], node)
+    # Rename for compatibility with process_raw_dataset and fit_raw_data
+    ds_raw_compat = node.results["ds_raw"].rename({"spin_locking_time": "idle_time"})
+    
+    node.results["ds_raw"] = process_raw_dataset(ds_raw_compat, node)
     node.results["ds_fit"], fit_results = fit_raw_data(node.results["ds_raw"], node)
+    
+    # Revert to your custom naming for state saving and future reference
+    node.results["ds_raw"] = node.results["ds_raw"].rename({"idle_time": "spin_locking_time"})
+    if node.results["ds_fit"] is not None:
+         node.results["ds_fit"] = node.results["ds_fit"].rename({"idle_time": "spin_locking_time"})
+         
     node.results["fit_results"] = {k: asdict(v) for k, v in fit_results.items()}
-
-    # Log the relevant information extracted from the data analysis
     log_fitted_results(node.results["fit_results"], log_callable=node.log)
-    node.outcomes = {
-        qubit_name: ("successful" if fit_result["success"] else "failed")
-        for qubit_name, fit_result in node.results["fit_results"].items()
-    }
+
 
 #%%
 def _get_current_amplitude():
@@ -197,7 +200,7 @@ def _get_current_amplitude():
             data = json.load(f)
         
         # Navigate to the specific key path
-        return data["qubits"]["Q5"]["xy"]["operations"]["x180_Square"]["amplitude"]
+        return data["qubits"][QUBIT]["xy"]["operations"]["x180_DetunedSquare"]["amplitude"]
         
     except FileNotFoundError:
         print(f"Error: State file not found at {STATE_FILE_PATH}")
@@ -212,16 +215,38 @@ def _get_current_amplitude():
 # %% {Plot_data}
 @node.run_action(skip_if=node.parameters.simulate)
 def plot_data(node: QualibrationNode[Parameters, Quam]):
-    """Plot the raw and fitted data in specific figures whose shape is given by qubit.grid_location."""
-    fig_raw_fit = plot_raw_data_with_fit(node.results["ds_raw"], node.namespace["qubits"], node.results["ds_fit"])
+    """Plot the raw and fitted data with temporary name compatibility for idle_time."""
+    
+    # 1. Temporarily rename 'spin_locking_time' back to 'idle_time' for the plotting utility
+    # This avoids the AttributeError: 'Dataset' object has no attribute 'idle_time'
+    ds_raw_compat = node.results["ds_raw"].rename({"spin_locking_time": "idle_time"})
+    
+    # Ensure ds_fit also has the compatible name if it exists
+    ds_fit_compat = None
+    if node.results.get("ds_fit") is not None:
+        ds_fit_compat = node.results["ds_fit"].rename({"spin_locking_time": "idle_time"})
+
+    # 2. Call the plotting utility with compatible datasets
+    fig_raw_fit = plot_raw_data_with_fit(
+        ds_raw_compat, 
+        node.namespace["qubits"], 
+        ds_fit_compat
+    )
+    
     node.add_node_info_subtitle(fig_raw_fit)
     
-    # --- FIX 2: Generate the key needed by the save function ---
+    # --- Resolve Amplitude String Reference ---
+    # Convert string references like "#../amplitude" to float to prevent ValueError in formatting
     current_amp_scale = _get_current_amplitude()
-    amp_scale_val = current_amp_scale if current_amp_scale is not None else 0.0 
+    try:
+        amp_scale_val = float(current_amp_scale)
+    except (ValueError, TypeError):
+        # Fallback if the value is a non-numeric string reference
+        amp_scale_val = 0.0
+        
     figure_key = f"raw_fit_amp_{amp_scale_val}"
     
-    # Store the generated figures using the correct key
+    # Store the generated figures
     node.results["figures"] = {
         figure_key: fig_raw_fit,
     }
@@ -231,15 +256,22 @@ def plot_data(node: QualibrationNode[Parameters, Quam]):
 # %% {Save_data}
 @node.run_action(skip_if=node.parameters.simulate)
 def save_data(node: QualibrationNode[Parameters, Quam]):
-    """Saves the raw data, fitted data, fit results (JSON), and figures for each qubit using the current amplitude scale."""
-    # --- Configuration and Initial Data Retrieval ---
+    """Saves raw data (with spin_locking_time), fit results, and figures."""
+    
+    # --- Robust Amplitude Retrieval ---
     current_amp_scale = _get_current_amplitude()
     if current_amp_scale is None:
         node.log("CRITICAL: Failed to determine current amplitude scale. Aborting save.")
         return
 
+    # Convert amplitude to float to safely use the :.2f format
+    try:
+        amp_scale_val = float(current_amp_scale)
+    except (ValueError, TypeError):
+        # If current_amp_scale is a reference string (e.g. '#../amplitude'), use 0.0 for the filename
+        amp_scale_val = 0.0
+
     base_path = r"C:\\Users\\gilads\\VisualStudioProjects\\iqcc_cloud\\experiment_data"
-    
     now = datetime.now()
     date_time_str = now.strftime("%Y%m%d_%H%M%S")
 
@@ -253,84 +285,45 @@ def save_data(node: QualibrationNode[Parameters, Quam]):
     fit_var_name = fit_var_names[0] if fit_var_names else None
 
     os.makedirs(base_path, exist_ok=True)
-    
     qubit_names = ds_raw.coords["qubit"].values
     
-    node.log(f"Starting data save to: {base_path} for amplitude: {current_amp_scale}")
-
-    # --- AMPLITUDE VARIABLE SETUP ---
-    amp_scale_val = current_amp_scale
-    amp_scale_str = f"{amp_scale_val:.2f}".replace('.', 'p') # e.g., '0p10'
-
+    amp_scale_str = f"{amp_scale_val:.2f}".replace('.', 'p')
+    raw_var_name = "state" if node.parameters.use_state_discrimination else "I"
     for qubit_name in qubit_names:
-        
-        # --- 1. Define the unique file name prefix ---
         filename_prefix = f"{date_time_str}_{qubit_name}_amp_{amp_scale_str}"
-        
-        # --- 2. Extract specific fit results for this (qubit, amp_scale) ---
-        # FIX 1: Look up fit results by qubit_name only, as the analysis step uses this key.
-        fit_lookup_key = qubit_name 
-        result_key = f"{qubit_name}_amp_{amp_scale_val}" # Key used for logging/file naming
+        result_key = f"{qubit_name}_amp_{amp_scale_val}"
 
-        qubit_fit_result = fit_results.get(fit_lookup_key) 
-
-        # --- 3. Save the JSON results ---
+        # --- 1. Save JSON results ---
+        qubit_fit_result = fit_results.get(qubit_name)
         if qubit_fit_result:
             json_path = os.path.join(base_path, f"{filename_prefix}_results.json")
-            try:
-                save_json = {qubit_name: qubit_fit_result}
-                with open(json_path, 'w') as f:
-                    json.dump(save_json, f, indent=4)
-                node.log(f"Saved JSON results for {result_key} to {json_path}")
-            except Exception as e:
-                node.log(f"Error saving JSON for {result_key}: {e}")
-        else:
-             node.log(f"Skipping JSON save for {result_key}: Fit result not found under key '{fit_lookup_key}' in fit_results.")
+            with open(json_path, 'w') as f:
+                json.dump({qubit_name: qubit_fit_result}, f, indent=4)
 
-
-        # --- 4. Save the Experiment Data (NetCDF) ---
+        # --- 2. Save NetCDF data (Preserves 'spin_locking_time') ---
         data_path = os.path.join(base_path, f"{filename_prefix}_data.nc")
-        
-        if raw_var_name:
-            try:
-                raw_slice_full = ds_raw.sel(qubit=qubit_name).drop_vars('amp_scale', errors='ignore')
-                raw_slice = raw_slice_full[raw_var_name]
-                
-                data_to_save_dict = {"raw_data": raw_slice}
-                
-                if fit_var_name:
-                    try:
-                        fit_slice_full = ds_fit.sel(qubit=qubit_name).drop_vars('amp_scale', errors='ignore')
-                        data_to_save_dict["fitted_curve"] = fit_slice_full[fit_var_name]
-                    except KeyError:
-                        node.log(f"Note: No fitted data for {result_key}. Saving raw data only.")
-                
-                data_to_save = xr.Dataset(data_to_save_dict) 
-
-                data_to_save.to_netcdf(data_path)
-                node.log(f"Saved data for {result_key} to {data_path}")
-                
-            except Exception as e:
-                node.log(f"Error saving NetCDF data for {result_key}: {e}")
-        else:
-             node.log(f"Skipping NetCDF save for {qubit_name}: Raw variable ('{raw_var_name}') not found.")
+        try:
+            # Slicing the data for the specific qubit
+            raw_slice = ds_raw.sel(qubit=qubit_name)[raw_var_name]
+            data_to_save_dict = {"raw_data": raw_slice}
             
-        # --- 5. Save the Figure (Graph Image) ---
-        # NOTE: This key must match the key used in the Plot_data section (Fix 2)
-        figure_key = f"raw_fit_amp_{amp_scale_val}" 
+            if fit_var_name and qubit_name in ds_fit.qubit:
+                fit_slice = ds_fit.sel(qubit=qubit_name)[fit_var_name]
+                data_to_save_dict["fitted_curve"] = fit_slice
+            
+            xr.Dataset(data_to_save_dict).to_netcdf(data_path)
+            node.log(f"Saved NetCDF data to {data_path}")
+        except Exception as e:
+            node.log(f"Error saving NetCDF for {qubit_name}: {e}")
+
+        # --- 3. Save Figure ---
+        figure_key = f"raw_fit_amp_{amp_scale_val}"
         fig = figures.get(figure_key)
-        
         if fig:
             figure_path = os.path.join(base_path, f"{filename_prefix}_plot.png")
-            try:
-                fig.savefig(figure_path, bbox_inches="tight")
-                node.log(f"Saved figure for {result_key} to {figure_path}")
-            except Exception as e:
-                node.log(f"Error saving figure for {result_key}: {e}")
-        else:
-             node.log(f"Skipping Figure save for {result_key}: Figure not found under key '{figure_key}'.")
-
+            fig.savefig(figure_path, bbox_inches="tight")
 
     node.log("Data saving complete.")
 # %%
 plt.show()
+# %%
