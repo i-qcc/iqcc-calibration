@@ -756,7 +756,7 @@ requires-dist = [
     { name = "qualibrate", specifier = ">=0.4.0" },
     { name = "qualibration-libs", git = "https://github.com/qua-platform/qualibration-libs.git" },
     { name = "quam", specifier = "==0.5.0a1" },
-    { name = "quam-builder", git = "https://github.com/qua-platform/quam-builder.git" },
+    { name = "quam-builder", git = "https://github.com/qua-platform/quam-builder.git?rev=IQCC-dev-12%2F25" },
     { name = "tqdm" },
     { name = "xarray" },
 ]
@@ -1926,7 +1926,7 @@ wheels = [
 [[package]]
 name = "quam-builder"
 version = "0.2.1"
-source = { git = "https://github.com/qua-platform/quam-builder.git#e3683ff182bda5c5f339af088993b907355c2466" }
+source = { git = "https://github.com/qua-platform/quam-builder.git?rev=IQCC-dev-12%2F25#e3557fbf20f3eb88dc8d7ae1be9450054c4534c4" }
 dependencies = [
     { name = "qm-qua" },
     { name = "qualang-tools" },
