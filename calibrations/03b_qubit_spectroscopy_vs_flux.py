@@ -255,13 +255,15 @@ def update_state(node: QualibrationNode[Parameters, Quam]):
                 continue
             else:
                 fit_results = node.results["fit_results"][q.name]
+                # Use target_offset if available, otherwise use idle_offset
+                offset_to_apply = fit_results["target_offset"] if not np.isnan(fit_results["target_offset"]) else fit_results["idle_offset"]
                 if q.z.flux_point == "independent":
-                    q.z.independent_offset = fit_results["idle_offset"]
+                    q.z.independent_offset = offset_to_apply
                 elif q.z.flux_point == "joint":
-                    q.z.joint_offset += fit_results["idle_offset"]
-                q.xy.RF_frequency = fit_results["qubit_frequency"]
+                    q.z.joint_offset += offset_to_apply
+                q.xy.RF_frequency = fit_results["qubit_frequency"] - node.machine.qubits[q.name].xy.target_detuning_from_sweet_spot
                 q.f_01 = fit_results["qubit_frequency"]
-                # q.freq_vs_flux_01_quad_term = fit_results["quad_term"]
+                q.freq_vs_flux_01_quad_term = fit_results["quad_term"]
 
 
 # %% {Save_results}
