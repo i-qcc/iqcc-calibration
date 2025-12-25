@@ -4,13 +4,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 from matplotlib.axes import Axes
-from matplotlib.figure import Figure
-from qualang_tools.units import unit
+from matplotlib.lines import Line2D
 from qualibration_libs.plotting import QubitGrid, grid_iter
 from quam_builder.architecture.superconducting.qubit import AnyTransmon
-from qualibration_libs.analysis import lorentzian_peak
 
-u = unit(coerce_to_integer=True)
+
+def _is_fit_successful(fit: xr.Dataset) -> bool:
+    """Check if the fit is successful from the fit dataset."""
+    return bool(fit.success.values) if "success" in fit.data_vars else True
 
 
 def plot_raw_data_with_fit(ds: xr.Dataset, qubits: List[AnyTransmon], fits: xr.Dataset):
@@ -73,28 +74,53 @@ def plot_parabolas_with_fit(ds: xr.Dataset, qubits: List[AnyTransmon], fits: xr.
     """
     grid = QubitGrid(ds, [q.grid_location for q in qubits])
     
-    # Get the flux_bias range from the actual data (not from fitted line)
-    frequency = fits.sel(fit_vals="f").fit_results
-    flux_bias_all = frequency.flux_bias
-    flux_min = float(flux_bias_all.min().values)
-    flux_max = float(flux_bias_all.max().values)
-    
+    # Create a mapping from qubit name to qubit object for easy access
+    qubit_dict = {q.name: q for q in qubits}
     for ax, qubit in grid_iter(grid):
-        plot_individual_parabolas_with_fit(ax, ds, qubit, fits.sel(qubit=qubit["qubit"]), outcomes)
-        # Set consistent x-axis range for all subplots based on actual data range
+        qubit_obj = qubit_dict.get(qubit["qubit"])
+        fit_qubit = fits.sel(qubit=qubit["qubit"])
+        
+        # Calculate x-axis limits for this specific qubit
+        frequency = fit_qubit.sel(fit_vals="f").fit_results
+        flux_bias = frequency.flux_bias
+        flux_min = float(flux_bias.min().values)
+        flux_max = float(flux_bias.max().values)
+        
+        # Extend limits to include target_offset and flux_offset for this qubit
+        # Only if fit is successful
+        if _is_fit_successful(fit_qubit):
+            for var_name in ["target_offset", "flux_offset"]:
+                if var_name in fit_qubit.data_vars:
+                    try:
+                        val = float(fit_qubit[var_name].values)
+                        if not np.isnan(val):
+                            flux_min = min(flux_min, val)
+                            flux_max = max(flux_max, val)
+                    except (KeyError, ValueError):
+                        pass
+        
+        # Add 5% padding
+        if flux_max > flux_min:
+            padding = 0.05 * (flux_max - flux_min)
+            flux_min -= padding
+            flux_max += padding
+        
+        # Plot with the calculated xlim for this qubit
+        plot_individual_parabolas_with_fit(ax, ds, qubit, fit_qubit, outcomes, qubit_obj, flux_min, flux_max)
+        # Set x-axis range for this subplot
         ax.set_xlim(flux_min, flux_max)
 
     grid.fig.suptitle("Ramsey vs flux frequency ")
     grid.fig.set_size_inches(15, 9)
     grid.fig.tight_layout()
     
-    # Create legend entries manually (xarray plot doesn't create proper handles)
-    from matplotlib.lines import Line2D
+    # Create legend entries manually
     legend_handles = [
         Line2D([0], [0], color='blue', marker='.', linestyle='', markersize=8, label='Data'),
         Line2D([0], [0], color='orange', linestyle='-', linewidth=2, label='Parabolic fit'),
-        Line2D([0], [0], color='red', linestyle='--', linewidth=1, label='Flux offset'),
+        Line2D([0], [0], color='red', linestyle='--', linewidth=4, label='Flux offset'),
         Line2D([0], [0], color='green', linestyle='--', linewidth=1, label='Detuning from SweetSpot'),
+        Line2D([0], [0], color='orange', linestyle='-.', linewidth=4, label='Target offset'),
         Line2D([0], [0], color='red', marker='x', linestyle='', markersize=6, markeredgewidth=2, label='Fit failed'),
     ]
     grid.fig.legend(legend_handles, [h.get_label() for h in legend_handles], 
@@ -129,12 +155,13 @@ def plot_individual_data_with_fit(ax: Axes, ds: xr.Dataset, qubit: dict[str, str
     ax.set_xlabel("Idle_time (uS)")
     ax.set_ylabel(" Flux (V)")
 
-    flux_offset = fit.flux_offset
+    # Only plot flux offset if fit is successful
+    if _is_fit_successful(fit):
+        flux_offset = fit.flux_offset
+        ax.axhline(flux_offset, color="red", linestyle="--", label="Flux offset")
 
-    ax.axhline(flux_offset, color="red", linestyle="--", label="Flux offset")
 
-
-def plot_individual_parabolas_with_fit(ax: Axes, ds: xr.Dataset, qubit: dict[str, str], fit: xr.Dataset = None, outcomes: dict = None):
+def plot_individual_parabolas_with_fit(ax: Axes, ds: xr.Dataset, qubit: dict[str, str], fit: xr.Dataset = None, outcomes: dict = None, qubit_obj: AnyTransmon = None, xlim_min: float = None, xlim_max: float = None):
     """
     Plots individual qubit data on a given axis with optional fit.
 
@@ -150,60 +177,87 @@ def plot_individual_parabolas_with_fit(ax: Axes, ds: xr.Dataset, qubit: dict[str
         The dataset containing the fit parameters (default is None).
     outcomes : dict, optional
         Dictionary containing outcomes ("successful" or "failed") for each qubit.
+    qubit_obj : AnyTransmon, optional
+        The qubit object for accessing target_detuning_from_sweet_spot.
+    xlim_min : float, optional
+        Minimum x-axis limit (for extending parabolic fit).
+    xlim_max : float, optional
+        Maximum x-axis limit (for extending parabolic fit).
 
     Notes
     -----
     - If the fit dataset is provided, the fitted curve is plotted along with the raw data.
+    - The parabolic fit will extend to xlim_min/xlim_max if provided, otherwise uses data range.
     """
-    detuning = float(fit.artifitial_detuning.values)  # Extract scalar value
-
-    # Get the frequency data and flux bias values
-    frequency = fit.sel(fit_vals="f").fit_results
+    detuning = float(fit.artifitial_detuning.values)
+    frequency = fit.sel(fit_vals="f").fit_results  # frequency is in GHz
     flux_bias = frequency.flux_bias
     
-    # Plot the data points
+    # Plot data points (convert GHz to MHz and subtract detuning)
     (frequency * 1e3 - detuning).plot(ax=ax, linestyle="", marker=".", label="Data", color="blue")
     
-    # Reconstruct polynomial coefficients from stored fit parameters
-    # From analysis.py: quad_term = -1e6 * c2, so c2 = -quad_term / 1e6 (in MHz/V^2)
-    # flux_offset = -0.5 * c1 / c2, so c1 = -2 * flux_offset * c2 (in MHz/V)
-    # At flux_offset, freq = freq_offset, so we can solve for c0
-    quad_term = float(fit.quad_term.values)  # in MHz/V^2
-    flux_offset_val = float(fit.flux_offset.values)  # in V
-    freq_offset_val = float(fit.freq_offset.values)  # in Hz
+    # Only plot parabolic fit and calculate offsets if fit is successful
+    if _is_fit_successful(fit):
+        # Cache offset values to avoid repeated access
+        flux_offset_val = float(fit.flux_offset.values)  # V
+        freq_offset_val = float(fit.freq_offset.values)  # Hz
+        
+        # Reconstruct polynomial coefficients from stored fit parameters
+        quad_term = float(fit.quad_term.values)  # MHz/V^2
+        c2 = -quad_term / 1e6  # GHz/V^2
+        c1 = -2 * flux_offset_val * c2  # GHz/V
+        c0 = freq_offset_val / 1e9 - c2 * flux_offset_val**2 - c1 * flux_offset_val  # GHz
+        
+        # Determine flux range for plotting parabola
+        data_flux_min = float(flux_bias.min().values)
+        data_flux_max = float(flux_bias.max().values)
+        
+        if xlim_min is not None and xlim_max is not None:
+            # Extend parabola to cover full xlim range
+            plot_flux_min = min(xlim_min, data_flux_min)
+            plot_flux_max = max(xlim_max, data_flux_max)
+        else:
+            # Use data range only
+            plot_flux_min = data_flux_min
+            plot_flux_max = data_flux_max
+        
+        # Create smooth flux range for plotting
+        flux_smooth = np.linspace(plot_flux_min, plot_flux_max, 200)
+        
+        # Plot smooth parabola
+        freq_smooth = c2 * flux_smooth**2 + c1 * flux_smooth + c0
+        freq_smooth_mhz = freq_smooth * 1e3 - detuning
+        ax.plot(flux_smooth, freq_smooth_mhz, linestyle="-", color="orange", linewidth=2, label="Parabolic fit")
+        
+        # Plot flux offset and detuning lines
+        ax.axvline(flux_offset_val, color="red", linestyle="--", linewidth=4, label="Flux offset")
+        ax.axhline(freq_offset_val * 1e-6 - detuning, color="green", linestyle="--", label="Detuning from SweetSpot")
+        
+        # Plot target offset line if non-zero
+        if (qubit_obj is not None and hasattr(qubit_obj, 'xy') and 
+            hasattr(qubit_obj.xy, 'target_detuning_from_sweet_spot')):
+            target_detuning = qubit_obj.xy.target_detuning_from_sweet_spot
+            if abs(target_detuning) > 1e-6 and "target_offset" in fit.data_vars:
+                try:
+                    target_offset_val = float(fit.target_offset.values)
+                    if not np.isnan(target_offset_val):
+                        ax.axvline(target_offset_val, linestyle="-.", linewidth=4, color="orange",
+                                 label=f"target offset ({target_detuning/1e6:.1f} MHz)", alpha=0.7)
+                except (KeyError, ValueError, AttributeError):
+                    pass
     
-    c2 = -quad_term / 1e6  # Convert to MHz/V^2
-    c1 = -2 * flux_offset_val * c2  # in MHz/V
-    # At flux_offset: freq_offset = c2*flux_offset^2 + c1*flux_offset + c0
-    # So: c0 = freq_offset - c2*flux_offset^2 - c1*flux_offset
-    c0 = freq_offset_val / 1e6 - c2 * flux_offset_val**2 - c1 * flux_offset_val  # in MHz
-    
-    # Create smooth flux range for plotting
-    flux_min = float(flux_bias.min().values)
-    flux_max = float(flux_bias.max().values)
-    flux_smooth = np.linspace(flux_min, flux_max, 200)
-    
-    # Evaluate the parabola: y = c2*x^2 + c1*x + c0 (all in MHz)
-    freq_smooth = c2 * flux_smooth**2 + c1 * flux_smooth + c0
-    
-    # Plot the smooth parabola (convert to MHz and subtract detuning)
-    ax.plot(flux_smooth, (freq_smooth * 1e3 - detuning), 
-            linestyle="-", color="orange", linewidth=2, label="Parabolic fit")
+    # Set y-axis limits based on data range
+    data_mhz = (frequency * 1e3 - detuning).values
+    y_min = float(np.nanmin(data_mhz))
+    y_max = float(np.nanmax(data_mhz))
+    y_padding = max(0.1 * (y_max - y_min), 5.0)
+    ax.set_ylim(y_min - y_padding, y_max + y_padding)
     
     ax.set_title(qubit["qubit"])
     ax.set_xlabel("Flux offset (V)")
     ax.set_ylabel("detuning (MHz)")
-
-    flux_offset = float(fit.flux_offset.values)
-
-    ax.axvline(flux_offset, color="red", linestyle="--", label="Flux offset")
-
-    freq_offset = float(fit.freq_offset.values) * 1e-3 - detuning
-
-    ax.axhline(freq_offset, color="green", linestyle="--", label="Detuning from SweetSpot")
     
-    # Add red x in top right if fit failed
-    if outcomes is not None and qubit["qubit"] in outcomes:
-        if outcomes[qubit["qubit"]] == "failed":
-            # Place x marker in top right corner using axes coordinates (0,0 = bottom left, 1,1 = top right)
-            ax.scatter([1.0], [1.0], marker='x', s=100, c='red', linewidths=2, transform=ax.transAxes, clip_on=False, zorder=10)
+    # Mark failed fits
+    if outcomes and outcomes.get(qubit["qubit"]) == "failed":
+        ax.scatter([1.0], [1.0], marker='x', s=100, c='red', linewidths=2, 
+                  transform=ax.transAxes, clip_on=False, zorder=10)
