@@ -14,6 +14,17 @@ def _is_fit_successful(fit: xr.Dataset) -> bool:
     return bool(fit.success.values) if "success" in fit.data_vars else True
 
 
+def _is_lo_limit_exceeded(fit: xr.Dataset) -> bool:
+    """Check if the LO frequency limit is exceeded from the fit dataset."""
+    return bool(fit.lo_limit_exceeded.values) if "lo_limit_exceeded" in fit.data_vars else False
+
+
+def _should_show_fit(fit: xr.Dataset) -> bool:
+    """Check if we should show the fitted line (fit succeeded, even if LO limit exceeded)."""
+    # Show fit if it was successful OR if LO limit was exceeded (meaning fit succeeded but frequency is out of range)
+    return _is_fit_successful(fit) or _is_lo_limit_exceeded(fit)
+
+
 def plot_raw_data_with_fit(ds: xr.Dataset, qubits: List[AnyTransmon], fits: xr.Dataset):
     """
     Plots the resonator spectroscopy amplitude IQ_abs with fitted curves for the given qubits.
@@ -87,8 +98,8 @@ def plot_parabolas_with_fit(ds: xr.Dataset, qubits: List[AnyTransmon], fits: xr.
         flux_max = float(flux_bias.max().values)
         
         # Extend limits to include target_offset and flux_offset for this qubit
-        # Only if fit is successful
-        if _is_fit_successful(fit_qubit):
+        # Show if fit succeeded (even if LO limit exceeded)
+        if _should_show_fit(fit_qubit):
             for var_name in ["target_offset", "flux_offset"]:
                 if var_name in fit_qubit.data_vars:
                     try:
@@ -122,6 +133,7 @@ def plot_parabolas_with_fit(ds: xr.Dataset, qubits: List[AnyTransmon], fits: xr.
         Line2D([0], [0], color='green', linestyle='--', linewidth=1, label='Detuning from SweetSpot'),
         Line2D([0], [0], color='orange', linestyle='-.', linewidth=4, label='Target offset'),
         Line2D([0], [0], color='red', marker='x', linestyle='', markersize=6, markeredgewidth=2, label='Fit failed'),
+        Line2D([0], [0], color='magenta', marker='x', linestyle='', markersize=6, markeredgewidth=2, label='LO limit exceeded'),
     ]
     grid.fig.legend(legend_handles, [h.get_label() for h in legend_handles], 
                     loc='upper right', bbox_to_anchor=(0.98, 0.98),
@@ -196,15 +208,15 @@ def plot_individual_parabolas_with_fit(ax: Axes, ds: xr.Dataset, qubit: dict[str
     # Plot data points (convert GHz to MHz and subtract detuning)
     (frequency * 1e3 - detuning).plot(ax=ax, linestyle="", marker=".", label="Data", color="blue")
     
-    # Only plot parabolic fit and calculate offsets if fit is successful
-    if _is_fit_successful(fit):
+    # Plot parabolic fit and calculate offsets if fit succeeded (even if LO limit exceeded)
+    if _should_show_fit(fit):
         # Cache offset values to avoid repeated access
         flux_offset_val = float(fit.flux_offset.values)  # V
         freq_offset_val = float(fit.freq_offset.values)  # Hz
         
         # Reconstruct polynomial coefficients from stored fit parameters
-        quad_term = float(fit.quad_term.values)  # MHz/V^2
-        c2 = -quad_term / 1e6  # GHz/V^2
+        quad_term = float(fit.quad_term.values)  # GHz/V^2
+        c2 = -quad_term  # GHz/V^2
         c1 = -2 * flux_offset_val * c2  # GHz/V
         c0 = freq_offset_val / 1e9 - c2 * flux_offset_val**2 - c1 * flux_offset_val  # GHz
         
@@ -257,7 +269,12 @@ def plot_individual_parabolas_with_fit(ax: Axes, ds: xr.Dataset, qubit: dict[str
     ax.set_xlabel("Flux offset (V)")
     ax.set_ylabel("detuning (MHz)")
     
-    # Mark failed fits
+    # Mark failed fits or LO limit exceeded
     if outcomes and outcomes.get(qubit["qubit"]) == "failed":
-        ax.scatter([1.0], [1.0], marker='x', s=100, c='red', linewidths=2, 
-                  transform=ax.transAxes, clip_on=False, zorder=10)
+        # Check if LO limit exceeded (fit succeeded but frequency out of range)
+        if _is_lo_limit_exceeded(fit):
+            ax.scatter([1.0], [1.0], marker='x', s=100, c='magenta', linewidths=2, 
+                      transform=ax.transAxes, clip_on=False, zorder=10)
+        else:
+            ax.scatter([1.0], [1.0], marker='x', s=100, c='red', linewidths=2, 
+                      transform=ax.transAxes, clip_on=False, zorder=10)

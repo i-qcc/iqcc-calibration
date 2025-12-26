@@ -253,7 +253,7 @@ def update_state(node: QualibrationNode[Parameters, Quam]):
             target_offset = node.results["fit_results"][q.name]["target_offset"]
             freq_offset = (
                 node.parameters.frequency_detuning_in_mhz * 1e6
-                - node.results["ds_fit"].freq_offset.sel(qubit=q.name).values * 1e3
+                - node.results["ds_fit"].freq_offset.sel(qubit=q.name).values
             )
             quad_term = node.results["fit_results"][q.name]["quad_term"]
             # Use target_offset if available, otherwise use flux_offset
@@ -271,7 +271,8 @@ def update_state(node: QualibrationNode[Parameters, Quam]):
                 freq_offset -= target_detuning
             q.f_01 += freq_offset
             q.xy.RF_frequency += freq_offset
-            q.freq_vs_flux_01_quad_term = quad_term*1e3
+            # quad_term is stored in GHz/V^2, convert to Hz/V^2 for freq_vs_flux_01_quad_term
+            q.freq_vs_flux_01_quad_term = quad_term * 1e9
 
 # %% {Save_results}
 @node.run_action()
