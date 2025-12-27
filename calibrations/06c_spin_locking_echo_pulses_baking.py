@@ -11,7 +11,7 @@ from qm.qua import *
 from qualang_tools.multi_user import qm_session
 from qualang_tools.results import progress_counter
 from qualang_tools.units import unit
-
+from qualang_tools.bakery import baking
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode
 from iqcc_calibration_tools.quam_config.components.quam_root import Quam
 from calibration_utils.spin_echo_sl import (
@@ -21,9 +21,18 @@ from calibration_utils.spin_echo_sl import (
     log_fitted_results,
     plot_raw_data_with_fit,
 )
-from qualibration_libs.parameters import get_qubits, get_sl_times_in_clock_cycles, get_idle_times_in_clock_cycles
+from qualibration_libs.parameters import get_qubits, get_sl_times_in_clock_cycles
 from qualibration_libs.runtime import simulate_and_plot
 from qualibration_libs.data import XarrayDataFetcher
+
+def deep_convert_to_dict(obj):
+    """Recursively converts QuamDict and other custom types to standard python dicts/lists."""
+    if isinstance(obj, dict):
+        return {k: deep_convert_to_dict(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [deep_convert_to_dict(x) for x in obj]
+    else:
+        return obj
 
 
 # %% {Description}
@@ -47,72 +56,85 @@ node.machine = Quam.load()
 # %% {Create_QUA_program}
 @node.run_action(skip_if=node.parameters.load_data_id is not None)
 def create_qua_program(node: QualibrationNode[Parameters, Quam]):
-    """Create the sweep axes and generate the QUA program from the pulse sequence and the node parameters."""
-    # Class containing tools to help handle units and conversions.
+    """Create the sweep axes and generate the QUA program using waveform baking for gapless pulses."""
     u = unit(coerce_to_integer=True)
-    # Get the active qubits from the node and organize them by batches
     node.namespace["qubits"] = qubits = get_qubits(node)
     num_qubits = len(qubits)
 
-    n_avg = node.parameters.num_shots  # The number of averages
-    # Dephasing time sweep (in clock cycles = 4ns) - minimum is 4 clock cycles
-    spin_locking_times = get_sl_times_in_clock_cycles(node.parameters)
+    n_avg = node.parameters.num_shots
+    raw_cycles = get_sl_times_in_clock_cycles(node.parameters)
+    pulse_counts = np.unique(raw_cycles // 10).astype(int)
+
     node.namespace["sweep_axes"] = {
         "qubit": xr.DataArray(qubits.get_names()),
-        "spin_locking_time": xr.DataArray(8*spin_locking_times, attrs={"long_name": "spin_locking_time", "units": "ns"}),
+        "spin_locking_time": xr.DataArray(40 * pulse_counts, attrs={"long_name": "spin_locking_time", "units": "ns"}),
     }
 
+    # --- 1. BAKING SECTION ---
+    # Generate the base config. The bakery modifies this object in place.
+    config = node.machine.generate_config()
+    baked_sequences = []
+    
+    for count in pulse_counts:
+        # Use 'right' padding to ensure waveform alignment with the 4ns clock.
+        with baking(config, padding_method="right") as b:
+            for qubit in qubits:
+                qe_name = qubit.xy.name 
+                # This Python loop unrolls to create a single continuous waveform in memory.
+                for _ in range(count):
+                    b.play("x180_DetunedSquare", qe_name)                  
+
+        
+        # Store the baking object to call its .run() method later.
+        baked_sequences.append(b)
+    # Update the machine's config attribute so subsequent actions use the baked version.
+    node.machine.config = config
+    node.namespace["serializable_config"] = deep_convert_to_dict(config)
+    # --- 2. QUA PROGRAM ---
     with program() as node.namespace["qua_program"]:
         I, I_st, Q, Q_st, n, n_st = node.machine.declare_qua_variables()
         if node.parameters.use_state_discrimination:
             state = [declare(int) for _ in range(num_qubits)]
             state_st = [declare_stream() for _ in range(num_qubits)]
         shot = declare(int)
-        t_sl = declare(int)
-
-        for multiplexed_qubits in qubits.batch():
-            
-            # Initialize the QPU in terms of flux points (flux tunable transmons and/or tunable couplers)
-            for qubit in multiplexed_qubits.values():
-                node.machine.initialize_qpu(target=qubit)
-            align()
         
-            with for_(shot, 0, shot < n_avg, shot + 1):
-                save(shot, n_st)
-                with for_each_(t_sl, spin_locking_times):
-                    # Qubit initialization
-                    for i, qubit in multiplexed_qubits.items():
-                        # reset_frame(qubit.xy.name)
-                        qubit.reset(node.parameters.reset_type, node.parameters.simulate)
-                    align()
-                    # Qubit manipulation
-                    for i, qubit in multiplexed_qubits.items():
-                            qubit.xy.play("-y90")
-                            qubit.xy.play("x180_BlackmanIntegralPulse_Rise")
-                            qubit.xy.play("x180_DetunedSquare",duration = 2*t_sl)
-                            qubit.xy.play("x180_BlackmanIntegralPulse_Fall")
-                            qubit.xy.play("-y90")
-                    align()
-                    # Qubit readout
-                    for i, qubit in multiplexed_qubits.items():
-                        # Measure the state of the resonators
-                        if node.parameters.use_state_discrimination:
-                            qubit.readout_state(state[i])
-                            save(state[i], state_st[i])
-                        else:
-                            qubit.resonator.measure("readout", qua_vars=(I[i], Q[i]))
-                            # save data
-                            save(I[i], I_st[i])
-                            save(Q[i], Q_st[i])
+        with for_(shot, 0, shot < n_avg, shot + 1):
+            save(shot, n_st)
+            
+            # Standard Python loop to iterate through the list of baked sequences.
+            for i in range(len(pulse_counts)):
+                # Qubit initialization (Standard QUA)
+                for qubit in qubits:
+                    reset_frame(qubit.xy.name)
+                    qubit.reset(node.parameters.reset_type, node.parameters.simulate)
+                align()
+
+                for qubit in qubits:
+                    qubit.xy.play("-y90")
+                    qubit.xy.play("x180_BlackmanIntegralPulse_Rise")
+                baked_sequences[i].run()
+                for qubit in qubits:
+                    qubit.xy.play("x180_BlackmanIntegralPulse_Fall")
+                    qubit.xy.play("-y90")
+                align()
+                # Qubit readout
+                for j, qubit in enumerate(qubits):
+                    if node.parameters.use_state_discrimination:
+                        qubit.readout_state(state[j])
+                        save(state[j], state_st[j])
+                    else:
+                        qubit.resonator.measure("readout", qua_vars=(I[j], Q[j]))
+                        save(I[j], I_st[j])
+                        save(Q[j], Q_st[j])
+
         with stream_processing():
             n_st.save("n")
             for i in range(num_qubits):
                 if node.parameters.use_state_discrimination:
-                    state_st[i].buffer(len(spin_locking_times)).average().save(f"state{i + 1}")
+                    state_st[i].buffer(len(pulse_counts)).average().save(f"state{i + 1}")
                 else:
-                    I_st[i].buffer(len(spin_locking_times)).average().save(f"I{i + 1}")
-                    Q_st[i].buffer(len(spin_locking_times)).average().save(f"Q{i + 1}")
-
+                    I_st[i].buffer(len(pulse_counts)).average().save(f"I{i + 1}")
+                    Q_st[i].buffer(len(pulse_counts)).average().save(f"Q{i + 1}")
 
 # %% {Simulate}
 @node.run_action(skip_if=node.parameters.load_data_id is not None or not node.parameters.simulate)
@@ -121,7 +143,7 @@ def simulate_qua_program(node: QualibrationNode[Parameters, Quam]):
     # Connect to the QOP
     qmm = node.machine.connect()
     # Get the config from the machine
-    config = node.machine.generate_config()
+    config = node.namespace["serializable_config"]
     # Simulate the QUA program, generate the waveform report and plot the simulated samples
     samples, fig, wf_report = simulate_and_plot(qmm, config, node.namespace["qua_program"], node.parameters)
     # Store the figure, waveform report and simulated samples
@@ -135,9 +157,7 @@ def execute_qua_program(node: QualibrationNode[Parameters, Quam]):
     # Connect to the QOP
     qmm = node.machine.connect()
     # Get the config from the machine
-    config = node.machine.generate_config()
-    # Here I can change the config...
-    # Execute the QUA program only if the quantum machine is available (this is to avoid interrupting running jobs).
+    config = node.namespace["serializable_config"]    # Execute the QUA program only if the quantum machine is available (this is to avoid interrupting running jobs).
     with qm_session(qmm, config, timeout=node.parameters.timeout) as qm:
         # The job is stored in the node namespace to be reused in the fetching_data run_action
         node.namespace["job"] = job = qm.execute(node.namespace["qua_program"])

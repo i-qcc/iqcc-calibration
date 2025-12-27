@@ -1,6 +1,6 @@
 from qualibrate import NodeParameters
 from qualibrate.parameters import RunnableParameters
-from qualibration_libs.parameters import QubitsExperimentNodeParameters, CommonNodeParameters, SpinLockingTimeNodeParameters
+from qualibration_libs.parameters import QubitsExperimentNodeParameters, CommonNodeParameters, SpinLockingTimeNodeParameters,IdleTimeNodeParameters
 from typing import List
 from dataclasses import field
 

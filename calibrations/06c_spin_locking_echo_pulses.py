@@ -21,7 +21,7 @@ from calibration_utils.spin_echo_sl import (
     log_fitted_results,
     plot_raw_data_with_fit,
 )
-from qualibration_libs.parameters import get_qubits, get_sl_times_in_clock_cycles, get_idle_times_in_clock_cycles
+from qualibration_libs.parameters import get_qubits, get_sl_times_in_clock_cycles
 from qualibration_libs.runtime import simulate_and_plot
 from qualibration_libs.data import XarrayDataFetcher
 
@@ -56,10 +56,11 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
 
     n_avg = node.parameters.num_shots  # The number of averages
     # Dephasing time sweep (in clock cycles = 4ns) - minimum is 4 clock cycles
-    spin_locking_times = get_sl_times_in_clock_cycles(node.parameters)
+    raw_cycles = get_sl_times_in_clock_cycles(node.parameters)
+    pulse_counts = np.unique(raw_cycles // 10).astype(int) #Register the sweep axes to be added to the dataset when fetching data
     node.namespace["sweep_axes"] = {
         "qubit": xr.DataArray(qubits.get_names()),
-        "spin_locking_time": xr.DataArray(8*spin_locking_times, attrs={"long_name": "spin_locking_time", "units": "ns"}),
+        "spin_locking_time": xr.DataArray(40 * pulse_counts, attrs={"long_name": "spin_locking_time", "units": "ns"}),
     }
 
     with program() as node.namespace["qua_program"]:
@@ -68,8 +69,8 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
             state = [declare(int) for _ in range(num_qubits)]
             state_st = [declare_stream() for _ in range(num_qubits)]
         shot = declare(int)
+        n_pulses = declare(int)
         t_sl = declare(int)
-
         for multiplexed_qubits in qubits.batch():
             
             # Initialize the QPU in terms of flux points (flux tunable transmons and/or tunable couplers)
@@ -79,17 +80,19 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
         
             with for_(shot, 0, shot < n_avg, shot + 1):
                 save(shot, n_st)
-                with for_each_(t_sl, spin_locking_times):
+                with for_each_(t_sl, pulse_counts):
                     # Qubit initialization
                     for i, qubit in multiplexed_qubits.items():
-                        # reset_frame(qubit.xy.name)
+                        reset_frame(qubit.xy.name)
                         qubit.reset(node.parameters.reset_type, node.parameters.simulate)
                     align()
                     # Qubit manipulation
                     for i, qubit in multiplexed_qubits.items():
+                            qubit.wait(80)
                             qubit.xy.play("-y90")
                             qubit.xy.play("x180_BlackmanIntegralPulse_Rise")
-                            qubit.xy.play("x180_DetunedSquare",duration = 2*t_sl)
+                            with for_(n_pulses, 0, n_pulses<t_sl, n_pulses+1):
+                                qubit.xy.play("x180_DetunedSquare")
                             qubit.xy.play("x180_BlackmanIntegralPulse_Fall")
                             qubit.xy.play("-y90")
                     align()
@@ -108,10 +111,10 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
             n_st.save("n")
             for i in range(num_qubits):
                 if node.parameters.use_state_discrimination:
-                    state_st[i].buffer(len(spin_locking_times)).average().save(f"state{i + 1}")
+                    state_st[i].buffer(len(pulse_counts)).average().save(f"state{i + 1}")
                 else:
-                    I_st[i].buffer(len(spin_locking_times)).average().save(f"I{i + 1}")
-                    Q_st[i].buffer(len(spin_locking_times)).average().save(f"Q{i + 1}")
+                    I_st[i].buffer(len(pulse_counts)).average().save(f"I{i + 1}")
+                    Q_st[i].buffer(len(pulse_counts)).average().save(f"Q{i + 1}")
 
 
 # %% {Simulate}

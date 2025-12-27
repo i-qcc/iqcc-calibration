@@ -51,7 +51,7 @@ import numpy as np
 # %% {Node_parameters}
 class Parameters(NodeParameters):
 
-    qubit_pairs: Optional[List[str]] = None
+    qubit_pairs: Optional[List[str]] = ["qB1-qB3"]
     num_shots: int = 2000
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
     reset_type: Literal['active', 'thermal'] = "thermal"
@@ -145,8 +145,10 @@ with program() as CPhase_Oscillations:
                     align() # qp.align()
                     # readout
                     for ii, qp in multiplexed_qubit_pairs.items():
-                        readout_state(qp.qubit_control, state_control[ii])
-                        readout_state(qp.qubit_target, state_target[ii])
+                        # readout_state(qp.qubit_control, state_control[ii])
+                        # readout_state(qp.qubit_target, state_target[ii])
+                        qp.qubit_control.readout_state(state_control[ii])
+                        qp.qubit_target.readout_state(state_target[ii])
                         assign(state[ii], state_control[ii]*2 + state_target[ii])
                         save(state_control[ii], state_st_control[ii])
                         save(state_target[ii], state_st_target[ii])
