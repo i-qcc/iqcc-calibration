@@ -1,17 +1,17 @@
-quam>=0.4.1,<0.5.0
-qualang-tools==0.19.3
+quam==0.5.0a1
+qualang-tools<0.22.0
 xarray
 lmfit
 tqdm
-qualibrate>=0.2.0,<0.3.0
-qualibrate-config==0.1.8
-qm-qua==1.2.2
+qualibrate>=0.2.0,<0.4.0
+qm-qua==1.2.4a1
 ipykernel>=6.29.3,<7.0.0
 more-itertools
 qiskit==2.0.0
-qiskit-experiments==0.11.0 # to be integrated into qualibration-libs
 pylatexenc
-iqcc-qualibrate2cloud==0.1.2
-# qualibrate-lab-notebook @ git+https://github.com/i-qcc/qualibrate-lab-notebook.git@main
-quam-builder @ git+https://github.com/qua-platform/quam-builder.git
+iqcc-cloud-client==0.13.7
+iqcc-qualibrate2cloud
+quam-builder @ git+https://github.com/qua-platform/quam-builder.git@add-spectator-qubit-control-to-CZ
 qualibration-libs @ git+https://github.com/qua-platform/qualibration-libs.git
+betterproto>=2.0.0b7
+# qualibrate-lab-notebook @ git+https://github.com/i-qcc/qualibrate-lab-notebook.git@main

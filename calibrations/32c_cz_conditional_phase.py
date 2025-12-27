@@ -2,6 +2,7 @@
 from dataclasses import asdict
 
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 import numpy as np
 import xarray as xr
 from calibration_utils.cz_conditional_phase import (
@@ -74,7 +75,10 @@ node = QualibrationNode[Parameters, Quam](
 @node.run_action(skip_if=node.modes.external)
 def custom_param(node: QualibrationNode[Parameters, Quam]):
     # You can get type hinting in your IDE by typing node.parameters.
-    # node.parameters.qubit_pairs = ["q1-q2"]
+    # node.parameters.multiplexed = True
+    # node.parameters.reset_type = "active"
+    # node.parameters.amp_range = 0.015
+    # node.parameters.num_averages = 50
     pass
 
 # Instantiate the QUAM class from the state file
@@ -89,7 +93,9 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
     # Class containing tools to help handle units and conversions.
     u = unit(coerce_to_integer=True)
     # Get the active qubit pairs from the node and organize them by batches
-    node.namespace["qubit_pairs"] = qubit_pairs = get_qubit_pairs(node)
+    qubit_pairs_raw = get_qubit_pairs(node)
+    # Get multiplexed pair batches as BatchableList
+    node.namespace["qubit_pairs"] = qubit_pairs = node.get_multiplexed_pair_batches(qubit_pairs_raw.get_names())
     num_qubit_pairs = len(qubit_pairs)
 
     # Extract the sweep parameters and axes from the node parameters
@@ -143,28 +149,34 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                     with for_(*from_array(frame, frames)):
                         # Loop over the initial state of the control qubit
                         with for_(*from_array(control_initial, [0, 1])):
+                            
+                            # reset 
                             for ii, qp in multiplexed_qubit_pairs.items():
-                                # Reset the qubits
                                 qp.qubit_control.reset(node.parameters.reset_type, node.parameters.simulate)
                                 qp.qubit_target.reset(node.parameters.reset_type, node.parameters.simulate)
-                                qp.align()
                                 # Reset the frames of both qubits
                                 reset_frame(qp.qubit_target.xy.name)
                                 reset_frame(qp.qubit_control.xy.name)
-                                # setting both qubits to the initial state
+                            align()
+                                
+                            # setting both qubits to the initial state
+                            for ii, qp in multiplexed_qubit_pairs.items():
                                 qp.qubit_control.xy.play("x180", condition=control_initial == 1)
                                 qp.qubit_target.xy.play("x90")
-                                qp.align()
-                                # play the CZ gate
+                            align()
+                            
+                            # play the CZ gate
+                            for ii, qp in multiplexed_qubit_pairs.items():
                                 qp.macros[operation].apply(amplitude_scale_control=amp)
                                 # rotate the frame
                                 qp.qubit_target.xy.frame_rotation_2pi(frame)
                                 # Tomographic rotation on the target qubit
                                 qp.qubit_target.xy.play("x90")
-                                qp.align()
-
+                            align()
+                            
+                            # measure the qubits
+                            for ii, qp in multiplexed_qubit_pairs.items():
                                 if node.parameters.use_state_discrimination:
-                                    # measure both qubits
                                     qp.qubit_control.readout_state_gef(state_c[ii])
                                     qp.qubit_target.readout_state(state_t[ii])
                                     save(state_c[ii], state_c_st[ii])
@@ -176,6 +188,8 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                                     save(Q_c[ii], Q_c_st[ii])
                                     save(I_t[ii], I_t_st[ii])
                                     save(Q_t[ii], Q_t_st[ii])
+                            
+                            align()
 
             align()
 
@@ -273,12 +287,36 @@ def analyse_data(node: QualibrationNode[Parameters, Quam]):
 def plot_data(node: QualibrationNode[Parameters, Quam]):
     """Plot the raw and fitted data in a specific figure whose shape is given by qubit pair grid locations."""
     qubit_pairs = node.namespace["qubit_pairs"]
+    
+    # Create mapping from pair name to batch index (1-indexed) and sort pairs by batch order
+    pair_to_batch = {}
+    qubit_pairs_sorted_by_batch = []
+    for batch_idx, batch in enumerate(qubit_pairs.batch(), start=1):
+        for pair_idx, qp in batch.items():
+            pair_to_batch[qp.name] = batch_idx
+            qubit_pairs_sorted_by_batch.append(qp)
 
-    # Plot phase calibration data
+    # Plot phase calibration data (using sorted order)
     fig_phase = plot_raw_data_with_fit(
         node.results["ds_fit"],
-        qubit_pairs,
+        qubit_pairs_sorted_by_batch,
     )
+    
+    # Add batch number indicators to the plot
+    axes = fig_phase.get_axes()
+    for i, qp in enumerate(qubit_pairs_sorted_by_batch):
+        if i < len(axes):
+            ax = axes[i]
+            batch_num = pair_to_batch.get(qp.name, 0)
+            ax.text(0.98, -0.08, str(batch_num), transform=ax.transAxes, 
+                   fontsize=8, ha='right', va='top',
+                   bbox=dict(boxstyle='circle', facecolor='plum', edgecolor='magenta', linewidth=1.2))
+    
+    # Add legend explaining the batch number indicator
+    legend_circle = mpatches.Circle((0, 0), 0.5, facecolor='plum', edgecolor='magenta', linewidth=1.2)
+    fig_phase.legend([legend_circle], ['Batch number (pairs run in parallel)'], 
+                   loc='upper right', fontsize=8, framealpha=0.9)
+    
     node.add_node_info_subtitle(fig_phase)
     node.results["phase_figure"] = fig_phase
     plt.show()

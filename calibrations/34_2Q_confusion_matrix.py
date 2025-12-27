@@ -61,6 +61,7 @@ class Parameters(NodeParameters):
     plot_raw : bool = False
     measure_leak : bool = False
     targets_name: str = "qubit_pairs"
+    multiplexed: bool = True
 
 
 node = QualibrationNode(
@@ -73,13 +74,15 @@ assert not (node.parameters.simulate and node.parameters.load_data_id is not Non
 # Class containing tools to help handling units and conversions.
 u = unit(coerce_to_integer=True)
 # Instantiate the QuAM class from the state file
-machine = Quam.load()
+node.machine = machine = Quam.load()
 
 # Get the relevant QuAM components
 if node.parameters.qubit_pairs is None or node.parameters.qubit_pairs == "":
-    qubit_pairs = machine.active_qubit_pairs
+    qubit_pairs_raw = machine.active_qubit_pairs
+    qubit_pairs = node.get_multiplexed_pair_batches(machine.active_qubit_pair_names)
 else:
-    qubit_pairs = [machine.qubit_pairs[qp] for qp in node.parameters.qubit_pairs]
+    qubit_pairs_raw = [machine.qubit_pairs[qp] for qp in node.parameters.qubit_pairs]
+    qubit_pairs = node.get_multiplexed_pair_batches([qp.id for qp in qubit_pairs_raw])
 # if any([qp.q1.z is None or qp.q2.z is None for qp in qubit_pairs]):
 #     warnings.warn("Found qubit pairs without a flux line. Skipping")
 
@@ -115,44 +118,40 @@ with program() as CPhase_Oscillations:
     state_st_target = [declare_stream() for _ in range(num_qubit_pairs)]
     state_st = [declare_stream() for _ in range(num_qubit_pairs)]
     
-    for i, qp in enumerate(qubit_pairs):
-        # Bring the active qubits to the minimum frequency point
-        if flux_point == "independent":
-            machine.apply_all_flux_to_min()
-            # qp.apply_mutual_flux_point()
-        elif flux_point == "joint":
-            machine.apply_all_flux_to_joint_idle()
-        else:
-            machine.apply_all_flux_to_zero()
-        wait(1000)
-
+    for multiplexed_qubit_pairs in qubit_pairs.batch():
+        # Initialize the qubits
+        for qp in multiplexed_qubit_pairs.values():
+            node.machine.initialize_qpu(target=qp.qubit_control)
+            node.machine.initialize_qpu(target=qp.qubit_target)
+        # wait(1000)
+        align()
         with for_(n, 0, n < n_shots, n + 1):
             save(n, n_st)         
             with for_(*from_array(control_initial, [0,1])):
                 with for_(*from_array(target_initial, [0,1])):
                     # reset
-                    if node.parameters.reset_type == "active":
-                            active_reset(qp.qubit_control)
-                            active_reset(qp.qubit_target)
-                            qp.align()
-                    else:
-                        wait(5*qp.qubit_control.thermalization_time * u.ns)
-                    qp.align()
+                    for qp in multiplexed_qubit_pairs.values():
+                        qp.qubit_control.reset(node.parameters.reset_type, node.parameters.simulate)
+                        qp.qubit_target.reset(node.parameters.reset_type, node.parameters.simulate)
+                    align()
                     
-                    # setting both qubits ot the initial state
-                    with if_(control_initial==1):
-                        qp.qubit_control.xy.play("x180")
-                    with if_(target_initial==1):
-                        qp.qubit_target.xy.play("x180")
+                    # setting both qubits to the initial state
+                    for qp in multiplexed_qubit_pairs.values():
+                        with if_(control_initial==1):
+                            qp.qubit_control.xy.play("x180")
+                        with if_(target_initial==1):
+                            qp.qubit_target.xy.play("x180")
                     
-                    qp.align()
+                    align() # qp.align()
                     # readout
-                    readout_state(qp.qubit_control, state_control[i])
-                    readout_state(qp.qubit_target, state_target[i])
-                    assign(state[i], state_control[i]*2 + state_target[i])
-                    save(state_control[i], state_st_control[i])
-                    save(state_target[i], state_st_target[i])
-                    save(state[i], state_st[i])
+                    for ii, qp in multiplexed_qubit_pairs.items():
+                        readout_state(qp.qubit_control, state_control[ii])
+                        readout_state(qp.qubit_target, state_target[ii])
+                        assign(state[ii], state_control[ii]*2 + state_target[ii])
+                        save(state_control[ii], state_st_control[ii])
+                        save(state_target[ii], state_st_target[ii])
+                        save(state[ii], state_st[ii])
+                    align()
         align()
         
     with stream_processing():
@@ -183,6 +182,8 @@ elif node.parameters.load_data_id is None:
             # Progress bar
             progress_counter(n, n_shots, start_time=results.start_time)
 
+
+node.namespace['job'] = job
 # %% {Data_fetching_and_dataset_creation}
 if not node.parameters.simulate:
     if node.parameters.load_data_id is None:
@@ -210,13 +211,23 @@ if not node.parameters.simulate:
 
 # %% {Plot_results}
 if not node.parameters.simulate:
+    import matplotlib.patches as mpatches
+    
+    # Create mapping from pair name to batch index (1-indexed) and sort pairs by batch order
+    pair_to_batch = {}
+    qubit_pairs_sorted_by_batch = []
+    for batch_idx, batch in enumerate(qubit_pairs.batch(), start=1):
+        for pair_idx, qp in batch.items():
+            pair_to_batch[qp.name] = batch_idx
+            qubit_pairs_sorted_by_batch.append(qp)
+    
     # Organize plots in 3-column grid
-    num_pairs = len(qubit_pairs)
+    num_pairs = len(qubit_pairs_sorted_by_batch)
     num_cols = 3
     num_rows = int(np.ceil(num_pairs / num_cols))
     
     fig_confusion = plt.figure(figsize=(5 * num_cols, 4 * num_rows))
-    for idx, qp in enumerate(qubit_pairs):
+    for idx, qp in enumerate(qubit_pairs_sorted_by_batch):
         ax = fig_confusion.add_subplot(num_rows, num_cols, idx + 1)
         print(qp.name)
         conf = confusions[qp.name]
@@ -230,6 +241,18 @@ if not node.parameters.simulate:
         ax.set_ylabel('prepared')
         ax.set_xlabel('measured')
         ax.set_title(f"Confusion matrix {qp.name} \n {node.date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type}")
+        
+        # Add batch number indicator at the bottom right
+        batch_num = pair_to_batch.get(qp.name, 0)
+        ax.text(0.98, -0.08, str(batch_num), transform=ax.transAxes, 
+               fontsize=8, ha='right', va='top',
+               bbox=dict(boxstyle='circle', facecolor='plum', edgecolor='magenta', linewidth=1.2))
+    
+    # Add legend explaining the batch number indicator
+    legend_circle = mpatches.Circle((0, 0), 0.5, facecolor='plum', edgecolor='magenta', linewidth=1.2)
+    fig_confusion.legend([legend_circle], ['Batch number (pairs run in parallel)'], 
+                   loc='upper right', fontsize=8, framealpha=0.9)
+    
     fig_confusion.tight_layout()
     fig_confusion.show()
     node.results["figure_confusion"] = fig_confusion

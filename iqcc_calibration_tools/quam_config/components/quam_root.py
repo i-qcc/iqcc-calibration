@@ -7,7 +7,7 @@ from quam.components.ports import (
 )
 from quam.components.macro.qubit_macros import PulseMacro
 
-from iqcc_calibration_tools.quam_config.components.twpa import TWPA
+from quam_builder.architecture.superconducting.components.twpa import TWPA
 from iqcc_calibration_tools.quam_config.components.gate_macros import (
     VirtualZMacro, DelayMacro, ResetMacro, MeasureMacro, CZFixedMacro
 )

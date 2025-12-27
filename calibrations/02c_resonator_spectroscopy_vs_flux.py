@@ -123,13 +123,15 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
             with for_(n, 0, n < n_avg, n + 1):
                 save(n, n_st)
                 with for_(*from_array(dc, dcs)):
-                    for i, qubit in multiplexed_qubits.items():
-                        rr = qubit.resonator
-                        # Flux sweeping by tuning the OPX dc offset associated with the flux_line element
-                        qubit.z.set_dc_offset(dc)
-                        qubit.z.settle()
-                        qubit.align()
-                        with for_(*from_array(df, dfs)):
+                    with for_(*from_array(df, dfs)):    
+                        for i, qubit in multiplexed_qubits.items():
+                        
+                            rr = qubit.resonator
+                            # Flux sweeping by tuning the OPX dc offset associated with the flux_line element
+                            qubit.z.set_dc_offset(dc)
+                            qubit.z.settle()
+                            qubit.align()
+                    
                             # Update the resonator frequencies for resonator
                             rr.update_frequency(df + rr.intermediate_frequency)
                             # readout the resonator

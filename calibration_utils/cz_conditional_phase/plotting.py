@@ -9,7 +9,7 @@ import xarray as xr
 
 def plot_raw_data_with_fit(
     fit_results: xr.Dataset,
-    qubit_pairs: BatchableList,
+    qubit_pairs,
 ) -> plt.Figure:
     """
     Plot the CZ phase calibration data showing phase difference vs amplitude with fit.
