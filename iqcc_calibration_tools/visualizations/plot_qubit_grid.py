@@ -14,11 +14,46 @@ from pathlib import Path
 
 from iqcc_calibration_tools.quam_config.components.quam_root import Quam
 
+# Constants
+QUBIT_RADIUS_ACTIVE = 0.25
+QUBIT_RADIUS_INACTIVE = 0.15
+ARROWHEAD_LENGTH = 0.15
+ARROWHEAD_WIDTH = 0.12
+ARROW_LINEWIDTH = 3
+ARROW_ALPHA = 0.6
+LABEL_OFFSET = 0.15
+
 
 def parse_grid_location(location_str: str) -> Tuple[int, int]:
     """Parse grid location string like '2,4' into (x, y) tuple."""
     x, y = map(int, location_str.split(','))
     return (x, y)
+
+
+def _interpolate_color(normalized: float, red_start: float = 0.7) -> Tuple[float, float, float]:
+    """
+    Interpolate color from dark red through orange to dark green.
+    
+    Args:
+        normalized: Normalized value in [0, 1]
+        red_start: Starting red value (0.7 for pairs, 0.9 for qubits)
+    
+    Returns:
+        RGB tuple
+    """
+    if normalized < 0.5:
+        # Dark red to orange
+        t = normalized * 2
+        r = red_start + t * (1.0 - red_start)
+        g = t * 0.647  # 165/255 for orange
+        b = 0.0
+    else:
+        # Orange to dark green
+        t = (normalized - 0.5) * 2
+        r = 1.0 - t * 1.0
+        g = 0.647 + t * (0.5 - 0.647)
+        b = 0.0
+    return (r, g, b)
 
 
 def get_qubit_color(rb_fidelity_pct: float) -> str:
@@ -31,29 +66,9 @@ def get_qubit_color(rb_fidelity_pct: float) -> str:
     Returns:
         Color string (hex format)
     """
-    # Dark Red: ≤ 98.5%, Dark Green: ≥ 99.9%, gradient in between
-    min_fidelity = 98.5
-    max_fidelity = 99.9
-    
-    # Clamp value to range
+    min_fidelity, max_fidelity = 98.5, 99.9
     normalized = np.clip((rb_fidelity_pct - min_fidelity) / (max_fidelity - min_fidelity), 0, 1)
-    
-    # Interpolate between dark red (#B30000), orange (#FFA500), and dark green (#008000)
-    # Dark red RGB: (0.7, 0, 0), Dark green RGB: (0, 0.5, 0)
-    if normalized < 0.5:
-        # Dark red to orange
-        t = normalized * 2
-        r = 0.9 + t * (1.0 - 0.9)   # From dark red (0.9) to orange (1.0)
-        g = t * 0.647               # 165/255 for orange
-        b = 0.0
-    else:
-        # Orange to dark green
-        t = (normalized - 0.5) * 2
-        r = 1.0 - t * 1.0           # From orange (1.0) to dark green (0.0)
-        g = 0.647 + t * (0.5 - 0.647)  # From orange (0.647) to dark green (0.5)
-        b = 0.0
-    
-    return mcolors.rgb2hex([r, g, b])
+    return mcolors.rgb2hex(_interpolate_color(normalized, red_start=0.9))
 
 
 def get_pair_color(bell_fidelity_pct: float) -> str:
@@ -66,29 +81,9 @@ def get_pair_color(bell_fidelity_pct: float) -> str:
     Returns:
         Color string (hex format)
     """
-    # Dark Red: ≤ 95%, Dark Green: ≥ 99%, gradient in between
-    min_fidelity = 92.5
-    max_fidelity = 99.0
-    
-    # Clamp value to range
+    min_fidelity, max_fidelity = 92.5, 99.0
     normalized = np.clip((bell_fidelity_pct - min_fidelity) / (max_fidelity - min_fidelity), 0, 1)
-    
-    # Interpolate between dark red (#B30000), orange (#FFA500), and dark green (#008000)
-    # Dark red RGB: (0.7, 0, 0), Dark green RGB: (0, 0.5, 0)
-    if normalized < 0.5:
-        # Dark red to orange
-        t = normalized * 2
-        r = 0.7 + t * (1.0 - 0.7)   # From dark red (0.7) to orange (1.0)
-        g = t * 0.647               # 165/255 for orange
-        b = 0.0
-    else:
-        # Orange to dark green
-        t = (normalized - 0.5) * 2
-        r = 1.0 - t * 1.0           # From orange (1.0) to dark green (0.0)
-        g = 0.647 + t * (0.5 - 0.647)  # From orange (0.647) to dark green (0.5)
-        b = 0.0
-    
-    return mcolors.rgb2hex([r, g, b])
+    return mcolors.rgb2hex(_interpolate_color(normalized, red_start=0.7))
 
 
 def extract_qubit_grid_locations(machine: Quam) -> Dict[str, Tuple[int, int]]:
@@ -107,17 +102,27 @@ def get_active_qubits(machine: Quam) -> Set[str]:
     return set(machine.active_qubit_names)
 
 
+def _get_qubit_name(qubit_obj) -> str:
+    """Extract qubit name from qubit object."""
+    return qubit_obj.name if hasattr(qubit_obj, 'name') else str(qubit_obj)
+
+
 def get_active_qubit_pairs(machine: Quam) -> List[Tuple[str, str]]:
-    """Get list of active qubit pairs as tuples of (q1, q2)."""
-    active_pair_names = machine.active_qubit_pair_names
+    """
+    Get list of active qubit pairs as tuples of (control, target).
+    Preserves the control->target direction from the pair objects.
+    """
     pairs = []
-    
-    for pair_name in active_pair_names:
-        # Pair names are like "qB1-qB2"
-        parts = pair_name.split('-')
-        if len(parts) == 2:
-            pairs.append((parts[0], parts[1]))
-    
+    for pair_name in machine.active_qubit_pair_names:
+        pair_obj = machine.qubit_pairs.get(pair_name)
+        if pair_obj and hasattr(pair_obj, 'qubit_control') and hasattr(pair_obj, 'qubit_target'):
+            pairs.append((_get_qubit_name(pair_obj.qubit_control), 
+                         _get_qubit_name(pair_obj.qubit_target)))
+        else:
+            # Fallback: parse pair name (e.g., "qB1-qB2")
+            parts = pair_name.split('-')
+            if len(parts) == 2:
+                pairs.append((parts[0], parts[1]))
     return pairs
 
 
@@ -270,43 +275,64 @@ def plot_qubit_grid(
     for y in range(y_min, y_max + 1):
         ax.axhline(y + 0.5, color='lightgray', linestyle='--', linewidth=0.5, alpha=0.5)
     
-    # Draw active qubit pairs (connections) first, so they appear behind qubits
-    for q1, q2 in active_pairs:
-        if q1 in qubit_grids and q2 in qubit_grids:
-            x1, y1 = qubit_grids[q1]
-            x2, y2 = qubit_grids[q2]
+    # Draw active qubit pairs (arrows) first, so they appear behind qubits
+    for control, target in active_pairs:
+        if control in qubit_grids and target in qubit_grids:
+            x1, y1 = qubit_grids[control]
+            x2, y2 = qubit_grids[target]
             
-            # Determine line color based on Bell state fidelity
-            pair_tuple = (q1, q2)
-            fidelity = fidelities.get(pair_tuple) if fidelities else None
-            if fidelity is None:
-                fidelity = fidelities.get((q2, q1)) if fidelities else None
+            # Determine arrow color based on Bell state fidelity
+            fidelity = None
+            if fidelities:
+                fidelity = fidelities.get((control, target)) or fidelities.get((target, control))
             
-            if fidelity is not None:
-                fidelity_pct = fidelity * 100
-                line_color = get_pair_color(fidelity_pct)
-            else:
-                # Default blue if no fidelity data
-                line_color = 'blue'
+            arrow_color = get_pair_color(fidelity * 100) if fidelity else 'blue'
             
-            ax.plot([x1, x2], [y1, y2], color=line_color, linewidth=6, alpha=0.6, zorder=1)
+            # Calculate arrow direction and adjust start/end points
+            dx, dy = x2 - x1, y2 - y1
+            length = np.hypot(dx, dy)
+            
+            if length > 0:
+                # Normalize direction vector
+                dx_norm, dy_norm = dx / length, dy / length
+                
+                # Adjust start/end points to qubit circle edges
+                x_start = x1 + dx_norm * QUBIT_RADIUS_ACTIVE
+                y_start = y1 + dy_norm * QUBIT_RADIUS_ACTIVE
+                x_end = x2 - dx_norm * QUBIT_RADIUS_ACTIVE
+                y_end = y2 - dy_norm * QUBIT_RADIUS_ACTIVE
+                
+                # Draw arrow line
+                ax.plot([x_start, x_end], [y_start, y_end], 
+                       color=arrow_color, linewidth=ARROW_LINEWIDTH, 
+                       alpha=ARROW_ALPHA, zorder=1)
+                
+                # Draw unfilled arrowhead
+                perp_x = -dy_norm * ARROWHEAD_WIDTH / 2
+                perp_y = dx_norm * ARROWHEAD_WIDTH / 2
+                base_x1 = x_end - dx_norm * ARROWHEAD_LENGTH + perp_x
+                base_y1 = y_end - dy_norm * ARROWHEAD_LENGTH + perp_y
+                base_x2 = x_end - dx_norm * ARROWHEAD_LENGTH - perp_x
+                base_y2 = y_end - dy_norm * ARROWHEAD_LENGTH - perp_y
+                
+                arrow_props = dict(color=arrow_color, linewidth=ARROW_LINEWIDTH, 
+                                  alpha=ARROW_ALPHA, zorder=2)
+                ax.plot([x_end, base_x1], [y_end, base_y1], **arrow_props)
+                ax.plot([x_end, base_x2], [y_end, base_y2], **arrow_props)
             
             # Add fidelity label if available
             if fidelity is not None:
-                # Position label at midpoint of the line
-                mid_x = (x1 + x2) / 2
-                mid_y = (y1 + y2) / 2
+                fidelity_pct = fidelity * 100
+                # Position label at midpoint of the arrow
+                mid_x = (x_start + x_end) / 2
+                mid_y = (y_start + y_end) / 2
                 
-                # Offset perpendicular to the line to avoid overlap
-                dx = x2 - x1
-                dy = y2 - y1
-                length = (dx**2 + dy**2)**0.5
+                # Offset perpendicular to the arrow to avoid overlap
                 if length > 0:
-                    # Perpendicular offset (rotate 90 degrees) - reduced from 0.3 to 0.15 to bring labels closer
-                    offset_x = -dy / length * 0.15
-                    offset_y = dx / length * 0.15
+                    offset_x = -dy_norm * LABEL_OFFSET
+                    offset_y = dx_norm * LABEL_OFFSET
                 else:
-                    offset_x, offset_y = 0.15, 0.15
+                    offset_x = offset_y = LABEL_OFFSET
                 
                 label_x = mid_x + offset_x
                 label_y = mid_y + offset_y
@@ -315,7 +341,7 @@ def plot_qubit_grid(
                 ax.text(label_x, label_y, f'{fidelity_pct:.2f}%', 
                        fontsize=7, ha='center', va='center',
                        bbox=dict(boxstyle='round,pad=0.3', facecolor='white', 
-                               edgecolor=line_color, alpha=0.8, linewidth=1),
+                               edgecolor=arrow_color, alpha=0.8, linewidth=1),
                        zorder=6, weight='bold')
     
     # Plot all qubits
@@ -337,18 +363,15 @@ def plot_qubit_grid(
             qubit_color = 'lightgray'
             border_color = 'gray'
         
+        radius = QUBIT_RADIUS_ACTIVE if is_active else QUBIT_RADIUS_INACTIVE
+        circle = plt.Circle((x, y), radius, color=qubit_color, zorder=3 if is_active else 2)
+        ax.add_patch(circle)
+        
         if is_active:
-            # Active qubits: larger, colored circle
-            circle = plt.Circle((x, y), 0.25, color=qubit_color, zorder=3)
-            ax.add_patch(circle)
-            # Add border for better visibility
-            border = plt.Circle((x, y), 0.25, fill=False, edgecolor=border_color, 
+            # Add border for active qubits
+            border = plt.Circle((x, y), radius, fill=False, edgecolor=border_color, 
                               linewidth=2, zorder=4)
             ax.add_patch(border)
-        else:
-            # Inactive qubits: smaller, gray circle
-            circle = plt.Circle((x, y), 0.15, color=qubit_color, zorder=2)
-            ax.add_patch(circle)
         
         # Build qubit label text - include RB fidelity if available
         label_text = qubit_name
@@ -380,7 +403,7 @@ def plot_qubit_grid(
     # Set labels and title
     ax.set_xlabel('Grid X Coordinate', fontsize=12)
     ax.set_ylabel('Grid Y Coordinate', fontsize=12)
-    ax.set_title('Qubit Grid Layout\n(Active qubits in green, Active pairs connected)', 
+    ax.set_title('Qubit Grid Layout\n(Active qubits in green, Active pairs shown as arrows: control→target)', 
                 fontsize=14, fontweight='bold')
     
     # Add grid
@@ -395,7 +418,10 @@ def plot_qubit_grid(
     # Add legend in upper left
     active_patch = mpatches.Patch(color='green', label='Active Qubit')
     inactive_patch = mpatches.Patch(color='lightgray', label='Inactive Qubit')
-    pair_line = plt.Line2D([0], [0], color='blue', linewidth=2.5, label='Active Pair')
+    # Create an arrow line for the legend using Line2D with right arrow marker
+    pair_arrow = plt.Line2D([0], [0], color='blue', linewidth=2.5, 
+                            marker='>', markersize=10, markeredgecolor='blue',
+                            label='Active Pair (control→target)')
     fidelity_label = plt.Line2D([0], [0], color='blue', linewidth=0, marker='s', 
                                 markersize=8, markerfacecolor='white', 
                                 markeredgecolor='blue', markeredgewidth=1,
@@ -404,7 +430,7 @@ def plot_qubit_grid(
                           markersize=10, markerfacecolor='green', 
                           markeredgecolor='darkgreen', markeredgewidth=1,
                           label='1Q RB Fidelity (%)')
-    ax.legend(handles=[active_patch, inactive_patch, pair_line, fidelity_label, rb_label], 
+    ax.legend(handles=[active_patch, inactive_patch, pair_arrow, fidelity_label, rb_label], 
              loc='upper left', fontsize=9, framealpha=0.9)
     
     # Add statistics text box in lower left to avoid overlap with legend
