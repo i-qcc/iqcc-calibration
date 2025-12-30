@@ -27,7 +27,7 @@ nodes = {
 
 node_params = {
     "IQ_blobs" : {"multiplexed": multiplexed,
-            "reset_type": "thermal"},
+            "reset_type": reset_type},
     "ramsey_flux_calibration" : {"multiplexed": multiplexed,
             "num_shots": 300,
             "flux_span": 0.02,
