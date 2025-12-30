@@ -1,15 +1,12 @@
 import os
 from pathlib import Path
 from quam.core import quam_dataclass
-from quam.components.ports import (
-    FEMPortsContainer,
-    OPXPlusPortsContainer,
-)
+
 from quam.components.macro.qubit_macros import PulseMacro
 
 from quam_builder.architecture.superconducting.components.twpa import TWPA
 from iqcc_calibration_tools.quam_config.components.gate_macros import (
-    VirtualZMacro, DelayMacro, ResetMacro, MeasureMacro, CZFixedMacro
+    VirtualZMacro, DelayMacro, ResetMacro, MeasureMacro
 )
 
 from qm import QuantumMachinesManager, QuantumMachine
@@ -17,11 +14,10 @@ from qualang_tools.results.data_handler import DataHandler
 
 from dataclasses import field
 from typing import Dict, ClassVar, Sequence, Union
-from iqcc_cloud_client import CloudQuantumMachinesManager # from ..cloud_infrastructure import CloudQuantumMachinesManager
 
 from quam_builder.architecture.superconducting.qpu import FluxTunableQuam
 
-__all__ = ["Quam", "FEMQuAM", "OPXPlusQuAM"]
+__all__ = ["Quam"] # , "FEMQuAM", "OPXPlusQuAM"]
 
 
 @quam_dataclass
@@ -72,52 +68,6 @@ class Quam(FluxTunableQuam):
             DataHandler.node_data = {"quam": "./state.json"}
         return self._data_handler
 
-    def connect(self) -> QuantumMachinesManager:
-        """Open a Quantum Machine Manager with the credentials ("host" and "cluster_name") as defined in the network file.
-
-        Returns: the opened Quantum Machine Manager.
-        """
-        if self.network.get("cloud", False):
-            self.qmm = CloudQuantumMachinesManager(self.network["quantum_computer_backend"])
-            
-        else:
-            settings = dict(
-                host=self.network["host"],
-                cluster_name=self.network["cluster_name"]
-            )
-
-            if "port" in self.network:
-                settings["port"] = self.network["port"]
-
-            self.qmm = QuantumMachinesManager(**settings)
-
-        return self.qmm
-
-    def get_octave_config(self) -> dict:
-        """Return the Octave configuration."""
-        octave_config = None
-        for octave in self.octaves.values():
-            if octave_config is None:
-                octave_config = octave.get_octave_config()
-            else:
-                octave_config.add_device_info(octave.name, octave.ip, octave.port)
-
-        return octave_config
-
-    def calibrate_octave_ports(self, QM: QuantumMachine) -> None:
-        """Calibrate the Octave ports for all the active qubits.
-
-        Args:
-            QM (QuantumMachine): the running quantum machine.
-        """
-        from qm.octave.octave_mixer_calibration import NoCalibrationElements
-
-        for name in self.active_qubit_names:
-            try:
-                self.qubits[name].calibrate_octave(QM)
-            except NoCalibrationElements:
-                print(f"No calibration elements found for {name}. Skipping calibration.")
-
     @classmethod
     def add_macros_to_qubits(cls, quam_obj: "Quam") -> None:
         """Add standard macros to all qubits and qubit pairs."""
@@ -142,13 +92,3 @@ class Quam(FluxTunableQuam):
             if hasattr(qubit_data, 'macros'):
                 qubit_data.macros = {}
         
-
-
-@quam_dataclass
-class FEMQuAM(Quam):
-    ports: FEMPortsContainer = field(default_factory=FEMPortsContainer)
-
-
-@quam_dataclass
-class OPXPlusQuAM(Quam):
-    ports: OPXPlusPortsContainer = field(default_factory=OPXPlusPortsContainer)
