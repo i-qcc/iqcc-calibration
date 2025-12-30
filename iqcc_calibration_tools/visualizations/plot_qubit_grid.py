@@ -107,6 +107,38 @@ def _get_qubit_name(qubit_obj) -> str:
     return qubit_obj.name if hasattr(qubit_obj, 'name') else str(qubit_obj)
 
 
+def _safe_get_nested(obj, *keys, default=None):
+    """
+    Safely extract nested dictionary/attribute values.
+    
+    Args:
+        obj: Object to extract from (dict or object with attributes)
+        *keys: Keys/attributes to traverse
+        default: Default value if extraction fails
+    
+    Returns:
+        Extracted value or default
+    """
+    current = obj
+    for key in keys:
+        if current is None:
+            return default
+        try:
+            if isinstance(current, dict):
+                current = current.get(key)
+            elif hasattr(current, 'get'):
+                current = current.get(key)
+            elif hasattr(current, '__getitem__'):
+                current = current[key]
+            elif hasattr(current, key):
+                current = getattr(current, key)
+            else:
+                return default
+        except (KeyError, TypeError, AttributeError):
+            return default
+    return current if current is not None else default
+
+
 def get_active_qubit_pairs(machine: Quam) -> List[Tuple[str, str]]:
     """
     Get list of active qubit pairs as tuples of (control, target).
@@ -139,60 +171,52 @@ def extract_bell_state_fidelities(machine: Quam) -> Dict[Tuple[str, str], float]
         if len(parts) != 2:
             continue
         
-        q1, q2 = parts[0], parts[1]
-        pair_tuple = (q1, q2)
+        pair_tuple = (parts[0], parts[1])
         
-        # Search through macros to find fidelity
-        if hasattr(qubit_pair, 'macros') and qubit_pair.macros:
-            for macro_name, macro in qubit_pair.macros.items():
-                # Skip if macro is a string reference (like "#./cz_unipolar")
-                if isinstance(macro, str):
-                    continue
-                
-                # Check if this macro has fidelity data
-                # Structure: macro.fidelity["Bell_State"]["Fidelity"]
-                # Example from JSON: qubit_pair.macros["cz_unipolar"].fidelity["Bell_State"]["Fidelity"]
-                try:
-                    # Check if macro has fidelity attribute
-                    if not hasattr(macro, 'fidelity'):
-                        continue
-                    
-                    fidelity_attr = macro.fidelity
-                    if fidelity_attr is None:
-                        continue
-                    
-                    # Try to access Bell_State fidelity
-                    bell_state = None
-                    
-                    # Try direct dict access first
-                    try:
-                        bell_state = fidelity_attr['Bell_State']
-                    except (KeyError, TypeError):
-                        # Fallback to .get() if available
-                        if hasattr(fidelity_attr, 'get'):
-                            bell_state = fidelity_attr.get('Bell_State')
-                    
-                    if bell_state is not None:
-                        # Extract Fidelity value from Bell_State
-                        try:
-                            if isinstance(bell_state, dict):
-                                fidelity = bell_state.get('Fidelity')
-                            elif hasattr(bell_state, 'get'):
-                                fidelity = bell_state.get('Fidelity')
-                            elif hasattr(bell_state, '__getitem__'):
-                                fidelity = bell_state['Fidelity']
-                            else:
-                                fidelity = getattr(bell_state, 'Fidelity', None)
-                            
-                            if fidelity is not None:
-                                fidelities[pair_tuple] = fidelity
-                                break  # Use the first fidelity found
-                        except (KeyError, TypeError, AttributeError):
-                            pass
-                            
-                except (KeyError, TypeError, AttributeError):
-                    # Skip if access fails
-                    continue
+        # Search through macros to find Bell state fidelity
+        if not (hasattr(qubit_pair, 'macros') and qubit_pair.macros):
+            continue
+            
+        for macro in qubit_pair.macros.values():
+            # Skip if macro is a string reference
+            if isinstance(macro, str) or not hasattr(macro, 'fidelity'):
+                continue
+            
+            fidelity = _safe_get_nested(macro, 'fidelity', 'Bell_State', 'Fidelity')
+            if fidelity is not None:
+                fidelities[pair_tuple] = fidelity
+                break  # Use the first fidelity found
+    
+    return fidelities
+
+
+def extract_standard_rb_fidelities(machine: Quam) -> Dict[Tuple[str, str], float]:
+    """
+    Extract Standard RB fidelities for qubit pairs.
+    Returns a dictionary mapping (q1, q2) tuples to average_gate_fidelity values.
+    Path: macros -> cz -> StandardRB -> average_gate_fidelity
+    """
+    fidelities = {}
+    
+    for pair_name, qubit_pair in machine.qubit_pairs.items():
+        # Parse pair name like "qB1-qB2"
+        parts = pair_name.split('-')
+        if len(parts) != 2:
+            continue
+        
+        pair_tuple = (parts[0], parts[1])
+        
+        # Access macros -> cz -> StandardRB -> average_gate_fidelity
+        if not (hasattr(qubit_pair, 'macros') and qubit_pair.macros):
+            continue
+        
+        cz_macro = qubit_pair.macros.get('cz')
+        if cz_macro is None or isinstance(cz_macro, str):
+            continue
+        
+        fidelity = _safe_get_nested(cz_macro, 'fidelity', 'StandardRB', 'average_gate_fidelity')
+        if fidelity is not None:
+            fidelities[pair_tuple] = fidelity
     
     return fidelities
 
@@ -210,28 +234,9 @@ def extract_single_qubit_rb(machine: Quam, qubit_names: Set[str]) -> Dict[str, f
             continue
         
         qubit = machine.qubits[qubit_name]
-        try:
-            # Access gate_fidelity directly like in calibration files (e.g., q.gate_fidelity["averaged"])
-            # Check if gate_fidelity exists and has 'averaged' key (like: "averaged" not in q.gate_fidelity)
-            if hasattr(qubit, 'gate_fidelity') and qubit.gate_fidelity is not None:
-                gate_fidelity = qubit.gate_fidelity
-                # Try direct access first (most common pattern in calibration files)
-                try:
-                    if 'averaged' in gate_fidelity:
-                        rb_value = gate_fidelity['averaged']
-                        if rb_value is not None:
-                            rb_values[qubit_name] = rb_value
-                except (KeyError, TypeError):
-                    # If direct access fails, try .get() method
-                    try:
-                        rb_value = gate_fidelity.get('averaged') if hasattr(gate_fidelity, 'get') else None
-                        if rb_value is not None:
-                            rb_values[qubit_name] = rb_value
-                    except (AttributeError, TypeError):
-                        pass
-        except (AttributeError, KeyError, TypeError):
-            # Skip if gate_fidelity doesn't exist or doesn't have 'averaged'
-            pass
+        rb_value = _safe_get_nested(qubit, 'gate_fidelity', 'averaged')
+        if rb_value is not None:
+            rb_values[qubit_name] = rb_value
     
     return rb_values
 
@@ -242,6 +247,7 @@ def plot_qubit_grid(
     active_pairs: List[Tuple[str, str]],
     fidelities: Optional[Dict[Tuple[str, str], float]] = None,
     rb_values: Optional[Dict[str, float]] = None,
+    standard_rb_fidelities: Optional[Dict[Tuple[str, str], float]] = None,
     output_file: Optional[str] = None
 ):
     """
@@ -253,6 +259,7 @@ def plot_qubit_grid(
         active_pairs: List of tuples (q1, q2) representing active qubit pairs
         fidelities: Dictionary mapping (q1, q2) tuples to Bell state fidelity values
         rb_values: Dictionary mapping qubit names to 1Q RB fidelity values
+        standard_rb_fidelities: Dictionary mapping (q1, q2) tuples to Standard RB fidelity values
         output_file: Optional path to save the plot
     """
     # Create figure and axis
@@ -281,12 +288,15 @@ def plot_qubit_grid(
             x1, y1 = qubit_grids[control]
             x2, y2 = qubit_grids[target]
             
-            # Determine arrow color based on Bell state fidelity
-            fidelity = None
-            if fidelities:
-                fidelity = fidelities.get((control, target)) or fidelities.get((target, control))
+            # Get fidelities for this pair (check both directions)
+            pair_key = (control, target)
+            reverse_key = (target, control)
             
-            arrow_color = get_pair_color(fidelity * 100) if fidelity else 'blue'
+            bell_fidelity = (fidelities.get(pair_key) or fidelities.get(reverse_key)) if fidelities else None
+            standard_rb_fidelity = (standard_rb_fidelities.get(pair_key) or standard_rb_fidelities.get(reverse_key)) if standard_rb_fidelities else None
+            
+            # Use Bell state fidelity for arrow color, default to blue
+            arrow_color = get_pair_color(bell_fidelity * 100) if bell_fidelity else 'blue'
             
             # Calculate arrow direction and adjust start/end points
             dx, dy = x2 - x1, y2 - y1
@@ -320,29 +330,41 @@ def plot_qubit_grid(
                 ax.plot([x_end, base_x1], [y_end, base_y1], **arrow_props)
                 ax.plot([x_end, base_x2], [y_end, base_y2], **arrow_props)
             
-            # Add fidelity label if available
-            if fidelity is not None:
-                fidelity_pct = fidelity * 100
+            # Add fidelity labels if available
+            if bell_fidelity is not None or standard_rb_fidelity is not None:
                 # Position label at midpoint of the arrow
-                mid_x = (x_start + x_end) / 2
-                mid_y = (y_start + y_end) / 2
+                mid_x, mid_y = (x_start + x_end) / 2, (y_start + y_end) / 2
                 
-                # Offset perpendicular to the arrow to avoid overlap
-                if length > 0:
-                    offset_x = -dy_norm * LABEL_OFFSET
-                    offset_y = dx_norm * LABEL_OFFSET
+                # Calculate label offset
+                is_vertical = length > 0 and abs(dx_norm) < 0.1
+                if is_vertical:
+                    offset_x, offset_y = LABEL_OFFSET * 1.5, 0
+                elif length > 0:
+                    offset_x, offset_y = -dy_norm * LABEL_OFFSET, dx_norm * LABEL_OFFSET
                 else:
                     offset_x = offset_y = LABEL_OFFSET
                 
-                label_x = mid_x + offset_x
-                label_y = mid_y + offset_y
+                label_x, label_y = mid_x + offset_x, mid_y + offset_y
                 
-                # Format fidelity as percentage with 2 decimal places
-                ax.text(label_x, label_y, f'{fidelity_pct:.2f}%', 
-                       fontsize=7, ha='center', va='center',
-                       bbox=dict(boxstyle='round,pad=0.3', facecolor='white', 
-                               edgecolor=arrow_color, alpha=0.8, linewidth=1),
-                       zorder=6, weight='bold')
+                # Build labels with colors
+                labels = []
+                if bell_fidelity is not None:
+                    bell_pct = bell_fidelity * 100
+                    labels.append((f'◆ {bell_pct:.2f}%', get_pair_color(bell_pct)))
+                
+                if standard_rb_fidelity is not None:
+                    rb_pct = standard_rb_fidelity * 100
+                    labels.append((f'■ {rb_pct:.2f}%', get_pair_color(rb_pct)))
+                
+                # Render labels
+                text_kwargs = dict(fontsize=9, ha='center', va='center', zorder=6, weight='bold')
+                if len(labels) == 2:
+                    # Two lines: Bell state on top, Standard RB below
+                    ax.text(label_x, label_y + 0.04, labels[0][0], color=labels[0][1], **text_kwargs)
+                    ax.text(label_x, label_y - 0.04, labels[1][0], color=labels[1][1], **text_kwargs)
+                elif labels:
+                    # Single line
+                    ax.text(label_x, label_y, labels[0][0], color=labels[0][1], **text_kwargs)
     
     # Plot all qubits
     for qubit_name, (x, y) in qubit_grids.items():
@@ -422,15 +444,20 @@ def plot_qubit_grid(
     pair_arrow = plt.Line2D([0], [0], color='blue', linewidth=2.5, 
                             marker='>', markersize=10, markeredgecolor='blue',
                             label='Active Pair (control→target)')
-    fidelity_label = plt.Line2D([0], [0], color='blue', linewidth=0, marker='s', 
-                                markersize=8, markerfacecolor='white', 
-                                markeredgecolor='blue', markeredgewidth=1,
-                                label='Bell State Fidelity (%)')
+    bell_state_label = plt.Line2D([0], [0], color='blue', linewidth=0, marker='D', 
+                                  markersize=8, markerfacecolor='blue', 
+                                  markeredgecolor='blue', markeredgewidth=1,
+                                  label='Bell State Fidelity (%)')
+    standard_rb_label = plt.Line2D([0], [0], color='blue', linewidth=0, marker='s', 
+                                   markersize=8, markerfacecolor='blue', 
+                                   markeredgecolor='blue', markeredgewidth=1,
+                                   label='Standard RB Fidelity (%)')
     rb_label = plt.Line2D([0], [0], color='green', linewidth=0, marker='o', 
                           markersize=10, markerfacecolor='green', 
                           markeredgecolor='darkgreen', markeredgewidth=1,
                           label='1Q RB Fidelity (%)')
-    ax.legend(handles=[active_patch, inactive_patch, pair_arrow, fidelity_label, rb_label], 
+    ax.legend(handles=[active_patch, inactive_patch, pair_arrow, bell_state_label, 
+                      standard_rb_label, rb_label], 
              loc='upper left', fontsize=9, framealpha=0.9)
     
     # Add statistics text box in lower left to avoid overlap with legend
@@ -477,7 +504,11 @@ def main():
     
     print("Extracting Bell state fidelities...")
     fidelities = extract_bell_state_fidelities(machine)
-    print(f"Found {len(fidelities)} pairs with fidelity data")
+    print(f"Found {len(fidelities)} pairs with Bell state fidelity data")
+    
+    print("Extracting Standard RB fidelities...")
+    standard_rb_fidelities = extract_standard_rb_fidelities(machine)
+    print(f"Found {len(standard_rb_fidelities)} pairs with Standard RB fidelity data")
     
     print("Extracting single qubit RB values (averaged) for active qubits...")
     # Extract RB values only for active qubits
@@ -488,7 +519,7 @@ def main():
     print("\nGenerating plot...")
     output_file = Path(__file__).parent / 'qubit_grid_plot.png'
     plot_qubit_grid(qubit_grids, active_qubits, active_pairs, fidelities, rb_values,
-                   output_file=str(output_file))
+                   standard_rb_fidelities, output_file=str(output_file))
     
     print("\nDone!")
 
