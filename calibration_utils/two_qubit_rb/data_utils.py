@@ -65,7 +65,8 @@ class RBResult:
         Plots the RB fidelity as a function of circuit depth, including a fit to an exponential decay model.
         The fitted curve is overlaid with the raw data points, and error bars are included.
         
-        Note: This method assumes that fit() has been called first to calculate all metrics.
+        Note: If fit() has been called successfully, the fitted curve and fidelity metrics will be displayed.
+        If fit() failed or hasn't been called, only the raw data will be plotted.
         
         Returns:
             matplotlib.figure.Figure: The figure object containing the plot.
@@ -85,42 +86,68 @@ class RBResult:
             label="Experimental Data",
         )
 
-        circuit_depths_smooth_axis = np.linspace(self.circuit_depths[0], self.circuit_depths[-1], 100)
-        plt.plot(
-            circuit_depths_smooth_axis,
-            rb_decay_curve(np.array(circuit_depths_smooth_axis), self.A, self.alpha, self.B),
-            color="red",
-            linestyle="--",
-            label="Exponential Fit",
-        )
+        # Only plot fit curve if fit parameters exist
+        try:
+            # Check if fit parameters exist by trying to access them
+            A = self.A
+            alpha = self.alpha
+            B = self.B
+            circuit_depths_smooth_axis = np.linspace(self.circuit_depths[0], self.circuit_depths[-1], 100)
+            plt.plot(
+                circuit_depths_smooth_axis,
+                rb_decay_curve(np.array(circuit_depths_smooth_axis), A, alpha, B),
+                color="red",
+                linestyle="--",
+                label="Exponential Fit",
+            )
+        except AttributeError:
+            # Fit parameters don't exist, skip plotting fit curve
+            pass
 
-     
-        if isinstance(self, InterleavedRBResult):
-            title = f"target gate fidelity = {self.fidelity * 100:.2f}%"
-        else:
-            title = f"2Q average Clifford fidelity = {self.fidelity * 100:.2f}%"
-            
-        plt.text(
-            0.5,
-            0.95,
-            title,
-            horizontalalignment="center",
-            verticalalignment="top",
-            fontdict={"fontsize": "large", "fontweight": "bold"},
-            transform=plt.gca().transAxes,
-        )
-        
-        # Add average gate fidelity if it was calculated
-        if hasattr(self, 'average_gate_fidelity'):
+        # Only show fidelity title if fit was successful
+        try:
+            fidelity = self.fidelity
+            if isinstance(self, InterleavedRBResult):
+                title = f"target gate fidelity = {fidelity * 100:.2f}%"
+            else:
+                title = f"2Q average Clifford fidelity = {fidelity * 100:.2f}%"
+                
             plt.text(
                 0.5,
-                0.88,
-                f"Average Gate Fidelity = {self.average_gate_fidelity * 100:.2f}%",
+                0.95,
+                title,
                 horizontalalignment="center",
                 verticalalignment="top",
                 fontdict={"fontsize": "large", "fontweight": "bold"},
                 transform=plt.gca().transAxes,
             )
+        except AttributeError:
+            # Show warning if fit failed
+            plt.text(
+                0.5,
+                0.95,
+                "Fit failed - insufficient data points",
+                horizontalalignment="center",
+                verticalalignment="top",
+                fontdict={"fontsize": "large", "fontweight": "bold", "color": "red"},
+                transform=plt.gca().transAxes,
+            )
+        
+        # Add average gate fidelity if it was calculated
+        try:
+            avg_gate_fidelity = self.average_gate_fidelity
+            plt.text(
+                0.5,
+                0.88,
+                f"Average Gate Fidelity = {avg_gate_fidelity * 100:.2f}%",
+                horizontalalignment="center",
+                verticalalignment="top",
+                fontdict={"fontsize": "large", "fontweight": "bold"},
+                transform=plt.gca().transAxes,
+            )
+        except AttributeError:
+            # Average gate fidelity not available, skip
+            pass
 
         plt.xlabel("Circuit Depth")
         plt.ylabel(r"Probability to recover to $|00\rangle$")

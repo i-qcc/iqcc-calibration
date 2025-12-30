@@ -35,53 +35,58 @@ Prerequisites:
 from datetime import datetime, timezone, timedelta
 from typing import List, Literal, Optional
 from matplotlib import pyplot as plt
+import matplotlib.patches as mpatches
 from more_itertools import flatten
 import numpy as np
-from calibration_utils.two_qubit_interleaved_rb.data_utils import RBResult
+from calibration_utils.two_qubit_rb.data_utils import RBResult, rb_decay_curve
 import xarray as xr
+
 
 
 from qm.qua import *
 from qm import SimulationConfig
+from qm.quantum_machine import QuantumMachine 
+
 from qualang_tools.multi_user import qm_session
+
 
 from qualang_tools.results import progress_counter, fetching_tool
 
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import NodeParameters, QualibrationNode
-from calibration_utils.two_qubit_interleaved_rb.circuit_utils import layerize_quantum_circuit, process_circuit_to_integers
-from calibration_utils.two_qubit_interleaved_rb.qua_utils import QuaProgramHandler
+from calibration_utils.two_qubit_rb.circuit_utils import layerize_quantum_circuit, process_circuit_to_integers
+from calibration_utils.two_qubit_rb.qua_utils import QuaProgramHandler
 from iqcc_calibration_tools.analysis.plot_utils import plot_samples
 from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray
 
 from iqcc_calibration_tools.quam_config.components import Quam
-from calibration_utils.two_qubit_interleaved_rb.cloud_utils import write_sync_hook
-from calibration_utils.two_qubit_interleaved_rb.rb_utils import StandardRB
-from calibration_utils.two_qubit_interleaved_rb.plot_utils import gate_mapping
+from calibration_utils.two_qubit_rb.cloud_utils import write_sync_hook
+from calibration_utils.two_qubit_rb.rb_utils import StandardRB
+from calibration_utils.two_qubit_rb.plot_utils import gate_mapping
 
 # Average gates per 2q layer calculation:
 # - Cases with non-Z gates (X/Y via .play()): assign value 2
 # - Cases with only Z gates (via .frame_rotation()): assign value 0
-# - Case 64 (CZ gate): assign value 1
-# Average number of gate per layer ≈ 1.51
-average_gates_per_2q_layer = 1.51
+# - Case CZ gate: assign value 1
+average_gates_per_2q_layer = 0.6757
 
 
 # %% {Node_parameters}
 
 class Parameters(NodeParameters):
-    qubit_pairs: Optional[List[str]] = None
-    circuit_lengths: tuple[int] = (0,1,2,4,8,16,32) # in number of cliffords
-    num_circuits_per_length: int = 20
-    num_averages: int = 50
+    qubit_pairs: Optional[List[str]] = ['qD3-qC4', 'qB1-qB2', 'qB5-qC1']
+    circuit_lengths: list[int] = [0,2,4,8] # in number of cliffords
+    num_circuits_per_length: int = 10
+    num_averages: int = 15
     basis_gates: list[str] = ['rz', 'sx', 'x', 'cz'] 
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
-    reset_type_thermal_or_active: Literal["thermal", "active"] = "thermal"
-    reduce_to_1q_cliffords: bool = True
+    reset_type: Literal["thermal", "active"] = "thermal" # program hang with active reset for some reason
+    reduce_to_1q_cliffords: bool = False
+    multiplexed: bool = True
     use_input_stream: bool = False
     simulate: bool = False
-    simulation_duration_ns: int = 10000
+    simulation_duration_ns: int = 6000
     load_data_id: Optional[int] = None
-    timeout: int = 100
+    timeout: int = 1000
     seed: int = 0
     targets_name = "qubit_pairs"
 
@@ -94,9 +99,11 @@ node.machine = Quam.load()
 
 # Get the relevant QuAM components
 if node.parameters.qubit_pairs is None or node.parameters.qubit_pairs == "":
-    qubit_pairs = node.machine.active_qubit_pairs
+    qubit_pairs_raw = node.machine.active_qubit_pairs
+    qubit_pairs = node.get_multiplexed_pair_batches(node.machine.active_qubit_pair_names)
 else:
-    qubit_pairs = [node.machine.qubit_pairs[qp] for qp in node.parameters.qubit_pairs]
+    qubit_pairs_raw = [node.machine.qubit_pairs[qp] for qp in node.parameters.qubit_pairs]
+    qubit_pairs = node.get_multiplexed_pair_batches([qp.id for qp in qubit_pairs_raw])
 
 if len(qubit_pairs) == 0:
     raise ValueError("No qubit pairs selected")
@@ -106,6 +113,8 @@ if len(qubit_pairs) == 0:
 # Open Communication with the QOP
 if node.parameters.load_data_id is None:
     qmm = node.machine.connect()
+    # qmm.close_all_quantum_machines()
+
 
 config = node.machine.generate_config()
 
@@ -134,17 +143,16 @@ average_layers_per_clifford = np.mean([np.mean([len(circ) for circ in circuits])
 circuits_as_ints = []
 for circuits_per_len in transpiled_circuits_as_ints.values():
     for circuit in circuits_per_len:
-        circuit_with_measurement = circuit + [66] # readout
+        circuit_with_measurement = circuit + [38] # readout
+        # circuit_with_measurement = [9] * len(circuit) + [66] # readout
         circuits_as_ints.append(circuit_with_measurement)
 
 # %% {QUA_program}
 
-num_pairs = len(qubit_pairs)
-
-qua_program_handler = QuaProgramHandler(node, num_pairs, circuits_as_ints, node.machine, qubit_pairs)
+qua_program_handler = QuaProgramHandler(node, circuits_as_ints, qubit_pairs)
 
 rb = qua_program_handler.get_qua_program()
-node.namespace = {"qua_program" : rb}
+node.namespace["qua_program"] = rb
 
 # %% {Simulate_or_execute}
 if node.parameters.simulate:
@@ -192,10 +200,12 @@ for num in flatten(circuits_as_ints):
 if node.parameters.simulate:
     qubit_names = [qubit_pair.qubit_control.name for qubit_pair in qubit_pairs] + [qubit_pair.qubit_target.name for qubit_pair in qubit_pairs]
     readout_lines = set([q[1] for q in qubit_names])
-    fig = plot_samples(samples, qubit_names, readout_lines=list(readout_lines), xlim=(0,10000))
+    fig = plot_samples(samples, qubit_names, readout_lines=list(readout_lines), xlim=(0,6000))
     
     # node.results["figure"] = fig
     # node.save()
+
+    
 
  # %% {Data_fetching_and_dataset_creation}
 if node.parameters.load_data_id is None:
@@ -238,40 +248,163 @@ ds_transposed = ds_transposed.transpose("qubit", "repeat", "circuit_depth", "ave
 
 rb_result = {}
 
+# Fit the data for all pairs first
 for qp in qubit_pairs:
-    
     rb_result[qp.id] = RBResult(
-            circuit_depths=list(node.parameters.circuit_lengths),
-            num_repeats=node.parameters.num_circuits_per_length,
-            num_averages=node.parameters.num_averages,
-            state=ds_transposed.sel(qubit=qp.name).state.data
-        )
-    
-    # Fit the data and calculate all error and fidelity metrics
-    rb_result[qp.id].fit(
-        average_layers_per_clifford=average_layers_per_clifford,
-        average_gates_per_2q_layer=average_gates_per_2q_layer
+        circuit_depths=list(node.parameters.circuit_lengths),
+        num_repeats=node.parameters.num_circuits_per_length,
+        num_averages=node.parameters.num_averages,
+        state=ds_transposed.sel(qubit=qp.name).state.data
     )
     
-    # Plot the results
-    fig = rb_result[qp.id].plot_with_fidelity()
+    # Fit the data and calculate all error and fidelity metrics
+    try:
+        rb_result[qp.id].fit(
+            average_layers_per_clifford=average_layers_per_clifford,
+            average_gates_per_2q_layer=average_gates_per_2q_layer
+        )
+    except Exception as e:
+        print(f"Warning: Fit failed for {qp.id}: {e}")
+        print("Plotting data without fit parameters.")
+
+# Create mapping from pair name to batch index (1-indexed) and sort pairs by batch order
+pair_to_batch = {}
+qubit_pairs_sorted_by_batch = []
+for batch_idx, batch in enumerate(qubit_pairs.batch(), start=1):
+    for pair_idx, qp in batch.items():
+        pair_to_batch[qp.name] = batch_idx
+        qubit_pairs_sorted_by_batch.append(qp)
+
+# Create a single figure with subplots for all pairs
+num_pairs = len(qubit_pairs_sorted_by_batch)
+num_cols = 3
+num_rows = int(np.ceil(num_pairs / num_cols))
+
+fig = plt.figure(figsize=(6 * num_cols, 4.5 * num_rows))
+
+for idx, qp in enumerate(qubit_pairs_sorted_by_batch):
+    ax = fig.add_subplot(num_rows, num_cols, idx + 1)
     
-    fig.suptitle(f"2Q Randomized Benchmarking - {qp.name}")
-    node.add_node_info_subtitle(fig, additional_info=f"reduce_to_1q_cliffords = {node.parameters.reduce_to_1q_cliffords}")
+    # Get the RB result for this pair
+    result = rb_result[qp.id]
     
-    fig.show()
+    # Calculate error bars
+    error_bars = (result.data == 0).stack(combined=("average", "repeat")).std(dim="combined").state.data / np.sqrt(result.num_repeats * result.num_averages)
     
-    node.results[f"{qp.id}_figure_RB_decay"] = fig
+    # Get decay curve
+    decay_curve = result.get_decay_curve()
+    
+    # Plot experimental data
+    ax.errorbar(
+        result.circuit_depths,
+        decay_curve,
+        yerr=error_bars,
+        fmt=".",
+        capsize=2,
+        elinewidth=0.5,
+        color="blue",
+        label="Experimental Data",
+    )
+    
+    # Plot fit curve if fit parameters exist
+    try:
+        A = result.A
+        alpha = result.alpha
+        B = result.B
+        circuit_depths_smooth_axis = np.linspace(result.circuit_depths[0], result.circuit_depths[-1], 100)
+        ax.plot(
+            circuit_depths_smooth_axis,
+            rb_decay_curve(np.array(circuit_depths_smooth_axis), A, alpha, B),
+            color="red",
+            linestyle="--",
+            label="Exponential Fit",
+        )
+    except AttributeError:
+        # Fit parameters don't exist, skip plotting fit curve
+        pass
+    
+    # Add fidelity title if fit was successful
+    try:
+        fidelity = result.fidelity
+        title = f"2Q average Clifford fidelity = {fidelity * 100:.2f}%"
+        ax.text(
+            0.5,
+            0.95,
+            title,
+            horizontalalignment="center",
+            verticalalignment="top",
+            fontdict={"fontsize": "medium", "fontweight": "bold"},
+            transform=ax.transAxes,
+        )
+    except AttributeError:
+        # Show warning if fit failed
+        ax.text(
+            0.5,
+            0.95,
+            "Fit failed - insufficient data points",
+            horizontalalignment="center",
+            verticalalignment="top",
+            fontdict={"fontsize": "medium", "fontweight": "bold", "color": "red"},
+            transform=ax.transAxes,
+        )
+    
+    # Add average gate fidelity if it was calculated
+    try:
+        avg_gate_fidelity = result.average_gate_fidelity
+        ax.text(
+            0.5,
+            0.88,
+            f"Average Gate Fidelity = {avg_gate_fidelity * 100:.2f}%",
+            horizontalalignment="center",
+            verticalalignment="top",
+            fontdict={"fontsize": "medium", "fontweight": "bold"},
+            transform=ax.transAxes,
+        )
+    except AttributeError:
+        # Average gate fidelity not available, skip
+        pass
+    
+    ax.set_xlabel("Circuit Depth")
+    ax.set_ylabel(r"Probability to recover to $|00\rangle$")
+    ax.set_title(f"{qp.name}")
+    ax.legend(framealpha=0)
+    
+    # Add batch number indicator at the bottom right (outside the plot area)
+    batch_num = pair_to_batch.get(qp.name, 0)
+    ax.text(0.98, -0.12, str(batch_num), transform=ax.transAxes, 
+           fontsize=8, ha='right', va='top',
+           bbox=dict(boxstyle='circle', facecolor='plum', edgecolor='magenta', linewidth=1.2))
+
+# Hide unused subplots
+for i in range(num_pairs, num_rows * num_cols):
+    row = i // num_cols
+    col = i % num_cols
+    ax_unused = fig.add_subplot(num_rows, num_cols, i + 1)
+    ax_unused.axis('off')
+
+fig.suptitle(f"2Q Randomized Benchmarking \n {node.date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type}, reduce_to_1q_cliffords = {node.parameters.reduce_to_1q_cliffords}", y=0.995)
+fig.subplots_adjust(top=0.75, hspace=0.4, wspace=0.3)
+
+# Add legend explaining the batch number indicator
+legend_circle = mpatches.Circle((0, 0), 0.5, facecolor='plum', edgecolor='magenta', linewidth=1.2)
+fig.legend([legend_circle], ['Batch number (pairs run in parallel)'], 
+           loc='upper right', fontsize=8, framealpha=0.9)
+
+fig.show()
+node.results["figure_RB_decay"] = fig
 
 # %% {Update_state}
 with node.record_state_updates():
     for qp in qubit_pairs:
-        node.machine.qubit_pairs[qp.id].macros["cz"].fidelity["StandardRB"] = {
-            "error_per_clifford": 1 - rb_result[qp.id].fidelity, 
-            "error_per_2q_layer": rb_result[qp.id].error_per_2q_layer,
-            "error_per_gate": rb_result[qp.id].error_per_gate,
-            "average_gate_fidelity": 1 - rb_result[qp.id].error_per_gate,
-            "alpha": rb_result[qp.id].alpha}
+        if hasattr(rb_result[qp.id], 'fidelity'):
+            node.machine.qubit_pairs[qp.id].macros["cz"].fidelity["StandardRB"] = {
+                "error_per_clifford": 1 - rb_result[qp.id].fidelity, 
+                "error_per_2q_layer": rb_result[qp.id].error_per_2q_layer if hasattr(rb_result[qp.id], 'error_per_2q_layer') else None,
+                "error_per_gate": rb_result[qp.id].error_per_gate if hasattr(rb_result[qp.id], 'error_per_gate') else None,
+                "average_gate_fidelity": 1 - rb_result[qp.id].error_per_gate if hasattr(rb_result[qp.id], 'error_per_gate') else None,
+                "alpha": rb_result[qp.id].alpha if hasattr(rb_result[qp.id], 'alpha') else None}
+        else:
+            print(f"Warning: Skipping state update for {qp.id} because fit failed.")
 # %% {Save_results}
 node.save()
 

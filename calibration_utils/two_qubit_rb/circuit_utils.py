@@ -4,26 +4,24 @@ from typing import List, Union
 
 from qiskit.circuit import QuantumCircuit
 from qiskit.converters import circuit_to_dag, dag_to_circuit
-from calibration_utils.two_qubit_interleaved_rb.rb_utils import EPS
+from calibration_utils.two_qubit_rb.rb_utils import EPS
 
 # Gate to integer mapping for single qubit gates
 SINGLE_QUBIT_GATE_MAP = {
 
     'sx': 0,
     'x': 1,
-    'sy': 2,
-    'y': 3,
-    'rz(pi/2)': 4,
-    'rz(pi)': 5,
-    'rz(3pi/2)': 6,
-    'idle': 7
+    'rz(pi/2)': 2,
+    'rz(pi)': 3,
+    'rz(3pi/2)': 4,
+    'idle': 5
     
 }
 
 # Two-qubit gate mapping
 TWO_QUBIT_GATE_MAP = {
-    'cz': 64,  # Start at 64 to avoid overlap with single-qubit combinations
-    'idle_2q': 65
+    'cz': 36, 
+    'idle_2q': 37
 }
 
 def get_gate_name(gate) -> str:
@@ -53,7 +51,7 @@ def get_layer_integer(layer: Union[list[int, int], str]) -> int:
     """
     if isinstance(layer[0], list):
         # For single-qubit gate pairs, use a formula to generate unique integers
-        # This maps (g1, g2) to a unique integer in range [0, 63]
+        # This maps (g1, g2) to a unique integer in range [0, 37]
         return layer[0][0] * len(SINGLE_QUBIT_GATE_MAP) + layer[0][1]
     elif isinstance(layer[0], str):
         return TWO_QUBIT_GATE_MAP[layer[0]]
@@ -71,21 +69,21 @@ def process_circuit_to_integers(circuit: QuantumCircuit) -> List[int]:
         List of integers representing the circuit configuration between barriers
     """
     result = []
-    current_layer = [[7,7]]  # Initialize with idle gates for both qubits
+    current_layer = [[SINGLE_QUBIT_GATE_MAP['idle'],SINGLE_QUBIT_GATE_MAP['idle']]]  # Initialize with idle gates for both qubits
     
     for instruction in circuit:
-        if instruction.operation.name == 'barrier' and current_layer != [[7,7]]:
+        if instruction.operation.name == 'barrier' and current_layer != [[SINGLE_QUBIT_GATE_MAP['idle'],SINGLE_QUBIT_GATE_MAP['idle']]]:
             # Convert current layer to integer and add to result
             layer_int = get_layer_integer(current_layer)
             result.append(layer_int)
-            current_layer = [[7,7]]  # Reset to idle gates
+            current_layer = [[SINGLE_QUBIT_GATE_MAP['idle'],SINGLE_QUBIT_GATE_MAP['idle']]]  # Reset to idle gates
             continue
             
         gate_name = get_gate_name(instruction.operation)
         
         if gate_name == 'cz' or gate_name == 'idle_2q':
             # If we have a CZ or idle_2q gate, it's a two-qubit operation
-            if current_layer != [[7,7]]:
+            if current_layer != [[SINGLE_QUBIT_GATE_MAP['idle'],SINGLE_QUBIT_GATE_MAP['idle']]]:
                 raise ValueError(f"{gate_name} gate found with single qubit gates in the layer")
             else:
                 current_layer = [gate_name]
@@ -101,7 +99,7 @@ def process_circuit_to_integers(circuit: QuantumCircuit) -> List[int]:
             raise ValueError(f"Unsupported gate: {gate_name}")  
     
     # Process any remaining gates after the last barrier
-    if current_layer != [[7,7]]:
+    if current_layer != [[SINGLE_QUBIT_GATE_MAP['idle'],SINGLE_QUBIT_GATE_MAP['idle']]]:
         layer_int = get_layer_integer(current_layer)
         result.append(layer_int)
     
