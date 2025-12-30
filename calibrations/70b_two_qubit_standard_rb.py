@@ -60,7 +60,7 @@ from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray
 
 from iqcc_calibration_tools.quam_config.components import Quam
 from calibration_utils.two_qubit_rb.cloud_utils import write_sync_hook
-from calibration_utils.two_qubit_rb.rb_utils import StandardRB
+from calibration_utils.two_qubit_rb.rb_utils import StandardRB, validate_multiplexed_batches
 from calibration_utils.two_qubit_rb.plot_utils import gate_mapping
 
 # Average gates per 2q layer calculation:
@@ -107,6 +107,9 @@ else:
 
 if len(qubit_pairs) == 0:
     raise ValueError("No qubit pairs selected")
+
+# Validate multiplexed batch configuration
+validate_multiplexed_batches(qubit_pairs, node.parameters.multiplexed)
 
 # Generate the OPX and Octave configurations
 

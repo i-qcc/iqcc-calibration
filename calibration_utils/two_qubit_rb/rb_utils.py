@@ -238,5 +238,41 @@ class InterleavedRB(RBBase):
         instruction.name = self.target_gate
         return instruction
 
+
+def validate_multiplexed_batches(qubit_pairs, multiplexed: bool):
+    """
+    Validate that the multiplexed batch configuration is supported.
+    
+    This function checks that:
+    1. There is at most one multiplexed batch (if multiplexed is True)
+    2. There is at most one pair per batch (if multiplexed is False)
+    
+    Args:
+        qubit_pairs: BatchableList of qubit pairs
+        multiplexed: Whether multiplexing is enabled
+        
+    Raises:
+        ValueError: If the configuration is not supported
+    """
+    batches = list(qubit_pairs.batch())
+    
+    if multiplexed:
+        # If multiplexed is True, we can only have one batch
+        if len(batches) > 1:
+            raise ValueError(
+                f"Unsupported configuration: Found {len(batches)} multiplexed batches, "
+                "but only one batch is supported. Please run batches separately."
+            )
+    else:
+        # If multiplexed is False, each batch should contain only one pair
+        for batch_idx, batch in enumerate(batches, 1):
+            if len(batch) > 1:
+                pair_names = [qp.id if hasattr(qp, 'id') else str(qp) for qp in batch.values()]
+                raise ValueError(
+                    f"Unsupported configuration: Batch {batch_idx} contains {len(batch)} pairs "
+                    f"({', '.join(pair_names)}), but multiplexed=False. "
+                    "Either set multiplexed=True or run pairs separately."
+                )
+
     
    
