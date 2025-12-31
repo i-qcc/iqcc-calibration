@@ -117,7 +117,7 @@ with program() as multi_res_spec_vs_amp:
 
     if flux_point == "joint":
         # Bring the active qubits to the desired frequency point
-        machine.initialize_qpuflux_point=flux_point, target=qubits[0])
+        machine.initialize_qpu(flux_point=flux_point, target=qubits[0])
         
     for i, qubit in enumerate(qubits):
 
