@@ -97,7 +97,7 @@ with program() as iq_blobs:
     j = declare(int)
     
     # Set flux point
-    machine.set_all_fluxes(flux_point="joint", target=qubits[0])
+    machine.initialize_qpu(flux_point="joint", target=qubits[0])
 
     for i, qubit in enumerate(qubits):
 

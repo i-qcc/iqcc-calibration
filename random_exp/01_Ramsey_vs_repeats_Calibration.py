@@ -109,7 +109,7 @@ with program() as ramsey:
         # align()
         # wait(1_000_000)
         freq_qua = declare(int,value=freqs[qubit.name])
-        machine.set_all_fluxes(flux_point=flux_point, target=qubit)
+        machine.initialize_qpu(flux_point=flux_point, target=qubit)
         
         with for_(repeatition, 0, repeatition < node.parameters.repeatitions, repeatition + 1):
             save(repeatition, n_st)

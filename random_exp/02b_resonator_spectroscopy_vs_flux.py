@@ -113,7 +113,7 @@ with program() as multi_res_spec_vs_flux:
         # resonator of the qubit
         rr = resonators[i]
         # Bring the active qubits to the desired frequency point
-        machine.set_all_fluxes(flux_point=flux_point, target=qubit)
+        machine.initialize_qpu(flux_point=flux_point, target=qubit)
 
         with for_(n, 0, n < n_avg, n + 1):
             save(n, n_st)

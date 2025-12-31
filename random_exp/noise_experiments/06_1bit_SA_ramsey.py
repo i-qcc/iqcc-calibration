@@ -120,7 +120,7 @@ with program() as find_optimal_freq_offset_and_idle_time:
     freq_MHZ = declare(fixed)
 
     for i, qubit in enumerate(qubits):
-        machine.set_all_fluxes(flux_point=flux_point, target=qubit)            
+        machine.initialize_qpu(flux_point=flux_point, target=qubit)            
         wait(1000)
         
         with for_(n, 0, n < n_avg, n + 1):
@@ -235,7 +235,7 @@ with program() as Ramsey_noise_spec:
     phi = declare(fixed)
 
     for i, qubit in enumerate(qubits):
-        machine.set_all_fluxes(flux_point=flux_point, target=qubit)                  
+        machine.initialize_qpu(flux_point=flux_point, target=qubit)                  
         wait(1000)
         # update_frequency(qubit.xy.name, int(opt_freq[qubit.name]) + qubit.xy.intermediate_frequency)
 

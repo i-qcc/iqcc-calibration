@@ -163,12 +163,12 @@ with program() as CPhase_Oscillations:
     n_st = declare_stream()
 
     if flux_point == "joint":
-        machine.set_all_fluxes(flux_point=flux_point, target=qubit_pairs[0].qubit_control)
+        machine.initialize_qpu(flux_point=flux_point, target=qubit_pairs[0].qubit_control)
 
     for i, qp in enumerate(qubit_pairs):
         # Bring the active qubits to the minimum frequency point
         if flux_point != "joint":
-            machine.set_all_fluxes(flux_point=flux_point, target=qp.qubit_control)
+            machine.initialize_qpu(flux_point=flux_point, target=qp.qubit_control)
 
         assign(comp_flux_coupler, qp.extras["CZ_coupler_flux"]) 
 

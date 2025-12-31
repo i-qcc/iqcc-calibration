@@ -119,7 +119,7 @@ with program() as iq_blobs:
     for i, qubit in enumerate(qubits):
 
         # Bring the active qubits to the minimum frequency point
-        machine.set_all_fluxes(flux_point, qubit)
+        machine.initialize_qpu(flux_point, qubit)
 
 
         with for_(n, 0, n < n_runs, n + 1):

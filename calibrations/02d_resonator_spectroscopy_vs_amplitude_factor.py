@@ -117,13 +117,13 @@ with program() as multi_res_spec_vs_amp:
 
     if flux_point == "joint":
         # Bring the active qubits to the desired frequency point
-        machine.set_all_fluxes(flux_point=flux_point, target=qubits[0])
+        machine.initialize_qpuflux_point=flux_point, target=qubits[0])
         
     for i, qubit in enumerate(qubits):
 
         # Bring the active qubits to the desired frequency point
         if flux_point != "joint":
-            machine.set_all_fluxes(flux_point=flux_point, target=qubit)
+            machine.initialize_qpu(flux_point=flux_point, target=qubit)
         
         # resonator of this qubit
         rr = qubit.resonator
