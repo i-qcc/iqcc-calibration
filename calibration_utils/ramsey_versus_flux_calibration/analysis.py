@@ -1,13 +1,10 @@
-import logging
 from dataclasses import dataclass
 from typing import Dict, Tuple
 
 import numpy as np
 import xarray as xr
 from qualibrate import QualibrationNode
-from qualibration_libs.data import add_amplitude_and_phase, convert_IQ_to_V
-from iqcc_calibration_tools.quam_config.lib.instrument_limits import instrument_limits
-from qualibration_libs.analysis import fit_oscillation_decay_exp, oscillation_decay_exp, peaks_dips
+from qualibration_libs.analysis import fit_oscillation_decay_exp, oscillation_decay_exp
 
 
 @dataclass
@@ -17,25 +14,15 @@ class FitParameters:
     success: bool
     quad_term: float
     flux_offset: float
+    target_offset: float
     freq_offset: float
     t2_star: np.ndarray
     fit_norm: float
+    lo_limit_exceeded: bool
 
 
 def log_fitted_results(fit_results: Dict, log_callable=None):
-    """
-    Logs the node-specific fitted results for all qubits from the fit results
-
-    Parameters:
-    -----------
-    fit_results : dict
-        Dictionary containing the fitted results for all qubits.
-    logger : logging.Logger, optional
-        Logger for logging the fitted results. If None, a default logger is used.
-
-    """
-    if log_callable is None:
-        log_callable = logging.getLogger(__name__).info
+    """Logs the node-specific fitted results for all qubits from the fit results."""
     pass
 
 
@@ -72,7 +59,8 @@ def fit_raw_data(ds: xr.Dataset, node: QualibrationNode) -> Tuple[xr.Dataset, di
     )
 
     frequency = fit_data.sel(fit_vals="f")
-    frequency.attrs = {"long_name": "frequency", "units": "MHz"}
+    # frequency is in GHz 
+    frequency.attrs = {"long_name": "frequency", "units": "GHz"}
 
     decay = fit_data.sel(fit_vals="decay")
     decay.attrs = {"long_name": "decay", "units": "nSec"}
@@ -82,64 +70,154 @@ def fit_raw_data(ds: xr.Dataset, node: QualibrationNode) -> Tuple[xr.Dataset, di
 
     frequency = frequency.where(frequency > 0, drop=True)
 
+    # Polyfit on frequency (GHz) vs flux_bias (V)
+    # Results: c0 in GHz, c1 in GHz/V, c2 in GHz/V^2
     fitvals = frequency.polyfit(dim="flux_bias", deg=2)
-    flux = frequency.flux_bias
+    
+
+    # Constants for success determination
+    SUCCESS_THRESHOLD = 0.005
+    MIN_FREQ_RANGE_MHZ = 500000e-9  # 500 nHz in MHz
+    MAX_LO_OFFSET_MHZ = 500  # Maximum allowed offset from LO frequency in MHz
 
     a = {}
     flux_offset = {}
     freq_offset = {}
+    target_offset = {}
     t2_star = {}
     fit_norm = {}
     freq_range = {}
+    success_dict = {}
+    lo_limit_exceeded_dict = {}
 
     qubits = ds.qubit.values
 
     for q in qubits:
         # Extract polynomial coefficients for this qubit
+        # c0, c1, c2 are in GHz, GHz/V, GHz/V^2 respectively
         coeffs = fitvals.sel(qubit=q)
-        c0 = float(coeffs.sel(degree=0).polyfit_coefficients.values)
-        c1 = float(coeffs.sel(degree=1).polyfit_coefficients.values)
-        c2 = float(coeffs.sel(degree=2).polyfit_coefficients.values)
+        c0 = float(coeffs.sel(degree=0).polyfit_coefficients.values)  # GHz
+        c1 = float(coeffs.sel(degree=1).polyfit_coefficients.values)  # GHz/V
+        c2 = float(coeffs.sel(degree=2).polyfit_coefficients.values)  # GHz/V^2
         
         # Get observed data for this qubit
         freq_q = frequency.sel(qubit=q)
         flux_q = freq_q.flux_bias
         
-        # Calculate frequency range (max - min) in MHz
+        # Calculate frequency range (max - min) in GHz
         freq_range[q] = float(freq_q.max() - freq_q.min())
         
-        # Calculate fitted values using polynomial: y = c2*x^2 + c1*x + c0
+        # Calculate fitted values and fit norm (excluding 10% of points with largest residuals)
         freq_fitted = c2 * flux_q**2 + c1 * flux_q + c0
-        
-        # Calculate norm of the difference between fit and data, after excluding the 25% points with largest residuals
         diff = freq_q - freq_fitted
         abs_diff = np.abs(diff.values)
         n_remove = int(0.1 * len(abs_diff))
         if n_remove > 0:
-            # Indices that sort abs_diff descending (largest first)
-            sorted_indices = np.argsort(-abs_diff)
-            # Indices to keep (those not in the furthest 25%)
-            keep_indices = np.sort(sorted_indices[n_remove:])
+            keep_indices = np.sort(np.argsort(-abs_diff)[n_remove:])
             trimmed_diff = diff.values[keep_indices]
         else:
             trimmed_diff = diff.values
         fit_norm[q] = float(np.linalg.norm(trimmed_diff))
         
-        a[q] = float(-1e6 * c2)
-        flux_offset[q] = float(-0.5 * c1 / c2) if c2 != 0 else 0.0
-        freq_offset[q] = 1e6 * (
-            flux_offset[q] ** 2 * c2
-            + flux_offset[q] * c1
-            + c0
-        )
+        # Store quad_term in GHz/V^2 (same units as c2)
+        a[q] = float(-c2)
+        
+        # Check if fit is successful before calculating offsets
+        freq_range_mhz = freq_range[q] * 1e3  # Convert GHz to MHz
+        is_successful = fit_norm[q] < SUCCESS_THRESHOLD and freq_range_mhz > MIN_FREQ_RANGE_MHZ
+        success_dict[q] = is_successful
+        
+        if is_successful:
+            flux_offset[q] = float(-0.5 * c1 / c2) if c2 != 0 else 0.0
+            freq_offset[q] = 1e9 * (
+                flux_offset[q] ** 2 * c2
+                + flux_offset[q] * c1
+                + c0
+            )
+            
+            # Calculate target_offset: solve for flux bias where detuning equals target_detuning_from_sweet_spot
+            qubit = node.machine.qubits[q]
+            target_detuning_hz = getattr(qubit.xy, 'target_detuning_from_sweet_spot', 0.0) or 0.0
+            target_detuning_ghz = target_detuning_hz / 1e9
+            
+            freq_sweet_spot_ghz = c2 * flux_offset[q]**2 + c1 * flux_offset[q] + c0
+            
+            if abs(target_detuning_ghz) < 1e-12:
+                target_offset[q] = flux_offset[q]
+            elif abs(c2) < 1e-20:
+                target_offset[q] = np.nan
+            else:
+                # Solve: target_detuning = freq(V) - freq_sweet_spot
+                # Rearranged: c2*V^2 + c1*V + (c0 - freq_sweet_spot - target_detuning) = 0
+                target_freq_ghz = freq_sweet_spot_ghz + target_detuning_ghz
+                discriminant = c1**2 - 4 * c2 * (c0 - target_freq_ghz)
+                
+                if discriminant < 0:
+                    target_offset[q] = np.nan
+                else:
+                    sqrt_disc = np.sqrt(discriminant)
+                    v1 = (-c1 + sqrt_disc) / (2 * c2)
+                    v2 = (-c1 - sqrt_disc) / (2 * c2)
+                    
+                    # Choose solution closest to target_detuning (prefer positive solutions)
+                    freq_v1 = c2 * v1**2 + c1 * v1 + c0
+                    freq_v2 = c2 * v2**2 + c1 * v2 + c0
+                    detuning_v1 = abs((freq_v1 - freq_sweet_spot_ghz) * 1e9 - target_detuning_hz)
+                    detuning_v2 = abs((freq_v2 - freq_sweet_spot_ghz) * 1e9 - target_detuning_hz)
+                    
+                    if v1 > 0 and v2 > 0:
+                        target_offset[q] = v1 if detuning_v1 < detuning_v2 else v2
+                    elif v1 > 0:
+                        target_offset[q] = v1
+                    elif v2 > 0:
+                        target_offset[q] = v2
+                    else:
+                        target_offset[q] = max(v1, v2)
+            
+            # Check LO frequency limit: verify that the new RF frequency (after update) distance from LO is smaller than 500 MHz
+            # Only check if fit succeeded (we're already inside the is_successful block)
+            lo_freq_hz = qubit.xy.upconverter_frequency
+            current_rf_freq_hz = qubit.xy.RF_frequency
+            
+            # Calculate freq_offset as it will be calculated in update_state:
+            # freq_offset = frequency_detuning_in_mhz * 1e6 - freq_offset[q]
+            # Note: freq_offset[q] is stored in Hz
+            freq_offset_for_update_hz = (
+                node.parameters.frequency_detuning_in_mhz * 1e6
+                - freq_offset[q]
+            )
+            
+            # Adjust if target_offset is used (matching update_state logic)
+            if not np.isnan(target_offset[q]):
+                target_detuning_hz = qubit.xy.target_detuning_from_sweet_spot
+                freq_offset_for_update_hz -= target_detuning_hz
+            
+            # Calculate new RF frequency
+            new_rf_freq_hz = current_rf_freq_hz + freq_offset_for_update_hz
+            
+            # Check if distance from LO is smaller than 500 MHz (must be < 500 MHz)
+            freq_diff_mhz = abs(new_rf_freq_hz - lo_freq_hz) / 1e6
+            lo_limit_exceeded_dict[q] = freq_diff_mhz >= MAX_LO_OFFSET_MHZ  # True if distance >= 500 MHz (i.e., NOT smaller)
+            
+            # If LO limit exceeded, mark as unsuccessful for parameter updates (but keep fit results)
+            if lo_limit_exceeded_dict[q]:
+                success_dict[q] = False
+        else:
+            # Fit failed - set offsets to NaN
+            flux_offset[q] = np.nan
+            freq_offset[q] = np.nan
+            target_offset[q] = np.nan
+            lo_limit_exceeded_dict[q] = False
+        
         t2_star[q] = tau.sel(qubit=q).values
 
     ds_fit = ds.merge(fit_data.rename("fit_results"))
 
-    # Add a, flux_offset, and freq_offset as data variables in the dataset
+    # Add a, flux_offset, freq_offset, and target_offset as data variables in the dataset
     ds_fit["quad_term"] = xr.DataArray([a[q] for q in qubits], dims=["qubit"], coords={"qubit": qubits})
     ds_fit["flux_offset"] = xr.DataArray([flux_offset[q] for q in qubits], dims=["qubit"], coords={"qubit": qubits})
     ds_fit["freq_offset"] = xr.DataArray([freq_offset[q] for q in qubits], dims=["qubit"], coords={"qubit": qubits})
+    ds_fit["target_offset"] = xr.DataArray([target_offset[q] for q in qubits], dims=["qubit"], coords={"qubit": qubits})
     ds_fit["fit_norm"] = xr.DataArray(
         [fit_norm[q] for q in qubits], dims=["qubit"], coords={"qubit": qubits}
     )
@@ -150,17 +228,13 @@ def fit_raw_data(ds: xr.Dataset, node: QualibrationNode) -> Tuple[xr.Dataset, di
         node.parameters.frequency_detuning_in_mhz, dims=["qubit"], coords={"qubit": qubits}
     )
     
-    success_threshold = 0.005
-    min_freq_range_mhz = 500000e-9
-    
-    # Calculate success once for all qubits
-    success_dict = {
-        q: fit_norm[q] < success_threshold and freq_range[q] > min_freq_range_mhz
-        for q in qubits
-    }
-    
+    # Success was already calculated in the loop above
     ds_fit["success"] = xr.DataArray(
         [success_dict[q] for q in qubits], 
+        dims=["qubit"], coords={"qubit": qubits}
+    )
+    ds_fit["lo_limit_exceeded"] = xr.DataArray(
+        [lo_limit_exceeded_dict[q] for q in qubits],
         dims=["qubit"], coords={"qubit": qubits}
     )
     
@@ -169,16 +243,13 @@ def fit_raw_data(ds: xr.Dataset, node: QualibrationNode) -> Tuple[xr.Dataset, di
             success=success_dict[q],
             quad_term=a[q],
             flux_offset=flux_offset[q],
+            target_offset=target_offset[q],
             freq_offset=freq_offset[q],
             t2_star=t2_star[q],
             fit_norm=fit_norm[q],
+            lo_limit_exceeded=lo_limit_exceeded_dict[q],
         )
         for q in ds_fit.qubit.values
     }
 
     return ds_fit, fit_results
-
-
-def _extract_relevant_fit_parameters(fit: xr.Dataset, node: QualibrationNode):
-    """Add metadata to the dataset and fit results."""
-    pass

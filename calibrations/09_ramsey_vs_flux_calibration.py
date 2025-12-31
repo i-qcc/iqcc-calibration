@@ -250,20 +250,29 @@ def update_state(node: QualibrationNode[Parameters, Quam]):
                 continue
             flux_point = node.machine.qubits[q.name].z.flux_point
             flux_offset = node.results["fit_results"][q.name]["flux_offset"]
+            target_offset = node.results["fit_results"][q.name]["target_offset"]
             freq_offset = (
                 node.parameters.frequency_detuning_in_mhz * 1e6
-                - node.results["ds_fit"].freq_offset.sel(qubit=q.name).values * 1e3
+                - node.results["ds_fit"].freq_offset.sel(qubit=q.name).values
             )
             quad_term = node.results["fit_results"][q.name]["quad_term"]
+            # Use target_offset if available, otherwise use flux_offset
+            offset_to_apply = target_offset if not np.isnan(target_offset) else flux_offset
             if flux_point == "independent":
-                q.z.independent_offset += flux_offset
+                q.z.independent_offset += offset_to_apply
             elif flux_point == "joint":
-                q.z.joint_offset += flux_offset
+                q.z.joint_offset += offset_to_apply
             else:
                 raise RuntimeError("Unknown flux_point")
+            # Adjust frequency correction if target_offset is used
+            # The frequency at target_offset is freq_sweet_spot + target_detuning_from_sweet_spot
+            if not np.isnan(target_offset):
+                target_detuning = q.xy.target_detuning_from_sweet_spot
+                freq_offset -= target_detuning
             q.f_01 += freq_offset
             q.xy.RF_frequency += freq_offset
-            q.freq_vs_flux_01_quad_term = quad_term*1e3
+            # quad_term is stored in GHz/V^2, convert to Hz/V^2 for freq_vs_flux_01_quad_term
+            q.freq_vs_flux_01_quad_term = quad_term * 1e9
 
 # %% {Save_results}
 @node.run_action()
