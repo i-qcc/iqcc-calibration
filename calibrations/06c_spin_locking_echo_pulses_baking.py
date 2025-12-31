@@ -83,8 +83,6 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                 # This Python loop unrolls to create a single continuous waveform in memory.
                 for _ in range(count):
                     b.play("x180_DetunedSquare", qe_name)                  
-
-        
         # Store the baking object to call its .run() method later.
         baked_sequences.append(b)
     # Update the machine's config attribute so subsequent actions use the baked version.

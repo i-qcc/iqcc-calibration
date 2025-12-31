@@ -88,9 +88,9 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                     # Qubit manipulation
                     for i, qubit in multiplexed_qubits.items():
                             qubit.xy.play("-y90")
-                            qubit.xy.play("x180_BlackmanIntegralPulse_Rise")
-                            qubit.xy.play("x180_DetunedSquare",duration = 2*t_sl)
-                            qubit.xy.play("x180_BlackmanIntegralPulse_Fall")
+                            qubit.xy_sl.play("x180_BlackmanIntegralPulse_Rise")
+                            qubit.xy_sl.play("x180_Square",duration = 2*t_sl)
+                            qubit.xy_sl.play("x180_BlackmanIntegralPulse_Fall")
                             qubit.xy.play("-y90")
                     align()
                     # Qubit readout
@@ -196,7 +196,7 @@ def _get_current_amplitude():
             data = json.load(f)
         
         # Navigate to the specific key path
-        return data["qubits"][QUBIT]["xy"]["operations"]["x180_DetunedSquare"]["amplitude"]
+        return data["qubits"][QUBIT]["xy"]["operations"]["x180_Square"]["amplitude"]
         
     except FileNotFoundError:
         print(f"Error: State file not found at {STATE_FILE_PATH}")

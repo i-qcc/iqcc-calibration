@@ -47,11 +47,11 @@ node = QualibrationNode[Parameters, Quam](
 
 @node.run_action(skip_if=node.modes.external)
 def custom_param(node: QualibrationNode[Parameters, Quam]):
-    node.parameters.min_wait_time_in_ns = 16
+    node.parameters.min_wait_time_in_ns = 40
     node.parameters.max_wait_time_in_ns = 800
     node.parameters.num_time_steps = 800
-    node.parameters.qubits = ["Q5"]
-    node.parameters.drive_amp_scale = 0.6
+    node.parameters.qubits = ["Q6"]
+    node.parameters.drive_amp_scale = 0.1
     pass
 
 
