@@ -218,6 +218,9 @@ def play_sequence(sequence_list, depth, qubit: Transmon):
 
 
 # %% {QUA_program}
+
+# TODO : running twice initialize_qpu between two qua programs will only initialize twpa in the first. fix this.
+
 with program() as randomized_benchmarking_individual:
     depth = declare(int)  # QUA variable for the varying depth
     # QUA variable to store the last Clifford gate of the current sequence which is replaced by the recovery gate
@@ -231,12 +234,12 @@ with program() as randomized_benchmarking_individual:
 
     if flux_point == "joint":
         # Bring the active qubits to the desired frequency point
-        node.machine.initialize_qpu(flux_point=flux_point, target=qubits[0])
+        node.machine.set_all_fluxes(flux_point=flux_point, target=qubits[0]) # Don't change until twpa issue is fixed.
     
     for i, qubit in enumerate(qubits):
         # Bring the active qubits to the desired frequency point
         if flux_point != "joint":
-            node.machine.initialize_qpu(flux_point=flux_point, target=qubit)
+            node.machine.set_all_fluxes(flux_point=flux_point, target=qubit)
 
     # QUA for_ loop over the random sequences
     with for_(m, 0, m < num_of_sequences, m + 1):
