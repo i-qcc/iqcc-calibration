@@ -275,11 +275,13 @@ def analyse_data(node: QualibrationNode[Parameters, Quam]):
     # Log the relevant information extracted from the data analysis
     log_fitted_results(fit_results, log_callable=node.log)
 
-    # Set outcomes based on fit success
-    node.outcomes = {
-        qubit_pair_name: ("successful" if fit_result.success else "failed")
-        for qubit_pair_name, fit_result in fit_results.items()
-    }
+    # Set outcomes based on fit success and check for NaN/inf values
+    node.outcomes = {}
+    for qubit_pair_name, fit_result in fit_results.items():
+        # Mark as failed if success is False OR if optimal_amplitude is NaN/inf
+        optimal_amp = fit_result.optimal_amplitude
+        is_valid = fit_result.success and not (np.isnan(optimal_amp) or np.isinf(optimal_amp))
+        node.outcomes[qubit_pair_name] = "successful" if is_valid else "failed"
 
 
 # %% {Plot_data}
@@ -332,8 +334,16 @@ def update_state(node: QualibrationNode[Parameters, Quam]):
         for qp in node.namespace["qubit_pairs"]:
             if node.outcomes[qp.name] == "failed":
                 continue
+            
+            # Check if optimal_amplitude is valid (not NaN or inf)
+            optimal_amp = fit_results[qp.name]["optimal_amplitude"]
+            if np.isnan(optimal_amp) or np.isinf(optimal_amp):
+                # Skip updating this qubit pair if amplitude is invalid
+                node.log(f"Skipping update for {qp.name}: optimal_amplitude is invalid ({optimal_amp})")
+                continue
+            
             operation_id = qp.macros[operation].id # this is for the case where operation is by refrence like with "cz"
-            qp.macros[operation_id].flux_pulse_control.amplitude = fit_results[qp.name]["optimal_amplitude"]
+            qp.macros[operation_id].flux_pulse_control.amplitude = optimal_amp
 
 
 # %% {Save_results}

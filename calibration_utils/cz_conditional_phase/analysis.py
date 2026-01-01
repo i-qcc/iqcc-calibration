@@ -47,7 +47,12 @@ def log_fitted_results(fit_results: Dict[str, FitResults], log_callable=None):
 
     for qp_name, fit_result in fit_results.items():
         s_qubit = f"Results for qubit pair {qp_name}: "
-        s_amp = f"\tOptimal CZ amplitude: {fit_result.optimal_amplitude:.6f} a.u."
+        
+        # Handle NaN/inf values in logging
+        if np.isnan(fit_result.optimal_amplitude) or np.isinf(fit_result.optimal_amplitude):
+            s_amp = f"\tOptimal CZ amplitude: nan (invalid) a.u."
+        else:
+            s_amp = f"\tOptimal CZ amplitude: {fit_result.optimal_amplitude:.6f} a.u."
 
         if fit_result.success:
             s_qubit += "SUCCESS!\n"
@@ -159,7 +164,21 @@ def fit_routine(da):
             p0=p0,
             maxfev=2000,  # Increase max function evaluations to help convergence
         )
-        optimal_amp = (np.arctanh((0.5 - fit_params[3]) / fit_params[0]) - fit_params[2]) / fit_params[1]
+        # Check for NaN or inf in fit parameters
+        if np.any(np.isnan(fit_params)) or np.any(np.isinf(fit_params)):
+            raise ValueError("Fit parameters contain NaN or inf")
+        
+        # Calculate optimal amplitude, checking for valid arctanh argument
+        arctanh_arg = (0.5 - fit_params[3]) / fit_params[0]
+        if abs(arctanh_arg) >= 1.0:
+            raise ValueError("arctanh argument out of valid range [-1, 1]")
+        
+        optimal_amp = (np.arctanh(arctanh_arg) - fit_params[2]) / fit_params[1]
+        
+        # Check if optimal_amp is NaN or inf
+        if np.isnan(optimal_amp) or np.isinf(optimal_amp):
+            raise ValueError("Optimal amplitude is NaN or inf")
+        
         fitted_curve_values = tanh_fit(phase_diff.amp_full.values, *fit_params)
         # Ensure fitted_curve is a DataArray with the same dimensions as phase_diff
         fitted_curve = xr.DataArray(
@@ -171,10 +190,16 @@ def fit_routine(da):
 
     except Exception as e:
         # Fallback: find amplitude closest to π phase difference (0.5 in normalized units)
-        # Find the amp coordinate value where the difference is minimum
-        min_amp_coord = np.abs(phase_diff - 0.5).idxmin("amp")
-        # Get the corresponding amp_full coordinate value
-        optimal_amp = float(phase_diff.amp_full.sel(amp=min_amp_coord).item())
+        try:
+            # Find the amp coordinate value where the difference is minimum
+            min_amp_coord = np.abs(phase_diff - 0.5).idxmin("amp")
+            # Get the corresponding amp_full coordinate value
+            optimal_amp = float(phase_diff.amp_full.sel(amp=min_amp_coord).item())
+            # Check if fallback also resulted in NaN
+            if np.isnan(optimal_amp) or np.isinf(optimal_amp):
+                optimal_amp = np.nan
+        except Exception:
+            optimal_amp = np.nan
         # Create a DataArray with the same dimensions as phase_diff, filled with NaN
         fitted_curve = xr.full_like(phase_diff, np.nan)
         success = False
@@ -223,9 +248,18 @@ def _extract_relevant_parameters(
         qp_name = qp.name
         qp_data = ds_fit.sel(qubit_pair=qp_name)
 
+        optimal_amp_value = float(qp_data.optimal_amplitude.values)
+        success_value = bool(qp_data.success.values)
+        
+        # Mark as failed if optimal_amplitude is NaN or inf, even if success flag is True
+        if np.isnan(optimal_amp_value) or np.isinf(optimal_amp_value):
+            success_value = False
+            # Set to 0.0 to avoid JSON serialization issues (won't be used anyway since success=False)
+            optimal_amp_value = 0.0
+
         fit_results[qp_name] = FitResults(
-            optimal_amplitude=float(qp_data.optimal_amplitude.values),
-            success=bool(qp_data.success.values),
+            optimal_amplitude=optimal_amp_value,
+            success=success_value,
         )
 
     return ds_fit, fit_results

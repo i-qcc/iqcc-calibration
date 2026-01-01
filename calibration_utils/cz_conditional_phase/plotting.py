@@ -42,14 +42,24 @@ def plot_raw_data_with_fit(
         # Plot phase difference data
         fit_result.phase_diff.plot.line(ax=ax, x="amp_full")
 
-        # Plot fitted curve if available
-        if fit_result.success and not np.all(np.isnan(fit_result.fitted_curve)):
+        # Extract scalar values from xarray DataArrays
+        success_value = bool(fit_result.success.values) if hasattr(fit_result.success, 'values') else bool(fit_result.success)
+        optimal_amp_value = float(fit_result.optimal_amplitude.values) if hasattr(fit_result.optimal_amplitude, 'values') else float(fit_result.optimal_amplitude)
+
+        # Plot fitted curve if available and valid
+        if success_value and not np.all(np.isnan(fit_result.fitted_curve)):
             ax.plot(fit_result.phase_diff.amp_full, fit_result.fitted_curve)
 
-        # Mark optimal point
-        ax.plot([fit_result.optimal_amplitude], [0.5], marker="o", color="red")
-        ax.axhline(y=0.5, color="red", linestyle="--", lw=0.5)
-        ax.axvline(x=fit_result.optimal_amplitude, color="red", linestyle="--", lw=0.5)
+        # Mark optimal point only if fit was successful and amplitude is valid
+        if success_value and not (np.isnan(optimal_amp_value) or np.isinf(optimal_amp_value)):
+            ax.plot([optimal_amp_value], [0.5], marker="o", color="red")
+            ax.axhline(y=0.5, color="red", linestyle="--", lw=0.5)
+            ax.axvline(x=optimal_amp_value, color="red", linestyle="--", lw=0.5)
+
+        # Add red X marker for failed fits (similar to node 09)
+        if not success_value or np.isnan(optimal_amp_value) or np.isinf(optimal_amp_value):
+            ax.scatter([1.0], [1.0], marker='x', s=100, c='red', linewidths=2, 
+                      transform=ax.transAxes, clip_on=False, zorder=10)
 
         # Add secondary x-axis for detuning in MHz
         def amp_to_detuning_MHz(amp):
