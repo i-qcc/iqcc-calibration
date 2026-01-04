@@ -2,7 +2,7 @@
 """
     XY-Z delay as describe in page 108 at https://web.physics.ucsb.edu/~martinisgroup/theses/Chen2018.pdf
 """
-from datetime import datetime, timezone, timedelta
+
 import warnings
 
 from qualang_tools.multi_user import qm_session
@@ -27,7 +27,6 @@ class Parameters(NodeParameters):
 
 
 node = QualibrationNode(name="14_XY_Z_delay", parameters=Parameters())
-node_id = get_node_id()
 
 from qm.qua import *
 from qm import SimulationConfig
@@ -208,7 +207,7 @@ if simulate:
     node.save()
     quit()
 else:
-    date_time = datetime.now(timezone(timedelta(hours=3))).strftime("%Y-%m-%d %H:%M:%S")
+    
     with qm_session(qmm, config, timeout=node.parameters.timeout) as qm:
         job = qm.execute(xy_z_delay_calibration)
         results = fetching_tool(job, ["n"], mode="live")
@@ -285,7 +284,7 @@ for ax, qubit in grid_iter(grid):
 
         ax.set_xlabel("Relative Time")
         ax.set_ylabel("State")
-        ax.set_title(f"{qubit} \n {node.date_time} GMT+{node.time_zone} #{node_id} \n reset type = {node.parameters.reset_type_thermal_or_active}")
+        ax.set_title(f"{qubit} \n {node.date_time} GMT+{node.time_zone} #{node.node_id} \n reset type = {node.parameters.reset_type_thermal_or_active}")
 
         margin = 2
         ax.set_xlim(flux_delay - margin, max(x) + margin)
@@ -305,7 +304,7 @@ for ax, qubit in grid_iter(grid):
     ds.sel(qubit=qubit).state.plot(hue="sequence", ax=raw_state_ax)
 
     # Add title, axis labels, and legend
-    raw_state_ax.set_title(f"Raw State Data for {qubit} \n {node.date_time} GMT+{node.time_zone} #{node_id} \n reset type = {node.parameters.reset_type_thermal_or_active}")
+    raw_state_ax.set_title(f"Raw State Data for {qubit} \n {node.date_time} GMT+{node.time_zone} #{node.node_id} \n reset type = {node.parameters.reset_type_thermal_or_active}")
     raw_state_ax.set_xlabel("Index")
     raw_state_ax.set_ylabel("State")
     raw_state_ax.legend(title="Sequence")

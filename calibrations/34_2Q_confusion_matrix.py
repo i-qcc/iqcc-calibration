@@ -33,7 +33,7 @@ Outcomes:
 """
 
 # %% {Imports}
-from datetime import datetime, timezone, timedelta
+
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
 from iqcc_calibration_tools.quam_config.components import Quam
 from iqcc_calibration_tools.quam_config.macros import active_reset, readout_state
@@ -171,7 +171,7 @@ if node.parameters.simulate:
     node.machine = machine
     node.save()
 elif node.parameters.load_data_id is None:
-    date_time = datetime.now(timezone(timedelta(hours=3))).strftime("%Y-%m-%d %H:%M:%S")
+    
     with qm_session(qmm, config, timeout=node.parameters.timeout ) as qm:
         job = qm.execute(CPhase_Oscillations)
 
@@ -240,7 +240,7 @@ if not node.parameters.simulate:
                     ax.text(i, j, f"{100 * conf[i][j]:.1f}%", ha="center", va="center", color="w")
         ax.set_ylabel('prepared')
         ax.set_xlabel('measured')
-        ax.set_title(f"Confusion matrix {qp.name} \n {node.date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type}")
+        ax.set_title(f"Confusion matrix {qp.name} \n {node.date_time} GMT+{node.time_zone} #{node.node_id} \n reset type = {node.parameters.reset_type}")
         
         # Add batch number indicator at the bottom right
         batch_num = pair_to_batch.get(qp.name, 0)

@@ -38,7 +38,7 @@ import numpy as np
 import xarray as xr
 from sklearn.mixture import GaussianMixture
 from scipy.optimize import curve_fit
-from datetime import datetime, timezone, timedelta
+
 
 # %% {Node_parameters}
 class Parameters(NodeParameters):
@@ -212,7 +212,7 @@ if node.parameters.simulate:
     node.save()
 
 else:
-    date_time = datetime.now(timezone(timedelta(hours=3))).strftime("%Y-%m-%d %H:%M:%S")
+    
     with qm_session(qmm, config, timeout=node.parameters.timeout) as qm:
         job = qm.execute(iq_blobs)
         results = fetching_tool(job, ["n"], mode="live")

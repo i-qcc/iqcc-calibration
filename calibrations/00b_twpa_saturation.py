@@ -24,7 +24,7 @@ Prerequisites:
 """
 
 # %% {Imports}
-from datetime import datetime, timezone, timedelta
+
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
 from iqcc_calibration_tools.quam_config.components import Quam
 from iqcc_calibration_tools.quam_config.macros import qua_declaration
@@ -60,8 +60,7 @@ class Parameters(NodeParameters):
     pumpline_attenuation: int = -50-10-4 #(-50: fridge atten(-30)+directional coupler(-20)/   #-5: fridge line # exclude for now
     signalline_attenuation : int = -60-9 #-60dB : fridge atten,
 node = QualibrationNode(name="00b_twpa_2_1_saturation", parameters=Parameters())
-date_time = datetime.now(timezone(timedelta(hours=2))).strftime("%Y-%m-%d %H:%M:%S")
-node.results["date"]={"date":date_time}
+node.results["date"]={"date":node.date_time}
 # %% {Initialize_QuAM_and_QOP}
 # Class containing tools to help handling units and conversions.
 u = unit(coerce_to_integer=True)
@@ -176,7 +175,6 @@ if node.parameters.simulate:
     node.machine = machine
     node.save()
 elif node.parameters.load_data_id is None:
-    date_time = datetime.now(timezone(timedelta(hours=3))).strftime("%Y-%m-%d %H:%M:%S")
     with qm_session(qmm, config, timeout=node.parameters.timeout) as qm:
         job = qm.execute(twpa_pump_off)
         results = fetching_tool(job, ["n"], mode="live")
@@ -213,7 +211,7 @@ for i in range(1,len(daps),8):
     plt.plot(fs,Gain[i], label=f'Ps={ps[i]}dBm')
 plt.xlabel('fs[GHz]')
 plt.ylabel('Gain[dB]')
-plt.title(f'{twpas[0].id}: Gain Compression\n Pamp={np.round(p_p,3)},fp={np.round((twpas[0].pump.LO_frequency+twpas[0].pump.intermediate_frequency+f_p)*1e-9,3)}GHz, Pp={np.round(node.parameters.pumpline_attenuation+opxoutput(full_scale_power_dbm,p_p),2)}dBm\n {date_time}')
+plt.title(f'{twpas[0].id}: Gain Compression\n Pamp={np.round(p_p,3)},fp={np.round((twpas[0].pump.LO_frequency+twpas[0].pump.intermediate_frequency+f_p)*1e-9,3)}GHz, Pp={np.round(node.parameters.pumpline_attenuation+opxoutput(full_scale_power_dbm,p_p),2)}dBm\n {node.date_time}')
 plt.legend(loc='upper right', bbox_to_anchor=(1.7, 1))
 gain_profile=plt.gcf()
 # ps VS Gain / fs
@@ -230,7 +228,7 @@ p1db = np.argmax(avg_gain_of_all_fs < gain_1db_compression)
 plt.scatter(ps[p1db], gain_1db_compression, label=f'P1dB={ps[p1db]}dBm', color='black', marker='x',s=35, zorder=10)
 plt.xlabel('Ps[dBm]')
 plt.ylabel('Gain[dB]')
-plt.title(f"{twpas[0].id}: Gain Compression\n Pamp={np.round(p_p,3)},fp={np.round((twpas[0].pump.LO_frequency+twpas[0].pump.intermediate_frequency+f_p)*1e-9,3)}GHz, Pp={np.round(node.parameters.pumpline_attenuation+opxoutput(full_scale_power_dbm,p_p),2)}dBm \n {date_time}")
+plt.title(f"{twpas[0].id}: Gain Compression\n Pamp={np.round(p_p,3)},fp={np.round((twpas[0].pump.LO_frequency+twpas[0].pump.intermediate_frequency+f_p)*1e-9,3)}GHz, Pp={np.round(node.parameters.pumpline_attenuation+opxoutput(full_scale_power_dbm,p_p),2)}dBm \n {node.date_time}")
 plt.legend(loc='upper right', bbox_to_anchor=(1.5, 1), fontsize=7)
 gain_compression=plt.gcf()
 

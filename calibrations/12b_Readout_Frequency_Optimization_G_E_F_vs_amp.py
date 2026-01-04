@@ -33,7 +33,7 @@ from typing import Literal, Optional, List
 import matplotlib.pyplot as plt
 import numpy as np
 from quam.components import pulses
-from datetime import datetime, timezone, timedelta
+
 
 
 # %% {Node_parameters}
@@ -197,7 +197,7 @@ if node.parameters.simulate:
     node.save()
 
 else:
-    date_time = datetime.now(timezone(timedelta(hours=3))).strftime("%Y-%m-%d %H:%M:%S")
+    
     with qm_session(qmm, config, timeout=node.parameters.timeout) as qm:
         job = qm.execute(ro_freq_opt)
 
@@ -315,7 +315,7 @@ if not node.parameters.simulate:
         ax.set_xlabel("Frequency [MHz]")
         ax.set_ylabel("Distance between IQ blobs [m.v.]")
         ax.legend()
-    grid.fig.suptitle(f"{date_time} #{node.node_id}")
+    grid.fig.suptitle(f"{node.date_time} #{node.node_id}")
     plt.tight_layout()
     plt.show()
     node.results["figure"] = grid.fig
@@ -335,7 +335,7 @@ if not node.parameters.simulate:
         ax.set_xlabel("Frequency [MHz]")
         ax.set_ylabel("Resonator response [mV]")
         ax.legend()
-    grid.fig.suptitle(f"{date_time} #{node.node_id}")
+    grid.fig.suptitle(f"{node.date_time} #{node.node_id}")
     plt.tight_layout()
     plt.show()
     node.results["figure2"] = grid.fig

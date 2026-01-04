@@ -17,7 +17,7 @@ Before proceeding to the next node:
 
 
 # %% {Imports}
-from datetime import datetime, timezone, timedelta
+
 from qualibrate import QualibrationNode, NodeParameters
 from iqcc_calibration_tools.quam_config.components import Quam as QuAM
 from iqcc_calibration_tools.quam_config.macros import qua_declaration
@@ -176,7 +176,7 @@ if node.parameters.simulate:
     node.save()
 
 elif node.parameters.load_data_id is None:
-    date_time = datetime.now(timezone(timedelta(hours=3))).strftime("%Y-%m-%d %H:%M:%S")
+    
     with qm_session(qmm, config, timeout=node.parameters.timeout) as qm:
         job = qm.execute(multi_qubit_spec_vs_flux)
         results = fetching_tool(job, ["n"], mode="live")

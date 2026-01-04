@@ -4,7 +4,7 @@
 """
 import warnings
 
-from datetime import datetime, timezone, timedelta
+
 from qualang_tools.multi_user import qm_session
 from qualang_tools.results import fetching_tool, progress_counter
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
@@ -164,7 +164,7 @@ if simulate:
     node.save()
     quit()
 else:
-    date_time = datetime.now(timezone(timedelta(hours=3))).strftime("%Y-%m-%d %H:%M:%S")
+    
     with qm_session(qmm, config, timeout=node.parameters.timeout) as qm:
         job = qm.execute(xy_z_delay_calibration)
         results = fetching_tool(job, ["n"], mode="live")
@@ -221,7 +221,7 @@ for ax, qp in grid_iter(grid):
 
     ax.legend()
 
-grid.fig.suptitle(f'Coupler Z Delay Fitting \n {date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type_thermal_or_active}')
+grid.fig.suptitle(f'Coupler Z Delay Fitting \n {node.date_time} GMT+{node.time_zone} #{node.node_id} \n reset type = {node.parameters.reset_type_thermal_or_active}')
 plt.tight_layout()
 plt.show()
 
