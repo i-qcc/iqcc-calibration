@@ -11,7 +11,7 @@ from qualang_tools.units import unit
 
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode
 from iqcc_calibration_tools.quam_config.components.quam_root import Quam
-from calibration_utils.T2echo import (
+from calibration_utils.T2dd import (
     Parameters,
     process_raw_dataset,
     fit_raw_data,
@@ -25,31 +25,38 @@ from qualibration_libs.data import XarrayDataFetcher
 
 # %% {Description}
 description = """
-        T2 echo MEASUREMENT
-The sequence consists in playing an echo sequence (x90 - idle_time - x180 - idle_time - -x90 - measurement) for 
+        DYNAMICAL DECOUPLING (T2 ECHO)
+The sequence consists in playing an echo sequence (-y90 - idle_time - x180 - idle_time - -y90 - measurement) for 
 different idle times.
 The qubit T2 echo is extracted by fitting the exponential decay of the measured quadratures/state.
 
 Prerequisites:
     - Having calibrated the mixer or the Octave (nodes 01a or 01b).
     - Having calibrated the qubit frequency precisely (node 06a_ramsey.py).
+    - Having calibrated the qubit x180 pulse parameters (nodes 03a_qubit_spectroscopy.py and 04b_power_rabi.py).
     - (optional) Having optimized the readout parameters (nodes 08a, 08b and 08c).
     - Having specified the desired flux point if relevant (qubit.z.flux_point).
 
-Next steps before going to the next node:
-    - Update the qubit T2 echo: qubit.T2echo.
+State update:
+    - The qubit T2 echo: qubit.T2echo.
 """
 
 
-node = QualibrationNode[Parameters, Quam](name="06b_echo", description=description, parameters=Parameters())
+# Be sure to include [Parameters, Quam] so the node has proper type hinting
+node = QualibrationNode[Parameters, Quam](
+    name="06b_dynamical_decoupling",  # Name should be unique
+    description=description,  # Describe what the node is doing, which is also reflected in the QUAlibrate GUI
+    parameters=Parameters(),  # Node parameters defined under quam_experiment/experiments/node_name
+)
 
 
 # Any parameters that should change for debugging purposes only should go in here
 # These parameters are ignored when run through the GUI or as part of a graph
 @node.run_action(skip_if=node.modes.external)
 def custom_param(node: QualibrationNode[Parameters, Quam]):
+    """Allow the user to locally set the node parameters for debugging purposes, or execution in the Python IDE."""
     # You can get type hinting in your IDE by typing node.parameters.
-    node.parameters.qubits = ["Q5"]
+    node.parameters.qubits = ["Q6"]
     pass
 
 
@@ -73,7 +80,7 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
     # Register the sweep axes to be added to the dataset when fetching data
     node.namespace["sweep_axes"] = {
         "qubit": xr.DataArray(qubits.get_names()),
-        "idle_time": xr.DataArray(4 * idle_times, attrs={"long_name": "idle time", "units": "ns"}),
+        "idle_time": xr.DataArray(8 * idle_times, attrs={"long_name": "idle time", "units": "ns"}),
     }
 
     with program() as node.namespace["qua_program"]:
@@ -211,8 +218,9 @@ def plot_data(node: QualibrationNode[Parameters, Quam]):
     plt.show()
     # Store the generated figures
     node.results["figures"] = {
-        "raw_fit": fig_raw_fit,
+        "T2_echo": fig_raw_fit,
     }
+
 
 # %% {Update_state}
 @node.run_action(skip_if=node.parameters.simulate)
@@ -222,10 +230,14 @@ def update_state(node: QualibrationNode[Parameters, Quam]):
         for q in node.namespace["qubits"]:
             if node.outcomes[q.name] == "failed":
                 continue
-            q.T2echo = node.results["fit_results"][q.name]["T2_echo"]
+            # q.T2echo = node.results["fit_results"][q.name]["T2_echo"]
+            continue
 
 
 # %% {Save_results}
 @node.run_action()
 def save_results(node: QualibrationNode[Parameters, Quam]):
     node.save()
+
+# %%
+

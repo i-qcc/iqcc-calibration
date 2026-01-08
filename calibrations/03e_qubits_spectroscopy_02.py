@@ -13,39 +13,42 @@ from qualang_tools.units import unit
 
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode
 from iqcc_calibration_tools.quam_config.components.quam_root import Quam
-from calibration_utils.resonator_spectroscopy import (
+from calibration_utils.qubits_spectroscopy_02 import (
     Parameters,
     process_raw_dataset,
     fit_raw_data,
     log_fitted_results,
-    plot_raw_amplitude_with_fit,
-    plot_raw_phase,
+    plot_raw_data_with_fit,
 )
 from qualibration_libs.parameters import get_qubits
 from qualibration_libs.runtime import simulate_and_plot
 from qualibration_libs.data import XarrayDataFetcher
 
+
 # %% {Node initialisation}
 description = """
-        1D RESONATOR SPECTROSCOPY
-This sequence involves measuring the resonator by sending a readout pulse and demodulating the signals to extract the
-'I' and 'Q' quadratures across varying readout intermediate frequencies for all the active qubits.
-The data is then post-processed to determine the resonator resonance frequency.
-This frequency is used to update the readout frequency in the state.
+        QUBIT SPECTROSCOPY - 0->2 TRANSITION
+This sequence involves sending a saturation pulse to the qubit to find the 0->2 transition frequency,
+which allows estimation of the qubit anharmonicity. The sequence searches around f01 - α/2,
+where f01 is the qubit frequency and α is the anharmonicity (default guess of 200 MHz).
+
+The data is post-processed to determine the 0->2 transition frequency and calculate the actual anharmonicity.
 
 Prerequisites:
-    - Having calibrated the IQ mixer/Octave connected to the readout line (node 01a_mixer_calibration.py).
-    - Having calibrated the time of flight, offsets, and gains (node 01a_time_of_flight.py).
-    - Having initialized the QUAM state parameters for the readout pulse amplitude and duration, and the resonators depletion time.
+    - Having run the qubit spectroscopy (03a) to find the 0->1 transition frequency
+    - Having calibrated the mixer or the Octave (nodes 01a or 01b).
+    - Having calibrated the readout parameters (nodes 02a, 02b and/or 02c).
     - Having specified the desired flux point if relevant (qubit.z.flux_point).
 
 State update:
-    - The readout frequency: qubit.resonator.f_01 & qubit.resonator.RF_frequency
+    - (optional) The qubit anharmonicity: qubit.anharmonicity
+    - The integration weight angle to get the state discrimination along the 'I' quadrature: qubit.resonator.operations["readout"].integration_weights_angle.
 """
+
 
 # Be sure to include [Parameters, Quam] so the node has proper type hinting
 node = QualibrationNode[Parameters, Quam](
-    name="02a_resonator_spectroscopy",  # Name should be unique
+    name="03e_qubits_spectroscopy_02",  # Name should be unique
     description=description,  # Describe what the node is doing, which is also reflected in the QUAlibrate GUI
     parameters=Parameters(),  # Node parameters defined under quam_experiment/experiments/node_name
 )
@@ -57,8 +60,7 @@ node = QualibrationNode[Parameters, Quam](
 def custom_param(node: QualibrationNode[Parameters, Quam]):
     """Allow the user to locally set the node parameters for debugging purposes, or execution in the Python IDE."""
     # You can get type hinting in your IDE by typing node.parameters.
-    node.parameters.qubits = ["Q6"]
-    # node.modes.interactive = True # run on script as if on qualibrate
+    node.parameters.qubits = ["qC2"]
     pass
 
 
@@ -75,43 +77,110 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
     # Get the active qubits from the node and organize them by batches
     node.namespace["qubits"] = qubits = get_qubits(node)
     num_qubits = len(qubits)
-    # Extract the sweep parameters and axes from the node parameters
-    n_avg = node.parameters.num_shots
-    # The frequency sweep around the resonator resonance frequency
+
+    operation = node.parameters.operation  # The qubit operation to play
+    n_avg = node.parameters.num_shots  # The number of averages
+    # Adjust the pulse duration and amplitude to drive the qubit into a mixed state - can be None
+    operation_len = node.parameters.operation_len_in_ns
+    # pre-factor to the value defined in the config - restricted to [-2; 2)
+    operation_amp = node.parameters.operation_amplitude_factor if node.parameters.operation_amplitude_factor is not None else 1.0
+    
+    # Calculate expected 0->2 transition frequency (f01 - α/2)
+    init_anharmonicity = node.parameters.initial_anharmonicity_mhz * u.MHz
+    # Qubit detuning sweep around expected 0->2 transition
     span = node.parameters.frequency_span_in_mhz * u.MHz
     step = node.parameters.frequency_step_in_mhz * u.MHz
-    dfs = np.arange(-span / 2, +span / 2, step)
+    dfs = np.arange(-span // 2, +span // 2, step)
+
+    # Calculate flux bias offsets and detunings
+    qubit_freqs = {q.name: q.xy.RF_frequency for q in qubits}
+    arb_flux_bias_offset = {}
+    detunings = {}
+    
+    for q in qubits:
+        if node.parameters.arbitrary_flux_bias is not None:
+            arb_flux_bias_offset[q.name] = node.parameters.arbitrary_flux_bias
+            detunings[q.name] = q.freq_vs_flux_01_quad_term * arb_flux_bias_offset[q.name] ** 2
+        elif node.parameters.arbitrary_qubit_frequency_in_ghz is not None:
+            detunings[q.name] = 1e9 * node.parameters.arbitrary_qubit_frequency_in_ghz - qubit_freqs[q.name]
+            arb_flux_bias_offset[q.name] = np.sqrt(detunings[q.name] / q.freq_vs_flux_01_quad_term) if q.freq_vs_flux_01_quad_term != 0 else 0.0
+        else:
+            arb_flux_bias_offset[q.name] = 0.0
+            detunings[q.name] = 0.0
+        
+        # Adjust detunings to search around 0->2 transition (f01 - α/2)
+        detunings[q.name] -= init_anharmonicity / 2
+
+    # Store in namespace for later use
+    node.namespace["arb_flux_bias_offset"] = arb_flux_bias_offset
+    node.namespace["detunings"] = detunings
+    node.namespace["init_anharmonicity"] = init_anharmonicity
+
     # Register the sweep axes to be added to the dataset when fetching data
     node.namespace["sweep_axes"] = {
         "qubit": xr.DataArray(qubits.get_names()),
-        "detuning": xr.DataArray(dfs, attrs={"long_name": "readout frequency", "units": "Hz"}),
+        "detuning": xr.DataArray(dfs, attrs={"long_name": "qubit frequency detuning", "units": "Hz"}),
     }
 
-    # The QUA program stored in the node namespace to be transfer to the simulation and execution run_actions
+    flux_point = node.parameters.flux_point_joint_or_independent
+
     with program() as node.namespace["qua_program"]:
-        I, I_st, Q, Q_st, n, n_st = node.machine.declare_qua_variables()
-        df = declare(int)  # QUA variable for the readout frequency
+        # Macro to declare I, Q, n and their respective streams for a given number of qubit
+        I, I_st, Q, Q_st, _, n_st = node.machine.declare_qua_variables()
 
         for multiplexed_qubits in qubits.batch():
             # Initialize the QPU in terms of flux points (flux tunable transmons and/or tunable couplers)
-            for qubit in multiplexed_qubits.values():
-                node.machine.initialize_qpu(target=qubit)
+            if flux_point == "joint":
+                node.machine.initialize_qpu(target=multiplexed_qubits[0])
+            else:
+                for qubit in multiplexed_qubits.values():
+                    node.machine.initialize_qpu(target=qubit)
             align()
+
+            n = declare(int)  # QUA variable for the number of averages
+            df = declare(int)  # QUA variable for the qubit frequency
             with for_(n, 0, n < n_avg, n + 1):
                 save(n, n_st)
                 with for_(*from_array(df, dfs)):
                     for i, qubit in multiplexed_qubits.items():
-                        rr = qubit.resonator
-                        # Update the resonator frequencies for all resonators
-                        rr.update_frequency(df + rr.intermediate_frequency)
-                        # Measure the resonator
-                        rr.measure("readout", qua_vars=(I[i], Q[i]))
+                        # Get the duration of the operation from the node parameters or the state
+                        if operation_len is not None:
+                            duration = operation_len * u.ns
+                        else:
+                            duration = (qubit.xy.operations[operation].length + qubit.z.settle_time) * u.ns
+                        
+                        # Update the qubit frequency
+                        qubit.xy.update_frequency(df + qubit.xy.intermediate_frequency + detunings[qubit.name])
+                        qubit.align()
+                        
+                        # Bring the qubit to the desired point during the saturation pulse
+                        qubit.z.play(
+                            "const",
+                            amplitude_scale=arb_flux_bias_offset[qubit.name] / qubit.z.operations["const"].amplitude,
+                            duration=duration,
+                        )
+                        # Play the saturation pulse
+                        qubit.xy.wait(qubit.z.settle_time * u.ns)
+                        qubit.xy.play(
+                            operation,
+                            amplitude_scale=operation_amp,
+                            duration=duration,
+                        )
+                    align()
+
+                    for i, qubit in multiplexed_qubits.items():
+                        # readout the resonator
+                        qubit.resonator.measure("readout", qua_vars=(I[i], Q[i]))
                         # wait for the resonator to deplete
-                        rr.wait(rr.depletion_time * u.ns)
+                        qubit.resonator.wait(node.machine.depletion_time * u.ns)
                         # save data
                         save(I[i], I_st[i])
                         save(Q[i], Q_st[i])
                     align()
+                    
+                    # Measure sequentially if not multiplexed
+                    if not node.parameters.multiplexed:
+                        align()
 
         with stream_processing():
             n_st.save("n")
@@ -192,17 +261,12 @@ def analyse_data(node: QualibrationNode[Parameters, Quam]):
 @node.run_action(skip_if=node.parameters.simulate)
 def plot_data(node: QualibrationNode[Parameters, Quam]):
     """Plot the raw and fitted data in specific figures whose shape is given by qubit.grid_location."""
-    fig_raw_phase = plot_raw_phase(node.results["ds_raw"], node.namespace["qubits"])
-    node.add_node_info_subtitle(fig_raw_phase)
-    fig_fit_amplitude = plot_raw_amplitude_with_fit(
-        node.results["ds_raw"], node.namespace["qubits"], node.results["ds_fit"]
-    )
-    node.add_node_info_subtitle(fig_fit_amplitude)
+    fig_raw_fit = plot_raw_data_with_fit(node.results["ds_raw"], node.namespace["qubits"], node.results["ds_fit"])
+    node.add_node_info_subtitle(fig_raw_fit)
     plt.show()
     # Store the generated figures
     node.results["figures"] = {
-        "phase": fig_raw_phase,
-        "amplitude": fig_fit_amplitude,
+        "amplitude": fig_raw_fit,
     }
 
 
@@ -215,8 +279,12 @@ def update_state(node: QualibrationNode[Parameters, Quam]):
             if node.outcomes[q.name] == "failed":
                 continue
 
-            q.resonator.f_01 = float(node.results["fit_results"][q.name]["frequency"])
-            q.resonator.RF_frequency = float(node.results["fit_results"][q.name]["frequency"])
+            fit_result = node.results["fit_results"][q.name]
+            # Update the integration weight angle
+            q.resonator.operations["readout"].integration_weights_angle = fit_result["iw_angle"]
+            # Optionally update the anharmonicity if the fit was successful
+            # Uncomment the following line if you want to update the anharmonicity:
+            q.anharmonicity = int(fit_result["anharmonicity"])
 
 
 # %% {Save_results}

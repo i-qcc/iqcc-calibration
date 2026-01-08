@@ -38,7 +38,7 @@ from datetime import datetime, timezone, timedelta
 # %% {Node_parameters}
 class Parameters(NodeParameters):
 
-    qubits: Optional[List[str]] = None
+    qubits: Optional[List[str]] = ["Q3"]
     num_averages: int = 40
     frequency_span_in_mhz: float = 10
     frequency_step_in_mhz: float = 0.05

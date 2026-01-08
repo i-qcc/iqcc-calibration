@@ -18,20 +18,24 @@ from calibration_utils.time_rabi import (
     process_raw_dataset,
     fit_raw_data,
     log_fitted_results,
-    plot_raw_data_with_fit,
-    plot_raw_data
+    plot_raw_data_with_fit
 )
-from qualibration_libs.parameters import get_qubits, get_idle_times_in_clock_cycles
+from qualibration_libs.parameters import get_qubits
 from qualibration_libs.runtime import simulate_and_plot
 from qualibration_libs.data import XarrayDataFetcher
 
-# %% {Node_parameters}
-description = """ 
+# %% {Description}
+description = """
         TIME RABI
 This sequence involves playing the qubit pulse (such as x180) at a fixed amplitude
 while sweeping its duration.
 The results are then analyzed to determine the qubit pulse duration suitable 
 for the selected amplitude, which corresponds to a pi-pulse.
+
+Prerequisites:
+    - Having calibrated the mixer or the Octave (nodes 01a or 01b).
+    - Having calibrated the qubit frequency (node 03a_qubit_spectroscopy.py).
+    - Having specified the desired flux point if relevant (qubit.z.flux_point).
 
 State update:
     - The qubit pulse duration (operation.length).
@@ -45,13 +49,16 @@ node = QualibrationNode[Parameters, Quam](
 )
 
 
+# Any parameters that should change for debugging purposes only should go in here
+# These parameters are ignored when run through the GUI or as part of a graph
 @node.run_action(skip_if=node.modes.external)
 def custom_param(node: QualibrationNode[Parameters, Quam]):
+    """Allow the user to locally set the node parameters for debugging purposes, or execution in the Python IDE."""
+    # You can get type hinting in your IDE by typing node.parameters.
     node.parameters.min_wait_time_in_ns = 40
-    node.parameters.max_wait_time_in_ns = 800
-    node.parameters.num_time_steps = 800
+    node.parameters.max_wait_time_in_ns = 160
+    node.parameters.num_time_steps = 100
     node.parameters.qubits = ["Q6"]
-    node.parameters.drive_amp_scale = 0.1
     pass
 
 
@@ -108,9 +115,9 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                     align()
                     # Qubit manipulation
                     for i, qubit in multiplexed_qubits.items():
-                        qubit.xy.play("x180_BlackmanIntegralPulse_Rise")
-                        qubit.xy.play("x180_Square",duration = t)
-                        qubit.xy.play("x180_BlackmanIntegralPulse_Fall")
+                        qubit.xy_sl.play("x180_BlackmanIntegralPulse_Rise")
+                        qubit.xy_sl.play("x180_Square",duration = t)
+                        qubit.xy_sl.play("x180_BlackmanIntegralPulse_Fall")
                     align()
                     # Qubit readout
                     for i, qubit in multiplexed_qubits.items():
@@ -205,17 +212,7 @@ def analyse_data(node: QualibrationNode[Parameters, Quam]):
 # %% {Plot_data}
 @node.run_action(skip_if=node.parameters.simulate)
 def plot_data(node: QualibrationNode[Parameters, Quam]):
-    """Plot the raw data and the fitted data in separate figures."""
-    
-    # --- 1. Plot Raw Data Only ---
-    fig_raw = plot_raw_data(
-        node.results["ds_raw"], 
-        node.namespace["qubits"]
-    )
-    node.add_node_info_subtitle(fig_raw)
-    plt.show() # Show the first figure (raw data)
-
-    # --- 2. Plot Raw Data with Fit ---
+    """Plot the raw and fitted data in specific figures whose shape is given by qubit.grid_location."""
     fig_raw_fit = plot_raw_data_with_fit(
         node.results["ds_raw"], 
         node.namespace["qubits"], 
@@ -223,5 +220,32 @@ def plot_data(node: QualibrationNode[Parameters, Quam]):
         node.results["fit_results"]
     )
     node.add_node_info_subtitle(fig_raw_fit)
-    plt.show() # Show the second figure (raw + fit)
+    plt.show()
+    # Store the generated figures
+    node.results["figures"] = {
+        "amplitude": fig_raw_fit,
+    }
+
+
+# %% {Update_state}
+@node.run_action(skip_if=node.parameters.simulate)
+def update_state(node: QualibrationNode[Parameters, Quam]):
+    """Update the relevant parameters if the qubit data analysis was successful."""
+    with node.record_state_updates():
+        for q in node.namespace["qubits"]:
+            if node.outcomes[q.name] == "failed":
+                continue
+
+            fit_result = node.results["fit_results"][q.name]
+            # Update the qubit pulse duration for x180 operation
+            q.xy.operations["x180"].length = int(fit_result["opt_dur_pi"])
+            # Update x90 duration as well (pi/2 pulse)
+            q.xy.operations["x90"].length = int(fit_result["opt_dur_pi_half"])
+
+
+# %% {Save_results}
+@node.run_action()
+def save_results(node: QualibrationNode[Parameters, Quam]):
+    node.save()
+
 # %%

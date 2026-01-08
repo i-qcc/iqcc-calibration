@@ -16,6 +16,7 @@ from dataclasses import field
 from typing import Dict, ClassVar, Sequence, Union
 
 from quam_builder.architecture.superconducting.qpu import FluxTunableQuam
+from iqcc_calibration_tools.quam_config.config_utils import get_clean_config
 
 __all__ = ["Quam"] # , "FEMQuAM", "OPXPlusQuAM"]
 
@@ -91,4 +92,15 @@ class Quam(FluxTunableQuam):
         for qubit_data in quam_obj.qubits.values():
             if hasattr(qubit_data, 'macros'):
                 qubit_data.macros = {}
+    
+    def get_clean_config(self):
+        """Generate QUA config without deprecated 'version' parameter.
+        
+        This is a wrapper around generate_config() that removes the deprecated
+        'version' parameter to avoid deprecation warnings in QUA 1.2.2+.
+        
+        Returns:
+            dict: The QUA config dictionary without the 'version' key.
+        """
+        return get_clean_config(self)
         

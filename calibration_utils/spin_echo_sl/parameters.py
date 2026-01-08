@@ -5,7 +5,7 @@ from typing import List
 from dataclasses import field
 
 class NodeSpecificParameters(RunnableParameters):
-    num_shots: int = 1000
+    num_shots: int = 2000
 
 class Parameters(
     NodeParameters,
