@@ -191,6 +191,5 @@ def log_fitted_results(
             # Analysis 2: Amplitude
             log_callable(f"  --- Amplitude Analysis ---")
             log_callable(f"  Target Freq: {fit_result['target_freq']:.2f} MHz")
-            log_callable(f"  New Amp Scale: {fit_result['amp_fit']:.3f} (Old: {fit_result['drive_amp_scale']:.3f})")
         else:
             log_callable(f"Qubit {qubit_name}: [FAILED]")
