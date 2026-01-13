@@ -31,8 +31,7 @@ from iqcc_calibration_tools.qualibrate_config.qualibrate.node import Qualibratio
 from iqcc_calibration_tools.quam_config.components import Quam
 from iqcc_calibration_tools.quam_config.macros import active_reset, readout_state, readout_state_gef, active_reset_gef
 from iqcc_calibration_tools.analysis.plot_utils import QubitPairGrid, grid_iter, grid_pair_names
-from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset, save_node
-from iqcc_calibration_tools.analysis.fit import fit_oscillation
+from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset
 from qualang_tools.results import progress_counter, fetching_tool
 from qualang_tools.loops import from_array
 from qualang_tools.multi_user import qm_session
@@ -44,17 +43,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 import warnings
 from qualang_tools.bakery import baking
-from iqcc_calibration_tools.analysis.fit import fit_oscillation_decay_exp, oscillation_decay_exp
+from qualibration_libs.analysis import fit_oscillation_decay_exp, oscillation_decay_exp
 from iqcc_calibration_tools.analysis.plot_utils import QubitPairGrid, grid_iter, grid_pair_names
 from scipy.optimize import curve_fit
 from iqcc_calibration_tools.quam_config.components.gates.two_qubit_gates import CZGate
 from iqcc_calibration_tools.quam_config.lib.pulses import FluxPulse
-
+from iqcc_calibration_tools.quam_config.components.gate_macros import CZMacro
 # %% {Node_parameters}
 class Parameters(NodeParameters):
 
     qubit_pairs: Optional[List[str]] = None
-    num_averages: int = 10
+    num_averages: int = 30
     max_time_in_ns: int = 160
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
     reset_type: Literal['active', 'thermal'] = "thermal"
@@ -102,7 +101,7 @@ def rabi_chevron_model(ft, J, f0, a, offset,tau):
     J = J
     w = f
     w0 = f0
-    g = offset+a * np.sin(2*np.pi*np.sqrt(4*J**2 + (w-w0)**2) * t)**2*np.exp(-tau*np.abs((w-w0))) 
+    g = offset+a * np.sin(2*np.pi*np.sqrt(1*J**2 + 0.25*(w-w0)**2) * t)**2*np.exp(-tau*np.abs((w-w0))) 
     return g.ravel()
 
 def fit_rabi_chevron(ds_qp, init_length, init_detuning):
@@ -141,7 +140,7 @@ for qp in qubit_pairs:
 
 # Loop parameters
 amplitudes = np.arange(1-node.parameters.amp_range, 1+node.parameters.amp_range, node.parameters.amp_step)
-times_cycles = np.arange(0, node.parameters.max_time_in_ns // 4)
+times_cycles = np.arange(4, node.parameters.max_time_in_ns // 4)
 
 with program() as CPhase_Oscillations:
     t = declare(int)  # QUA variable for the flux pulse segment index
@@ -370,19 +369,35 @@ if not node.parameters.simulate:
 # %%
 
 # %% {Update_state}
+# if not node.parameters.simulate:
+#     if node.parameters.load_data_id is None:
+#         cz_gate_objects = []
+#         for qp in qubit_pairs:
+#             cz_gate_objects.append(CZGate(flux_pulse_control = FluxPulse(length=lengths[qp.name], amplitude=amplitudes[qp.name], zero_padding=zero_paddings[qp.name], id = 'flux_pulse_control_' + qp.qubit_target.name)))
+#         with node.record_state_updates():
+#             for i, qp in enumerate(qubit_pairs):
+#                 qp.gates['Cz_unipolar'] = cz_gate_objects[i]
+#                 qp.gates['Cz'] = f"#./Cz_unipolar"
+                
+#                 qp.J2 = Js[qp.name]
+#                 qp.detuning = detunings[qp.name]
 if not node.parameters.simulate:
     if node.parameters.load_data_id is None:
-        cz_gate_objects = []
-        for qp in qubit_pairs:
-            cz_gate_objects.append(CZGate(flux_pulse_control = FluxPulse(length=lengths[qp.name], amplitude=amplitudes[qp.name], zero_padding=zero_paddings[qp.name], id = 'flux_pulse_control_' + qp.qubit_target.name)))
         with node.record_state_updates():
-            for i, qp in enumerate(qubit_pairs):
-                qp.gates['Cz_unipolar'] = cz_gate_objects[i]
-                qp.gates['Cz'] = f"#./Cz_unipolar"
+            for qp in qubit_pairs:
+                stationary_qubit = qp.qubit_target 
+                pulsed_qubit = qp.qubit_control
                 
+                CZgate = CZMacro(flux_pulse_qubit = FluxPulse(length=lengths[qp.name], amplitude=amplitudes[qp.name], zero_padding=zero_paddings[qp.name], id = 'flux_pulse_qubit_' + stationary_qubit.name))
+                qp.macros['Cz_unipolar'] = CZgate
+                pulsed_qubit.z.operations[f"flux_pulse_qubit_{stationary_qubit.name}"] = FluxPulse(length=f"#/qubit_pairs/{qp.name}/macros/Cz_unipolar/flux_pulse_qubit/length", 
+                                                                  amplitude=f"#/qubit_pairs/{qp.name}/macros/Cz_unipolar/flux_pulse_qubit/amplitude", 
+                                                                  zero_padding=f"#/qubit_pairs/{qp.name}/macros/Cz_unipolar/flux_pulse_qubit/zero_padding", 
+                                                                  id = 'flux_pulse_qubit_' + stationary_qubit.name)
+                qp.macros['Cz'] = f"#./Cz_unipolar"
                 qp.J2 = Js[qp.name]
                 qp.detuning = detunings[qp.name]
-                
+          
 # %% {Save_results}
 if not node.parameters.simulate:
     node.outcomes = {qp.name: "successful" for qp in qubit_pairs}

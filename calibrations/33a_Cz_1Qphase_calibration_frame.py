@@ -35,7 +35,7 @@ Outcomes:
 
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
 from iqcc_calibration_tools.quam_config.components import Quam
-from iqcc_calibration_tools.quam_config.macros import active_reset, readout_state
+from iqcc_calibration_tools.quam_config.macros import active_reset, readout_state, active_reset_simple
 from iqcc_calibration_tools.analysis.plot_utils import QubitPairGrid, grid_iter, grid_pair_names
 from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset
 from qualang_tools.results import progress_counter, fetching_tool
@@ -56,7 +56,7 @@ class Parameters(NodeParameters):
     qubit_pairs: Optional[List[str]] = None
     num_averages: int = 500
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
-    reset_type: Literal['active', 'thermal'] = "active"
+    reset_type: Literal['active', 'thermal'] = "thermal"
     simulate: bool = False
     timeout: int = 100
     num_frames: int = 21
@@ -136,9 +136,9 @@ with program() as CPhase_Oscillations:
                 for qubit, state_q, state_st in [(qp.qubit_control, state_control[i], state_st_control[i]), (qp.qubit_target, state_target[i], state_st_target[i])]:
                     # reset
                     if node.parameters.reset_type == "active":
-                            active_reset(qp.qubit_control)
+                            active_reset_simple(qp.qubit_control)
                             qp.align()
-                            active_reset(qp.qubit_target)
+                            active_reset_simple(qp.qubit_target)
                             qp.align()
                     else:
                         wait(qp.qubit_control.thermalization_time * u.ns)
