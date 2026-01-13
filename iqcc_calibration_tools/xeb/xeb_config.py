@@ -6,7 +6,7 @@ from qiskit.transpiler import CouplingMap
 
 from .gateset import QUAGateSet
 from .qua_gate import QUAGate
-from ...components import Transmon, TransmonPair, QuAM
+from ..quam_config.components import Transmon, TransmonPair, Quam
 from .macros import get_parallel_gate_combinations as gate_combinations
 
 
@@ -92,7 +92,7 @@ class XEBConfig:
         return config_dict
 
     @classmethod
-    def from_dict(cls, config_dict: Dict, machine: Optional[QuAM] = None):
+    def from_dict(cls, config_dict: Dict, machine: Optional[Quam] = None):
         """
         Create an XEBConfig object from a dictionary that contains all relevant parameters.
         This method will usually be used to load a configuration from previously saved data from another run.

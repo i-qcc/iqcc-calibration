@@ -1,19 +1,19 @@
 #%%
 import numpy as np
 from iqcc_calibration_tools.quam_config.components import Quam, TransmonPair
-from iqcc_calibration_tools.quam_config.experiments.xeb import (
+from iqcc_calibration_tools.xeb import (
     XEBConfig,
     XEB,
-    backend as fake_backend,
+    # backend as fake_backend,
     QUAGate,
 )
 
 machine = Quam.load()
 qubits = machine.active_qubits
 # Get the relevant QuAM components
-readout_qubit_indices = [0,1,2,3,4]  # Indices of the target qubits
-readout_qubits = [qubits[i] for i in readout_qubit_indices]
 target_qubit_indices = [0,1]  # Indices of the target qubits
+readout_qubit_indices = target_qubit_indices
+readout_qubits = [qubits[i] for i in readout_qubit_indices]
 target_qubits = [qubits[i] for i in target_qubit_indices]
 target_qubit_pairs = [
     qubit_pair
@@ -21,6 +21,7 @@ target_qubit_pairs = [
     if qubit_pair.qubit_control in target_qubits and qubit_pair.qubit_target in target_qubits
 
 ]
+# target_qubit_pairs = []
 
 from qm.qua import frame_rotation_2pi, align, wait
 from qualang_tools.units import unit
@@ -32,7 +33,7 @@ def cz_gate(qubit_pair: TransmonPair):
     :param qubit_pair: TransmonPair instance on which to apply the gate
     :return: None
     """
-    qubit_pair.align()
+    # qubit_pair.align()
 
     # qubit_pair.qubit_target.xy.play("y90")
     # qubit_pair.gates['Cz'].execute()
@@ -41,13 +42,11 @@ def cz_gate(qubit_pair: TransmonPair):
     qp = qubit_pair
     # qp.qubit_target.xy.play("y90")
     # qp.qubit_target.xy.play("x180")
-    wait(120 * u.ns)
-    qp.gates['Cz'].execute()
-    wait(120 * u.ns)
+    qp.apply("cz")
     # qp.qubit_target.xy.play("y90")
     # qp.qubit_target.xy.play("x180")
 
-    qubit_pair.align()
+    # qubit_pair.align()
 
 
 cz_qua = QUAGate("cz", cz_gate)
@@ -56,7 +55,7 @@ thermalization_factor = 10
 xeb_config = XEBConfig(
     seqs=24, #128, #81,
     # depths=np.arange(1, 600, 24),
-    depths=np.arange(1, 32, 2),
+    depths=np.arange(1, 10, 1),
     # depths=list(np.arange(1, 91, 4)),
     n_shots=32, #1000, NOTE: The limit is around 64 ??
     readout_qubits=readout_qubits, 
@@ -115,6 +114,6 @@ job.circuits[7][1].draw("mpl") # job.circuits[seq][depth]
 # 3. Saving data
 result = job.result() 
 result.plot_state_heatmap()
-
+result.plot_fidelities()
 
 #%%

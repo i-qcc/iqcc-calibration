@@ -150,7 +150,7 @@ class XEB:
         """
         if self.xeb_config.gate_set.run_through_amp_matrix_modulation and amp_matrix is not None:
             # Play all gates through real-time amplitude matrix modulation
-            qubit.xy.play(self.xeb_config.baseline_gate_name, amplitude_scale=amp(*amp_matrix))
+            qubit.xy.play(self.xeb_config.baseline_gate_name, amplitude_scale=amp_matrix)
             # qubit.xy.play('x180') # NOTE: for debugging purposes
             # qubit.xy.play('x90') # NOTE: for debugging purposes
             # pass # NOTE: for debugging purposes
@@ -189,7 +189,7 @@ class XEB:
                     [declare(fixed, size=self.xeb_config.depths[-1]) for _ in range(4)] for _ in range(n_qubits)
                 ]
             counts = declare(int, value=[0] * dim)  # Counts for all possible bit-strings (00, 01, 10, 11)
-            state = [declare(bool) for _ in range(n_qubits)]  # Qubit states
+            state = [declare(int) for _ in range(n_qubits)]  # Qubit states
             # Declare streams
             counts_st = [
                 declare_stream() for _ in range(dim)
@@ -200,8 +200,9 @@ class XEB:
             ]  # Stream for gate indices (enabling circuit reconstruction in post-processing)
             amp_st = [declare_stream() for _ in range(n_qubits)]  # Stream for amplitude matrices
             # Bring the active qubits to the idle points:
-            self.machine.apply_all_flux_to_min()
-            self.machine.apply_all_couplers_to_min()
+            # self.machine.apply_all_flux_to_min()
+            # self.machine.apply_all_couplers_to_min()
+            self.machine.initialize_qpu(target = self.qubits[0])
             # for q, qubit in enumerate(self.qubits):
             #     qubit.z.to_independent_idle()
 
@@ -274,18 +275,18 @@ class XEB:
                                             with case_(i):
                                                 for pair in combination:
                                                     ctrl_idx, tgt_idx = pair
-                                                    # qubit_ctrl = self.qubit_dict[ctrl_idx]
-                                                    # qubit_tgt = self.qubit_dict[tgt_idx]
-                                                    if tgt_idx < ctrl_idx:
-                                                        ctrl_idx, tgt_idx = tgt_idx, ctrl_idx
-                                                    qubit_pair = self.machine.qubit_pairs["coupler_q{}_q{}".format(ctrl_idx+1, tgt_idx+1)]
+                                                    qubit_ctrl = self.qubit_dict[ctrl_idx]
+                                                    qubit_tgt = self.qubit_dict[tgt_idx]
+                                                    # if tgt_idx < ctrl_idx:
+                                                        # ctrl_idx, tgt_idx = tgt_idx, ctrl_idx
+                                                    # qubit_pair = self.machine.qubit_pairs["coupler_q{}_q{}".format(ctrl_idx+1, tgt_idx+1)]
                                                     # align_transmon_pair(qubit_ctrl @ qubit_tgt)
-                                                    align_transmon_pair(qubit_pair)
+                                                    # align_transmon_pair(qubit_pair)
                                                     # Two qubit gate macro
-                                                    # self.xeb_config.two_qb_gate.gate_macro(qubit_ctrl @ qubit_tgt)
-                                                    self.xeb_config.two_qb_gate.gate_macro(qubit_pair)
+                                                    self.xeb_config.two_qb_gate.gate_macro(qubit_ctrl @ qubit_tgt)
+                                                    # self.xeb_config.two_qb_gate.gate_macro(qubit_pair)
                                                     # align_transmon_pair(qubit_ctrl @ qubit_tgt)
-                                                    align_transmon_pair(qubit_pair)
+                                                    # align_transmon_pair(qubit_pair)
 
                                     with if_(two_qubit_gate_pattern == len(self.available_combinations) - 1):
                                         assign(two_qubit_gate_pattern, 0)
@@ -306,18 +307,19 @@ class XEB:
                                 if other_qubit.resonator != qubit.resonator:
                                     other_qubit.resonator.play("readout")
 
-                            qubit.resonator.measure(
-                                self.xeb_config.readout_pulse_name,
-                                qua_vars=(I[q_idx], Q[q_idx]),
-                            )
+                            # qubit.resonator.measure(
+                            #     self.xeb_config.readout_pulse_name,
+                            #     qua_vars=(I[q_idx], Q[q_idx]),
+                            # )
                             # State Estimation: returned as an integer, to be later converted to bit-strings
-                            assign(state[q_idx], I[q_idx] > ge_thresholds[q_idx])
+                            # assign(state[q_idx], I[q_idx] > ge_thresholds[q_idx])
+                            qubit.readout_state(state[q_idx])
                             save(state[q_idx], state_st[q_idx])
-                            save(I[q_idx], I_st[q_idx])
-                            save(Q[q_idx], Q_st[q_idx])
+                            # save(I[q_idx], I_st[q_idx])
+                            # save(Q[q_idx], Q_st[q_idx])
                             assign(
                                 tot_state_,
-                                tot_state_ + 2**q_idx * Cast.to_int(state[q_idx]),
+                                tot_state_ + 2**q_idx * state[q_idx],
                             )
 
                             reset_qubit(
@@ -342,13 +344,13 @@ class XEB:
             with stream_processing():
                 for q in range(n_qubits):
                     gate_st[q].buffer(self.xeb_config.depths[-1]).save_all(f"g{q}")
-                    I_st[q].buffer(self.xeb_config.n_shots).map(FUNCTIONS.average()).buffer(
-                        len(self.xeb_config.depths)
-                    ).save_all(f"I{q}")
-                    Q_st[q].buffer(self.xeb_config.n_shots).map(FUNCTIONS.average()).buffer(
-                        len(self.xeb_config.depths)
-                    ).save_all(f"Q{q}")
-                    state_st[q].boolean_to_int().buffer(self.xeb_config.n_shots).map(FUNCTIONS.average()).buffer(
+                    # I_st[q].buffer(self.xeb_config.n_shots).map(FUNCTIONS.average()).buffer(
+                    #     len(self.xeb_config.depths)
+                    # ).save_all(f"I{q}")
+                    # Q_st[q].buffer(self.xeb_config.n_shots).map(FUNCTIONS.average()).buffer(
+                    #     len(self.xeb_config.depths)
+                    # ).save_all(f"Q{q}")
+                    state_st[q].buffer(self.xeb_config.n_shots).map(FUNCTIONS.average()).buffer(
                         len(self.xeb_config.depths)
                     ).save_all(f"state{q}")
                     amp_st[q].buffer(self.xeb_config.depths[-1], 2, 2).save_all(f"amp_matrix_q{q}")
@@ -386,7 +388,7 @@ class XEB:
             qmm = qmm_cloud_simulator
         else:
             qmm = self.machine.connect()
-        qm = qmm.open_qm(config)
+        qm = qmm.open_qm(config, close_other_machines = False)
         if simulate:
             with open("debug.py", "w+") as f:
                 f.write(generate_qua_script(xeb_prog, config))
@@ -534,7 +536,7 @@ class XEBJob:
         else:
             max_depth = self.xeb_config.depths[-1]
             n_qubits = self.xeb_config.n_qubits
-            g = [self._result_handles.get(f"g{q}").fetch_all()["value"] for q in range(n_qubits)]
+            g = [np.array(self._result_handles.get(f"g{q}").fetch_all()).reshape(self.xeb_config.seqs, self.xeb_config.depths[-1]) for q in range(n_qubits)]
 
             for s in range(self.xeb_config.seqs):
                 for d in range(max_depth):
@@ -590,22 +592,22 @@ class XEBJob:
             saved_data = {"counts": counts, "states": states, "density_matrices": dms}
         else:
 
-            gate_indices, states, counts, quadratures, amp_st = {}, {}, {}, {}, {}
+            gate_indices, states, counts, amp_st = {}, {}, {}, {}
             result = self._result_handles
             for q, qubit in enumerate(self.xeb_config.qubits):
-                gate_indices[f"g_{qubit.name}"] = result.get(f"g{q}").fetch_all()["value"]
-                quadratures[f"I_{qubit.name}"] = result.get(f"I{q}").fetch_all()["value"]
-                quadratures[f"Q_{qubit.name}"] = result.get(f"Q{q}").fetch_all()["value"]
-                states[f"state_{qubit.name}"] = result.get(f"state{q}").fetch_all()["value"]
+                gate_indices[f"g_{qubit.name}"] = np.array(result.get(f"g{q}").fetch_all()).reshape(self.xeb_config.seqs, self.xeb_config.depths[-1])
+                # quadratures[f"I_{qubit.name}"] = np.array(result.get(f"I{q}").fetch_all()).reshape(self.xeb_config.seqs, self.xeb_config.n_shots)
+                # quadratures[f"Q_{qubit.name}"] = np.array(result.get(f"Q{q}").fetch_all()).reshape(self.xeb_config.seqs, self.xeb_config.n_shots)
+                states[f"state_{qubit.name}"] = np.array(result.get(f"state{q}").fetch_all()).reshape(self.xeb_config.seqs, len(self.xeb_config.depths))
                 if self.xeb_config.gate_set.run_through_amp_matrix_modulation:
-                    amp_st[f"amp_matrix_{qubit.name}"] = result.get(f"amp_matrix_q{q}").fetch_all()["value"]
+                    amp_st[f"amp_matrix_{qubit.name}"] = np.array(result.get(f"amp_matrix_q{q}").fetch_all()).reshape(self.xeb_config.seqs, self.xeb_config.depths[-1],2,2)
 
             n_qubits = self.xeb_config.n_qubits
             for i in range(self.xeb_config.dim):
-                counts[binary(i, n_qubits)] = result.get(f"s{binary(i, n_qubits)}").fetch_all()["value"]
+                counts[binary(i, n_qubits)] = np.array(result.get(f"s{binary(i, n_qubits)}").fetch_all()).reshape(self.xeb_config.seqs, len(self.xeb_config.depths))
 
             saved_data = {
-                **quadratures,
+                # **quadratures,
                 **states,
                 **counts,
                 **amp_st,
