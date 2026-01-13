@@ -87,10 +87,10 @@ def fetch_results_as_xarray_arb_var(handles, qubits, measurement_axis, var_name 
 # %% {Node_parameters}
 class Parameters(NodeParameters):
     # Define which qubits to measure
-    qubits: Optional[List[str]] = None
+    qubits: Optional[List[str]] = ["Q5"]
 
     # Experiment parameters
-    num_repetitions: int = 2000
+    num_repetitions: int = 50000
     detuning: int = 7 * u.MHz
     # min_wait_time_in_ns: int = 16
     min_wait_time_in_ns: int = 36
