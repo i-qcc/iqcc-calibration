@@ -10,12 +10,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def download_state_and_wiring(quantum_computer_backend: str) -> None:
+def download_state_and_wiring(quantum_computer_backend: str, folder_path: str | None = None) -> None:
     """
     Download the latest state and wiring files from the quantum computer backend.
     
     Args:
         quantum_computer_backend (str): The name of the quantum computer backend to use.
+        folder_path (str | None): Optional explicit folder path to save the files.
+            If not provided, uses the QUAM_STATE_PATH environment variable.
     """
     try:
         logger.info(f"Connecting to quantum computer backend: {quantum_computer_backend}")
@@ -25,8 +27,8 @@ def download_state_and_wiring(quantum_computer_backend: str) -> None:
         latest_wiring = qc.state.get_latest("wiring")
         latest_state = qc.state.get_latest("state")
 
-        # Get the state folder path from environment variable
-        quam_state_folder_path = os.environ["QUAM_STATE_PATH"]
+        # Get the state folder path from parameter or environment variable
+        quam_state_folder_path = folder_path if folder_path is not None else os.environ["QUAM_STATE_PATH"]
         logger.info(f"State folder path: {quam_state_folder_path}")
 
         # Create the directory if it doesn't exist
