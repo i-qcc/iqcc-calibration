@@ -4,6 +4,7 @@ import xarray as xr
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from matplotlib.path import Path
+from matplotlib.patches import Patch
 from matplotlib.transforms import Bbox
 
 from qualang_tools.units import unit
@@ -91,9 +92,15 @@ def plot_raw_data_with_fit(ds: xr.Dataset, qubits: List[AnyTransmon], fits: xr.D
                 labels.append(label)
                 seen_labels.add(label)
     
-    # If we have handles, create a figure-level legend at the bottom
-    if handles:
-        grid.fig.legend(handles, labels, loc='lower center', bbox_to_anchor=(0.5, -0.02), ncol=min(len(handles), 5), frameon=True)
+    # Add color scale indicators to legend (viridis colormap: yellow=high, purple=low)
+    handles.append(Patch(facecolor='#fde725', edgecolor='#fde725'))
+    labels.append('high')
+    handles.append(Patch(facecolor='#440154', edgecolor='#440154'))
+    labels.append('low')
+    
+    # Create figure-level legend at the bottom
+    grid.fig.legend(handles, labels, loc='lower center', bbox_to_anchor=(0.5, -0.02), 
+                    ncol=min(len(handles), 7), frameon=True, fontsize=12)
 
     grid.fig.suptitle("Qubit spectroscopy vs flux")
     grid.fig.set_size_inches(15, 18)  # Doubled height from 9 to 18
@@ -213,38 +220,42 @@ def plot_individual_raw_data_with_fit(ax: Axes, ds: xr.Dataset, qubit: dict[str,
                     peak_freq_GHz = (peak_freq_filtered + freq_ref) / 1e9
                     peak_freq_GHz.plot(ax=ax, x="flux_bias", ls="", marker=".", color="magenta", ms=16, label="peaks (filtered)")
         
-        # Plot idle offset line and sweet spot
+        # Plot idle offset line and sweet spot (only if within ±0.5 V to avoid messing up scale)
         idle_offset_plotted = False
+        flux_limit = 0.5  # V - don't show vertical lines outside this range
         
         if idle_offset_val is not None and not np.isnan(idle_offset_val):
             flux_shift = float(idle_offset_val)
             
-            # Plot sweet spot marker if freq_shift is available
-            if success:
-                freq_shift_val = _get_qubit_value(fit, qubit_name, "freq_shift")
-                if freq_shift_val is not None and not np.isnan(freq_shift_val):
-                    freq_shift_GHz = (freq_shift_val + freq_ref) / 1e9
-                    ax.plot(flux_shift, freq_shift_GHz, "r*", markersize=10, label="sweet spot")
+            # Only plot if within ±0.5 V
+            if abs(flux_shift) <= flux_limit:
+                # Plot sweet spot marker if freq_shift is available
+                if success:
+                    freq_shift_val = _get_qubit_value(fit, qubit_name, "freq_shift")
+                    if freq_shift_val is not None and not np.isnan(freq_shift_val):
+                        freq_shift_GHz = (freq_shift_val + freq_ref) / 1e9
+                        ax.plot(flux_shift, freq_shift_GHz, "r*", markersize=10, label="sweet spot")
+                
+                # Plot idle offset vertical line
+                ax.axvline(flux_shift, linestyle="-", linewidth=4, color="r", alpha=0.5, label="idle offset")
+                idle_offset_plotted = True
             
-            # Plot idle offset vertical line
-            ax.axvline(flux_shift, linestyle="-", linewidth=4, color="r", alpha=0.5, label="idle offset")
-            idle_offset_plotted = True
-            
-            # Plot target offset line if applicable
+            # Plot target offset line if applicable (only if within ±0.5 V)
             if (qubit_obj is not None and hasattr(qubit_obj, 'xy') and 
                 hasattr(qubit_obj.xy, 'target_detuning_from_sweet_spot')):
                 target_detuning = qubit_obj.xy.target_detuning_from_sweet_spot
                 if abs(target_detuning) > 1e-6 and target_offset_val is not None and not np.isnan(target_offset_val):
-                    ax.axvline(float(target_offset_val), linestyle="-", linewidth=4, 
-                              color="orange", label="target offset", alpha=0.7)
-                    target_offset_plotted = True
+                    if abs(float(target_offset_val)) <= flux_limit:
+                        ax.axvline(float(target_offset_val), linestyle="-", linewidth=4, 
+                                  color="orange", label="target offset", alpha=0.7)
+                        target_offset_plotted = True
         
-        # Extend plot limits if offset lines are outside original range
+        # Extend plot limits if offset lines are outside original range (only for offsets within ±0.5 V)
         xmin, xmax = original_flux_min, original_flux_max
         offset_values = []
-        if idle_offset_val is not None and not np.isnan(idle_offset_val):
+        if idle_offset_val is not None and not np.isnan(idle_offset_val) and abs(float(idle_offset_val)) <= flux_limit:
             offset_values.append(float(idle_offset_val))
-        if target_offset_val is not None and not np.isnan(target_offset_val):
+        if target_offset_val is not None and not np.isnan(target_offset_val) and abs(float(target_offset_val)) <= flux_limit:
             offset_values.append(float(target_offset_val))
         
         if offset_values:
@@ -305,4 +316,13 @@ def plot_individual_raw_data_with_fit(ax: Axes, ds: xr.Dataset, qubit: dict[str,
     ax.set_xlabel("Flux (V)")
     ax.set_ylabel("Freq (GHz)")
     # Don't show individual legends - a global legend will be created at the figure level
+    
+    # Add red X marker in top-right corner if fit failed
+    if fit is not None:
+        qubit_name = qubit["qubit"]
+        success = bool(_get_qubit_value(fit, qubit_name, "success") or False) if "success" in fit.coords else False
+        if not success:
+            ax.text(0.95, 0.95, "✗", transform=ax.transAxes, fontsize=24, 
+                   color='red', fontweight='bold', ha='right', va='top', zorder=10)
+    
     return target_offset_plotted
