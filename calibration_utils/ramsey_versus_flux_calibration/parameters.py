@@ -18,6 +18,9 @@ class NodeSpecificParameters(RunnableParameters):
     """Span of flux values to sweep in volts. Default is 0.02 V."""
     flux_num: int = 21
     """Number of flux points to sample. Default is 21."""
+    scale_flux_span: dict[str, float] = {}
+    """Per-qubit scale factors for flux_span. Maps qubit name to scale factor. 
+    Qubits not in the dict use scale factor 1. Default is empty dict (all qubits use flux_span as-is)."""
 
 
 class Parameters(

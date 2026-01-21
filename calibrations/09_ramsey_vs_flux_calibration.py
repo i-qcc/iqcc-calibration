@@ -89,11 +89,20 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
 
     # Detuning converted into virtual Z-rotations to observe Ramsey oscillation and get the qubit frequency
     detuning = int(1e6 * node.parameters.frequency_detuning_in_mhz)
-    fluxes = np.linspace(
-        -node.parameters.flux_span / 2,
-        node.parameters.flux_span / 2,
-        node.parameters.flux_num,
-    )
+    
+    # Per-qubit scale factors for flux span (default to 1 if not specified)
+    scale_flux_span = node.parameters.scale_flux_span
+    flux_scale_factors = {q.name: scale_flux_span.get(q.name, 1.0) for q in qubits}
+    max_scale = max(flux_scale_factors.values())
+    
+    # Compute flux arrays: max-scaled for QUA loop, per-qubit for data coordinates
+    def make_flux_array(scale):
+        return np.linspace(-node.parameters.flux_span * scale / 2, node.parameters.flux_span * scale / 2, node.parameters.flux_num)
+    
+    fluxes = make_flux_array(max_scale)
+    node.namespace["per_qubit_fluxes"] = {q.name: make_flux_array(flux_scale_factors[q.name]) for q in qubits}
+    flux_scale_factors_normalized = {q: s / max_scale for q, s in flux_scale_factors.items()}
+    
     # Register the sweep axes to be added to the dataset when fetching data
     node.namespace["sweep_axes"] = {
         "qubit": xr.DataArray(qubits.get_names()),
@@ -128,6 +137,8 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                             # Rotate the frame of the second x90 gate to implement a virtual Z-rotation
                             # 4*tau because tau was in clock cycles and 1e-9 because tau is ns
                             assign(phi, Cast.mul_fixed_by_int(detuning * 1e-9, 4 * t))
+                            # Scale flux by qubit's normalized scale factor (handles per-qubit flux spans)
+                            scaled_flux = flux * flux_scale_factors_normalized[qubit.name]
                             # Ramsey sequence
                             with strict_timing_():
                                 qubit.xy.play("x90")
@@ -135,7 +146,7 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                                 qubit.xy.wait(t + 1)
                                 qubit.z.wait(duration=qubit.xy.operations["x90"].length // 4)
                                 qubit.z.play(
-                                    "const", amplitude_scale=flux / qubit.z.operations["const"].amplitude, duration=t
+                                    "const", amplitude_scale=scaled_flux / qubit.z.operations["const"].amplitude, duration=t
                                 )
                                 qubit.xy.play("x90")
                         align()
@@ -205,13 +216,33 @@ def load_data(node: QualibrationNode[Parameters, Quam]):
     node.load_from_id(node.parameters.load_data_id)
     node.parameters.load_data_id = load_data_id
     # Get the active qubits from the loaded node parameters
-    node.namespace["qubits"] = get_qubits(node)
+    node.namespace["qubits"] = qubits = get_qubits(node)
+    
+    # Reconstruct per_qubit_fluxes from parameters (needed for analysis)
+    scale = node.parameters.scale_flux_span
+    half_span = node.parameters.flux_span / 2
+    node.namespace["per_qubit_fluxes"] = {
+        q.name: np.linspace(-half_span * scale.get(q.name, 1.0), half_span * scale.get(q.name, 1.0), node.parameters.flux_num)
+        for q in qubits
+    }
 
 
 # %% {Analyse_data}
 @node.run_action(skip_if=node.parameters.simulate)
 def analyse_data(node: QualibrationNode[Parameters, Quam]):
     """Analyse the raw data and store the fitted data in another xarray dataset "ds_fit" and the fitted results in the "fit_results" dictionary."""
+    # Add per-qubit flux coordinates to the dataset
+    per_qubit_fluxes = node.namespace.get("per_qubit_fluxes")
+    if per_qubit_fluxes:
+        qubit_names = list(per_qubit_fluxes.keys())
+        flux_actual = xr.DataArray(
+            [per_qubit_fluxes[q] for q in qubit_names],
+            dims=["qubit", "flux_idx"],
+            coords={"qubit": qubit_names},
+            attrs={"long_name": "actual flux bias per qubit", "units": "V"}
+        )
+        node.results["ds_raw"] = node.results["ds_raw"].assign(flux_actual=flux_actual)
+    
     node.results["ds_raw"] = process_raw_dataset(node.results["ds_raw"], node)
     node.results["ds_fit"], fit_results = fit_raw_data(node.results["ds_raw"], node)
     node.results["fit_results"] = {k: asdict(v) for k, v in fit_results.items()}
