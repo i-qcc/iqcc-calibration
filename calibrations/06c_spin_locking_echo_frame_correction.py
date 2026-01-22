@@ -1,51 +1,53 @@
 # %% {Imports}
 import matplotlib.pyplot as plt
-import numpy as np
 import xarray as xr
 from dataclasses import asdict
+import numpy as np
 
 from qm.qua import *
 
-from qualang_tools.loops import from_array
 from qualang_tools.multi_user import qm_session
 from qualang_tools.results import progress_counter
 from qualang_tools.units import unit
 
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode
 from iqcc_calibration_tools.quam_config.components.quam_root import Quam
-from calibration_utils.resonator_spectroscopy import (
+from calibration_utils.spin_echo_sl import (
     Parameters,
     process_raw_dataset,
     fit_raw_data,
     log_fitted_results,
-    plot_raw_amplitude_with_fit,
-    plot_raw_phase,
+    plot_raw_data_with_fit,
 )
-from qualibration_libs.parameters import get_qubits
+from qualibration_libs.parameters import get_qubits, get_sl_times_in_clock_cycles
 from qualibration_libs.runtime import simulate_and_plot
 from qualibration_libs.data import XarrayDataFetcher
 
-# %% {Node initialisation}
+
+# %% {Description}
 description = """
-        1D RESONATOR SPECTROSCOPY
-This sequence involves measuring the resonator by sending a readout pulse and demodulating the signals to extract the
-'I' and 'Q' quadratures across varying readout intermediate frequencies for all the active qubits.
-The data is then post-processed to determine the resonator resonance frequency.
-This frequency is used to update the readout frequency in the state.
+        T2 SL MEASUREMENT WITH FRAME ROTATION CORRECTION
+The sequence consists in playing an SL sequence (y90 - SL(x,t) - -y90 - measurement) for 
+different sl times (spin locking times).
+
+This version includes frame rotation correction to compensate for detuning
+between xy and xy_sl elements when using different elements on the same qubit
+and channel.
 
 Prerequisites:
-    - Having calibrated the IQ mixer/Octave connected to the readout line (node 01a_mixer_calibration.py).
-    - Having calibrated the time of flight, offsets, and gains (node 01a_time_of_flight.py).
-    - Having initialized the QUAM state parameters for the readout pulse amplitude and duration, and the resonators depletion time.
+    - Having calibrated the mixer or the Octave (nodes 01a or 01b).
+    - Having calibrated the qubit frequency (node 03a_qubit_spectroscopy.py).
+    - Having calibrated the qubit x180 pulse parameters (nodes 03a_qubit_spectroscopy.py and 04b_power_rabi.py).
     - Having specified the desired flux point if relevant (qubit.z.flux_point).
 
 State update:
-    - The readout frequency: qubit.resonator.f_01 & qubit.resonator.RF_frequency
+    - None (this is a measurement experiment, not a calibration).
 """
+
 
 # Be sure to include [Parameters, Quam] so the node has proper type hinting
 node = QualibrationNode[Parameters, Quam](
-    name="02a_resonator_spectroscopy",  # Name should be unique
+    name="06c_spin_locking_frame_correction",  # Name should be unique
     description=description,  # Describe what the node is doing, which is also reflected in the QUAlibrate GUI
     parameters=Parameters(),  # Node parameters defined under quam_experiment/experiments/node_name
 )
@@ -57,14 +59,11 @@ node = QualibrationNode[Parameters, Quam](
 def custom_param(node: QualibrationNode[Parameters, Quam]):
     """Allow the user to locally set the node parameters for debugging purposes, or execution in the Python IDE."""
     # You can get type hinting in your IDE by typing node.parameters.
-    # node.parameters.qubits = ["Q6"]
-    # node.modes.interactive = True # run on script as if on qualibrate
+    node.parameters.qubits = ["Q6"]
     pass
-
 
 # Instantiate the QUAM class from the state file
 node.machine = Quam.load()
-
 
 # %% {Create_QUA_program}
 @node.run_action(skip_if=node.parameters.load_data_id is not None)
@@ -75,49 +74,88 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
     # Get the active qubits from the node and organize them by batches
     node.namespace["qubits"] = qubits = get_qubits(node)
     num_qubits = len(qubits)
-    # Extract the sweep parameters and axes from the node parameters
-    n_avg = node.parameters.num_shots
-    # The frequency sweep around the resonator resonance frequency
-    span = node.parameters.frequency_span_in_mhz * u.MHz
-    step = node.parameters.frequency_step_in_mhz * u.MHz
-    dfs = np.arange(-span / 2, +span / 2, step)
-    # Register the sweep axes to be added to the dataset when fetching data
+
+    n_avg = node.parameters.num_shots  # The number of averages
+    # Dephasing time sweep (in clock cycles = 4ns) - minimum is 4 clock cycles
+    spin_locking_times = get_sl_times_in_clock_cycles(node.parameters)
     node.namespace["sweep_axes"] = {
         "qubit": xr.DataArray(qubits.get_names()),
-        "detuning": xr.DataArray(dfs, attrs={"long_name": "readout frequency", "units": "Hz"}),
+        "spin_locking_time": xr.DataArray(8*spin_locking_times, attrs={"long_name": "spin_locking_time", "units": "ns"}),
     }
+    
+    # Calculate detuning between xy_sl and xy for each qubit (in Hz)
+    # This will be used to compensate for frame rotation when switching between elements
+    detunings = {}
+    for qubit in qubits:
+        if hasattr(qubit, 'xy_sl') and hasattr(qubit, 'xy'):
+            detuning_hz = qubit.xy_sl.RF_frequency - qubit.xy.RF_frequency
+            detunings[qubit.name] = detuning_hz
+        else:
+            detunings[qubit.name] = 0.0
 
-    # The QUA program stored in the node namespace to be transfer to the simulation and execution run_actions
     with program() as node.namespace["qua_program"]:
         I, I_st, Q, Q_st, n, n_st = node.machine.declare_qua_variables()
-        df = declare(int)  # QUA variable for the readout frequency
+        if node.parameters.use_state_discrimination:
+            state = [declare(int) for _ in range(num_qubits)]
+            state_st = [declare_stream() for _ in range(num_qubits)]
+        shot = declare(int)
+        t_sl = declare(int)
+        # Phase correction variable for frame rotation compensation
+        phase_correction = [declare(fixed) for _ in range(num_qubits)]
 
         for multiplexed_qubits in qubits.batch():
+            
             # Initialize the QPU in terms of flux points (flux tunable transmons and/or tunable couplers)
             for qubit in multiplexed_qubits.values():
                 node.machine.initialize_qpu(target=qubit)
             align()
-            with for_(n, 0, n < n_avg, n + 1):
-                save(n, n_st)
-                with for_(*from_array(df, dfs)):
+        
+            with for_(shot, 0, shot < n_avg, shot + 1):
+                save(shot, n_st)
+                with for_each_(t_sl, spin_locking_times):
+                    # Qubit initialization
                     for i, qubit in multiplexed_qubits.items():
-                        rr = qubit.resonator
-                        # Update the resonator frequencies for all resonators
-                        rr.update_frequency(df + rr.intermediate_frequency)
-                        # Measure the resonator
-                        rr.measure("readout", qua_vars=(I[i], Q[i]))
-                        # wait for the resonator to deplete
-                        rr.wait(rr.depletion_time * u.ns)
-                        # save data
-                        save(I[i], I_st[i])
-                        save(Q[i], Q_st[i])
+                        qubit.reset(node.parameters.reset_type, node.parameters.simulate)
                     align()
-
+                    # Qubit manipulation
+                    for i, qubit in multiplexed_qubits.items():
+                        # Reset frames to start from a clean state (prevents accumulation across iterations)
+                        reset_frame(qubit.xy.name)
+                        reset_frame(qubit.xy_sl.name)
+                        detuning_hz = detunings[qubit.name]
+                        assign(
+                            phase_correction[i],
+                            Cast.mul_fixed_by_int(detuning_hz * 1e-9, 128 + 8 * t_sl)
+                        )
+                        qubit.xy.play("-y90")
+                        qubit.xy_sl.play("x180_BlackmanIntegralPulse_Rise")
+                        qubit.xy_sl.play("x180_Square", duration=2*t_sl)
+                        qubit.xy_sl.play("x180_BlackmanIntegralPulse_Fall")
+                        # Apply frame rotation to compensate for phase accumulated during xy_sl pulses
+                        # The phase accumulates because xy and xy_sl have different RF frequencies
+                        # We rotate xy's frame to compensate for the phase difference before switching back
+                        qubit.xy.frame_rotation_2pi(phase_correction[i])
+                        qubit.xy.play("-y90")
+                    align()
+                    # Qubit readout
+                    for i, qubit in multiplexed_qubits.items():
+                        # Measure the state of the resonators
+                        if node.parameters.use_state_discrimination:
+                            qubit.readout_state(state[i])
+                            save(state[i], state_st[i])
+                        else:
+                            qubit.resonator.measure("readout", qua_vars=(I[i], Q[i]))
+                            # save data
+                            save(I[i], I_st[i])
+                            save(Q[i], Q_st[i])
         with stream_processing():
             n_st.save("n")
             for i in range(num_qubits):
-                I_st[i].buffer(len(dfs)).average().save(f"I{i + 1}")
-                Q_st[i].buffer(len(dfs)).average().save(f"Q{i + 1}")
+                if node.parameters.use_state_discrimination:
+                    state_st[i].buffer(len(spin_locking_times)).average().save(f"state{i + 1}")
+                else:
+                    I_st[i].buffer(len(spin_locking_times)).average().save(f"I{i + 1}")
+                    Q_st[i].buffer(len(spin_locking_times)).average().save(f"Q{i + 1}")
 
 
 # %% {Simulate}
@@ -142,6 +180,7 @@ def execute_qua_program(node: QualibrationNode[Parameters, Quam]):
     qmm = node.machine.connect()
     # Get the config from the machine
     config = node.machine.generate_config()
+    # Here I can change the config...
     # Execute the QUA program only if the quantum machine is available (this is to avoid interrupting running jobs).
     with qm_session(qmm, config, timeout=node.parameters.timeout) as qm:
         # The job is stored in the node namespace to be reused in the fetching_data run_action
@@ -176,10 +215,19 @@ def load_data(node: QualibrationNode[Parameters, Quam]):
 @node.run_action(skip_if=node.parameters.simulate)
 def analyse_data(node: QualibrationNode[Parameters, Quam]):
     """Analyse the raw data and store the fitted data in another xarray dataset "ds_fit" and the fitted results in the "fit_results" dictionary."""
-    node.results["ds_raw"] = process_raw_dataset(node.results["ds_raw"], node)
+    # Rename for compatibility with process_raw_dataset and fit_raw_data
+    ds_raw_compat = node.results["ds_raw"].rename({"spin_locking_time": "idle_time"})
+    
+    node.results["ds_raw"] = process_raw_dataset(ds_raw_compat, node)
     node.results["ds_fit"], fit_results = fit_raw_data(node.results["ds_raw"], node)
+    
+    # Revert to your custom naming for state saving and future reference
+    node.results["ds_raw"] = node.results["ds_raw"].rename({"idle_time": "spin_locking_time"})
+    if node.results["ds_fit"] is not None:
+         node.results["ds_fit"] = node.results["ds_fit"].rename({"idle_time": "spin_locking_time"})
+         
     node.results["fit_results"] = {k: asdict(v) for k, v in fit_results.items()}
-
+    
     # Log the relevant information extracted from the data analysis
     log_fitted_results(node.results["fit_results"], log_callable=node.log)
     node.outcomes = {
@@ -192,31 +240,49 @@ def analyse_data(node: QualibrationNode[Parameters, Quam]):
 @node.run_action(skip_if=node.parameters.simulate)
 def plot_data(node: QualibrationNode[Parameters, Quam]):
     """Plot the raw and fitted data in specific figures whose shape is given by qubit.grid_location."""
-    fig_raw_phase = plot_raw_phase(node.results["ds_raw"], node.namespace["qubits"])
-    node.add_node_info_subtitle(fig_raw_phase)
-    fig_fit_amplitude = plot_raw_amplitude_with_fit(
-        node.results["ds_raw"], node.namespace["qubits"], node.results["ds_fit"]
+    # Temporarily rename 'spin_locking_time' back to 'idle_time' for the plotting utility
+    # This avoids the AttributeError: 'Dataset' object has no attribute 'idle_time'
+    ds_raw_compat = node.results["ds_raw"].rename({"spin_locking_time": "idle_time"})
+    
+    # Ensure ds_fit also has the compatible name if it exists
+    ds_fit_compat = None
+    if node.results.get("ds_fit") is not None:
+        ds_fit_compat = node.results["ds_fit"].rename({"spin_locking_time": "idle_time"})
+
+    # Call the plotting utility with compatible datasets
+    fig_result = plot_raw_data_with_fit(
+        ds_raw_compat, 
+        node.namespace["qubits"], 
+        ds_fit_compat
     )
-    node.add_node_info_subtitle(fig_fit_amplitude)
-    plt.show()
-    # Store the generated figures
-    node.results["figures"] = {
-        "phase": fig_raw_phase,
-        "amplitude": fig_fit_amplitude,
-    }
+    
+    # Handle both single figure (state discrimination) and tuple of figures (I, Q mode)
+    if isinstance(fig_result, tuple):
+        fig_I, fig_Q = fig_result
+        node.add_node_info_subtitle(fig_I)
+        node.add_node_info_subtitle(fig_Q)
+        plt.show()
+        # Store the generated figures
+        node.results["figures"] = {
+            "T2_SL_I": fig_I,
+            "T2_SL_Q": fig_Q,
+        }
+    else:
+        node.add_node_info_subtitle(fig_result)
+        plt.show()
+        # Store the generated figures
+        node.results["figures"] = {
+            "T2_SL": fig_result,
+        }
 
 
 # %% {Update_state}
 @node.run_action(skip_if=node.parameters.simulate)
 def update_state(node: QualibrationNode[Parameters, Quam]):
     """Update the relevant parameters if the qubit data analysis was successful."""
+    # This is a measurement experiment, not a calibration, so no state updates are needed
     with node.record_state_updates():
-        for q in node.namespace["qubits"]:
-            if node.outcomes[q.name] == "failed":
-                continue
-
-            q.resonator.f_01 = float(node.results["fit_results"][q.name]["frequency"])
-            q.resonator.RF_frequency = float(node.results["fit_results"][q.name]["frequency"])
+        pass
 
 
 # %% {Save_results}
