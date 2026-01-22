@@ -29,7 +29,8 @@ node_params = {
         "num_shots": 1000,
         "wait_time_num_points": 50,
         "max_wait_time_in_ns": 20000,
-        "log_or_linear_sweep": "log"
+        "log_or_linear_sweep": "log",
+        "use_state_discrimination": True
     },
     "ramsey": {
         "multiplexed": multiplexed,
