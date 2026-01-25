@@ -52,7 +52,7 @@ class Parameters(NodeParameters):
     simulate: bool = False
     timeout: int = 100
 
-node = QualibrationNode(name="12c_Power_Rabi_E_to_F", parameters=Parameters())
+node = QualibrationNode(name="12c_Power_Rabi_E_to_F_legacy", parameters=Parameters())
 
 # %% {Initialize_QuAM_and_QOP}
 # Class containing tools to help handling units and conversions.

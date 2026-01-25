@@ -75,6 +75,26 @@ def plot_raw_data_with_fit(
         ax.set_xlabel("Amplitude (V)")
         ax.set_ylabel("Phase difference")
 
+        # Add secondary plot below: state_control for control_axis=1 averaged over frame
+        ax_sub = axes[2 * i + 1]
+
+        data_g = fit_results.g_state_control.sel(qubit_pair=qp_name, control_axis=1).mean(dim="frame")
+        data_e = fit_results.e_state_control.sel(qubit_pair=qp_name, control_axis=1).mean(dim="frame")
+        data_f = fit_results.f_state_control.sel(qubit_pair=qp_name, control_axis=1).mean(dim="frame")
+        # Try to get axes for mesh
+        amps = fit_result.amp_full.values if "amp_full" in fit_result.coords else fit_result.amp.values
+        ax_sub.plot(amps, data_g, label="g", color="blue")
+        ax_sub.plot(amps, data_e, label="e", color="red")
+        ax_sub.plot(amps, data_f, label="f", color="green")
+        ax_sub.axvline(fit_result.optimal_amplitude.item(), color="red", linestyle="--", lw=0.5, label="optimal")
+        ax_sub.axhline(0.0, color="red", linestyle="--", lw=0.5)
+        ax_sub.axhline(1.0, color="red", linestyle="--", lw=0.5)
+        ax_sub.set_ylabel("Control qubit population")
+        ax_sub.set_xlabel("Amplitude (V)")
+        secax2 = ax_sub.secondary_xaxis("top", functions=(amp_to_detuning_MHz, detuning_MHz_to_amp))
+        secax2.set_xlabel("Detuning (MHz)")
+        ax_sub.legend()
+
     # Hide unused axes
     for i in range(n_pairs, len(axes)):
         axes[i].axis("off")

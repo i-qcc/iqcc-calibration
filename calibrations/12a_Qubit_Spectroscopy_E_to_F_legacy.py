@@ -64,7 +64,7 @@ class Parameters(NodeParameters):
     load_data_id: Optional[int] = None
 
 
-node = QualibrationNode(name="12a_Qubit_Spectroscopy_E_to_F", parameters=Parameters())
+node = QualibrationNode(name="12a_Qubit_Spectroscopy_E_to_F_legacy", parameters=Parameters())
 
 
 # %% {Initialize_QuAM_and_QOP}

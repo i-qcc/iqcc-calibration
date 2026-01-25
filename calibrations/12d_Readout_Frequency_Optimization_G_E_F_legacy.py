@@ -48,7 +48,7 @@ class Parameters(NodeParameters):
 
 
 node = QualibrationNode(
-    name="12d_Readout_Frequency_Optimization_G_E_F", parameters=Parameters()
+    name="12d_Readout_Frequency_Optimization_G_E_F_legacy", parameters=Parameters()
 )
 
 

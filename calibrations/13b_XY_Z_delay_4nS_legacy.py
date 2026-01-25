@@ -32,7 +32,7 @@ class Parameters(NodeParameters):
 
 
 node = QualibrationNode(
-    name="14b_XY_Z_delay_4nS",
+    name="14b_XY_Z_delay_4nS_legacy",
     parameters=Parameters()
 )
 

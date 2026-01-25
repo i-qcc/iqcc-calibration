@@ -79,6 +79,7 @@ def custom_param(node: QualibrationNode[Parameters, Quam]):
     # node.parameters.reset_type = "active"
     # node.parameters.amp_range = 0.015
     # node.parameters.num_averages = 50
+    node.parameters.amp_step = 0.005
     pass
 
 # Instantiate the QUAM class from the state file
