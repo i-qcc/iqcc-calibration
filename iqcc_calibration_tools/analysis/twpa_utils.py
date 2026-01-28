@@ -159,32 +159,86 @@ def min_gain(qubits,  twpas):
 #     print(f"dsnr_avg :{np.round(dsnr_avg[idx],2)}dB")
 #     return idx
 ################# new optimizer 2512121
+# def optimizer(mingain, mindsnr, Gain, dsnr,  average_dsnr, dfps, daps, p_lo,p_if):
+#     # this optimizer finds the pump setting which gives the highest average dSNR
+#     # while satisfying the min gain and dSNR for individual qubits
+#     gain_mask=np.all(Gain>mingain,axis=0)
+#     pump_idx_gain_mask=np.argwhere(gain_mask)
+#     idx_pump_candidate=[]
+#     for j in range(len(pump_idx_gain_mask)):
+#         x,y= pump_idx_gain_mask[j][0], pump_idx_gain_mask[j][1]
+#         if np.all(dsnr[:, x,y,0]>mindsnr):
+#             idx_pump_candidate.append(j)
+#     average_dsnr_=[]
+#     for i in range(len(idx_pump_candidate)):
+#         average_dsnr_.append(average_dsnr[pump_idx_gain_mask[idx_pump_candidate[i]][0]][pump_idx_gain_mask[idx_pump_candidate[i]][1]])
+#     optimal_pump_idx=idx_pump_candidate[np.argmax(average_dsnr_)]
+#     optimal_fp=dfps[pump_idx_gain_mask[optimal_pump_idx][0]]
+#     optimal_pp=daps[pump_idx_gain_mask[optimal_pump_idx][1]]
+#     print(f"Optimized ap={np.round(optimal_pp,5)},fp={np.round((p_lo+p_if+optimal_fp)*1e-9,3)}GHz ")
+#     return (pump_idx_gain_mask[optimal_pump_idx][0], pump_idx_gain_mask[optimal_pump_idx][1])
+#################optimizer 260111
 def optimizer(mingain, mindsnr, Gain, dsnr,  average_dsnr, dfps, daps, p_lo,p_if):
-    # this optimizer finds the pump setting which gives the highest average dSNR
-    # while satisfying the min gain and dSNR for individual qubits
-    gain_mask=np.all(Gain>mingain,axis=0)
+    # this optimizer finds the pump setting which satisfies the min gain and dSNR for individual qubits
+    # and among them choose the pumping point which gives the highest average dSNR
+    gain_mask=np.all(Gain>mingain,axis=0) # Gain condition 
     pump_idx_gain_mask=np.argwhere(gain_mask)
     idx_pump_candidate=[]
     for j in range(len(pump_idx_gain_mask)):
         x,y= pump_idx_gain_mask[j][0], pump_idx_gain_mask[j][1]
-        if np.all(dsnr[:, x,y,0]>mindsnr):
+        if np.all(dsnr[:, x,y,0]>mindsnr): # Gain condition + dSNR condition 
             idx_pump_candidate.append(j)
     average_dsnr_=[]
-    for i in range(len(idx_pump_candidate)):
-        average_dsnr_.append(average_dsnr[pump_idx_gain_mask[idx_pump_candidate[i]][0]][pump_idx_gain_mask[idx_pump_candidate[i]][1]])
-    optimal_pump_idx=idx_pump_candidate[np.argmax(average_dsnr_)]
-    optimal_fp=dfps[pump_idx_gain_mask[optimal_pump_idx][0]]
-    optimal_pp=daps[pump_idx_gain_mask[optimal_pump_idx][1]]
-    print(f"Optimized ap={np.round(optimal_pp,5)},fp={np.round((p_lo+p_if+optimal_fp)*1e-9,3)}GHz ")
-    return (pump_idx_gain_mask[optimal_pump_idx][0], pump_idx_gain_mask[optimal_pump_idx][1])
-
+    if len(idx_pump_candidate) == 0:
+        print(
+        "Error: There is no pumping point which satisfies "
+        "the minimum gain and SNR improvement condition."
+    )
+        return None
+    else:
+        for i in range(len(idx_pump_candidate)):
+            average_dsnr_.append(average_dsnr[pump_idx_gain_mask[idx_pump_candidate[i]][0]][pump_idx_gain_mask[idx_pump_candidate[i]][1]])
+        optimal_pump_idx=idx_pump_candidate[np.argmax(average_dsnr_)]
+        optimal_fp=dfps[pump_idx_gain_mask[optimal_pump_idx][0]]
+        optimal_pp=daps[pump_idx_gain_mask[optimal_pump_idx][1]]
+        print(f"Optimized ap={np.round(optimal_pp,5)},fp={np.round((p_lo+p_if+optimal_fp)*1e-9,3)}GHz ")
+        return (pump_idx_gain_mask[optimal_pump_idx][0], pump_idx_gain_mask[optimal_pump_idx][1])
 #---------------------------------MULTIPLXED READOUT OPTIMIZER----------------------------
-def multiplexed_optimizer(qubit, Gain, dsnr, qubits): #qubit = worst snr qubit 
-    idx=np.unravel_index(np.argmax(dsnr[qubit-1]),dsnr[qubit-1].shape)
-    print(f"@ max dSNR for qB{qubit}")
-    for i in range(len(qubits)):        
-        print(f"qB{i+1}:dSNR:{np.round(dsnr[i][idx[0]][idx[1]][0],2)}dB, gain:{np.round(Gain[i][idx[0]][idx[1]][0],2)}dB")
-    return idx
+# def multiplexed_optimizer(qubit, Gain, dsnr, qubits): #qubit = worst snr qubit 
+#     idx=np.unravel_index(np.argmax(dsnr[qubit-1]),dsnr[qubit-1].shape)
+#     print(f"@ max dSNR for qB{qubit}")
+#     for i in range(len(qubits)):        
+#         print(f"qB{i+1}:dSNR:{np.round(dsnr[i][idx[0]][idx[1]][0],2)}dB, gain:{np.round(Gain[i][idx[0]][idx[1]][0],2)}dB")
+#     return idx
+def multiplexed_optimizer(mingain, mindsnr,qubits, Gain, dsnr,  poorqubit, dfps, daps, p_lo,p_if):
+    # this optimizer finds the pump setting which satisfies the min gain and dSNR for individual qubits
+    # and among them choose the pumping point which gives the highest dSNR for the worst qubit
+    gain_mask=np.all(Gain>mingain,axis=0) # Gain condition 
+    pump_idx_gain_mask=np.argwhere(gain_mask)
+    idx_pump_candidate=[]
+    for j in range(len(pump_idx_gain_mask)):
+        x,y= pump_idx_gain_mask[j][0], pump_idx_gain_mask[j][1]
+        if np.all(dsnr[:, x,y,0]>mindsnr): # Gain condition + dSNR condition 
+            idx_pump_candidate.append(j)
+    if len(idx_pump_candidate) == 0:
+        print(
+        "Error: There is no pumping point which satisfies "
+        "the minimum gain and SNR improvement condition."
+    )
+        return None
+    else:
+        problemqubit_dsnr=[]
+        gain_dsnr_candidate=pump_idx_gain_mask[idx_pump_candidate]
+        for i in range(len(idx_pump_candidate)):
+                    problemqubit_dsnr.append(dsnr[poorqubit-1][gain_dsnr_candidate[i][0]][gain_dsnr_candidate[i][1]])
+        optimal_pump_idx=idx_pump_candidate[np.argmax(problemqubit_dsnr)]
+    #     optimal_fp=dfps[pump_idx_gain_mask[optimal_pump_idx][0]]
+    #     optimal_pp=daps[pump_idx_gain_mask[optimal_pump_idx][1]]
+    #     print(f"Optimized ap={np.round(optimal_pp,5)},fp={np.round((p_lo+p_if+optimal_fp)*1e-9,3)}GHz ")
+    # print(f"@ max dSNR for qB{poorqubit}")
+    # for i in range(len(qubits)):        
+    #     print(f"{qubits[i].id}:dSNR:{np.round(dsnr[i][pump_idx_gain_mask[optimal_pump_idx][0]][pump_idx_gain_mask[optimal_pump_idx][1]][0],2)}dB, gain:{np.round(Gain[i][pump_idx_gain_mask[optimal_pump_idx][0]][pump_idx_gain_mask[optimal_pump_idx][1]][0],2)}dB")
+    return (pump_idx_gain_mask[optimal_pump_idx][0], pump_idx_gain_mask[optimal_pump_idx][1])
 
 
 
