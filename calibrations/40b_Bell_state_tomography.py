@@ -34,8 +34,8 @@ Outcomes:
 
 # %% {Imports}
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
-from iqcc_calibration_tools.quam_config.components import Quam
-from iqcc_calibration_tools.quam_config.macros import active_reset, readout_state
+from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
+from iqcc_calibration_tools.quam_config.macros import readout_state
 from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset
 from qualang_tools.results import progress_counter, fetching_tool
 from qualang_tools.multi_user import qm_session

@@ -58,7 +58,7 @@ from calibration_utils.two_qubit_rb.qua_utils import QuaProgramHandler
 from iqcc_calibration_tools.analysis.plot_utils import plot_samples
 from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray
 
-from iqcc_calibration_tools.quam_config.components import Quam
+from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
 from calibration_utils.two_qubit_rb.cloud_utils import write_sync_hook
 from calibration_utils.two_qubit_rb.rb_utils import StandardRB, validate_multiplexed_batches
 from calibration_utils.two_qubit_rb.plot_utils import gate_mapping
