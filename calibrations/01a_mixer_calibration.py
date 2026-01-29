@@ -3,7 +3,7 @@ from dataclasses import asdict
 import matplotlib.pyplot as plt
 from qualang_tools.multi_user import qm_session
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode
-from iqcc_calibration_tools.quam_config.components.quam_root import Quam
+from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
 from qualibration_libs.parameters import get_qubits
 from calibration_utils.mixer_calibration import (
     Parameters,

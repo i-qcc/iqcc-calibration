@@ -5,7 +5,7 @@ from qualibrate.orchestration.basic_orchestrator import BasicOrchestrator
 from qualibrate.parameters import GraphParameters
 from qualibrate.qualibration_graph import QualibrationGraph
 from qualibrate.qualibration_library import QualibrationLibrary
-from iqcc_calibration_tools.quam_config.components.quam_root import Quam
+from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
 from iqcc_calibration_tools.quam_config.lib.iqcc_cloud_data_storage_utils.upload_state_and_wiring import save_quam_state_to_cloud
 
 # %%

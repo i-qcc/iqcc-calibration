@@ -25,7 +25,7 @@ from qualibration_libs.core import tracked_updates
 from qualibration_libs.data import XarrayDataFetcher
 from qualibration_libs.parameters import get_qubit_pairs
 from qualibration_libs.runtime import simulate_and_plot
-from iqcc_calibration_tools.quam_config.components.quam_root import Quam
+from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
 
 from quam.core import operation
 
@@ -79,7 +79,6 @@ def custom_param(node: QualibrationNode[Parameters, Quam]):
     # node.parameters.reset_type = "active"
     # node.parameters.amp_range = 0.015
     # node.parameters.num_averages = 50
-    node.parameters.amp_step = 0.005
     pass
 
 # Instantiate the QUAM class from the state file

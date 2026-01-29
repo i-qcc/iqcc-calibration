@@ -19,7 +19,7 @@ if str(parent_dir) not in sys.path:
     sys.path.insert(0, str(parent_dir))
 
 from calibration_utils.calibration_runner import run_calibration_with_pairs
-from iqcc_calibration_tools.quam_config.components import Quam
+from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
 
 # %% {Configuration}
 # Name of the calibration node to run (without .py extension)

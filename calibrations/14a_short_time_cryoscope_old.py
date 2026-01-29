@@ -13,7 +13,7 @@ from qualang_tools.multi_user import qm_session
 from iqcc_calibration_tools.quam_config.macros import qua_declaration, active_reset
 import numpy as np
 from qualang_tools.units import unit
-from iqcc_calibration_tools.quam_config.components import Quam
+from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
 from qualang_tools.bakery import baking
 from qualang_tools.loops import from_array
 

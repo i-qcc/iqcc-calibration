@@ -22,7 +22,7 @@ Each calibration script instantiates a `QualbirationNode` close to the top of th
 
 - **`node.machine`**: The QUAM root-level object, typically loaded as follows:
   ```python
-  from iqcc_calibration_tools.quam_config.components.quam_root import Quam
+  from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
   node.machine = Quam.load()
   ```
   This step is optional, if it is omitted, the QUAM state won't be saved in the data folder when calling `node.save()`.

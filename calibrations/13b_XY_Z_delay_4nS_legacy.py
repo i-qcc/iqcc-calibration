@@ -12,7 +12,7 @@ from typing import Optional, Literal, List
 from qm.qua import *
 from qm import SimulationConfig
 from qualang_tools.units import unit
-from iqcc_calibration_tools.quam_config.components import Quam
+from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
 from iqcc_calibration_tools.quam_config.macros import qua_declaration, active_reset, readout_state
 import matplotlib.pyplot as plt
 from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
