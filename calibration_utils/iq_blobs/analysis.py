@@ -1,8 +1,11 @@
 import logging
 from dataclasses import dataclass
-from typing import Tuple, Dict
+from typing import Tuple, Dict, List, Optional
 import numpy as np
 import xarray as xr
+import matplotlib.pyplot as plt
+from scipy.optimize import curve_fit
+from scipy.signal import find_peaks
 
 from qualibrate import QualibrationNode
 from qualibration_libs.data import convert_IQ_to_V
@@ -176,3 +179,343 @@ def _extract_relevant_fit_parameters(fit: xr.Dataset, node: QualibrationNode):
         for q in fit.qubit.values
     }
     return fit, fit_results
+
+
+def gaussian(x, mu, sigma, A):
+    """Single Gaussian function"""
+    return A * np.exp(-(x - mu)**2 / (2 * sigma**2))
+
+
+def double_gaussian(x, mu1, sigma1, A1, mu2, sigma2, A2):
+    """Double Gaussian function: sum of two Gaussians"""
+    return A1 * np.exp(-(x - mu1)**2 / (2 * sigma1**2)) + A2 * np.exp(-(x - mu2)**2 / (2 * sigma2**2))
+
+
+def fit_snr_with_gaussians(
+    fits: xr.Dataset,
+    qubits: List,
+    node: QualibrationNode,
+    fit_results: Dict,
+    axes: Optional[np.ndarray] = None,
+    plot: bool = True,
+) -> Tuple[List[float], List[Dict], List[Dict]]:
+    """
+    Fit Gaussian distributions to ground and excited state IQ blobs and calculate SNR.
+    
+    Parameters:
+    -----------
+    fits : xr.Dataset
+        Dataset containing rotated IQ data (Ig_rot, Ie_rot)
+    qubits : List
+        List of qubit objects
+    node : QualibrationNode
+        The calibration node
+    fit_results : Dict
+        Dictionary containing fit results from fit_raw_data
+    axes : Optional[np.ndarray]
+        Matplotlib axes array for plotting. If None and plot=True, will create new figure.
+    plot : bool
+        Whether to create plots
+        
+    Returns:
+    --------
+    snr : List[float]
+        List of SNR values for each qubit
+    all_fit_params : List[Dict]
+        List of fit parameters dictionaries for each qubit
+    all_fit_errors : List[Dict]
+        List of fit error dictionaries for each qubit
+    """
+    num_qubits = len(qubits)
+    
+    # Create figure and axes if plotting and axes not provided
+    if plot and axes is None:
+        cols = 2
+        rows = (num_qubits + 1) // cols
+        fig, axes = plt.subplots(rows, cols, figsize=(6 * cols, 4 * rows), constrained_layout=True)
+        axes = axes.flatten()
+    
+    snr = []
+    all_fit_params = []
+    all_fit_errors = []
+    
+    for i in range(num_qubits):
+        if plot:
+            ax = axes[i]
+        else:
+            ax = None
+        
+        qubit_id = qubits[i].id
+        
+        # Extract and flatten data
+        Ig_mv = (fits.Ig_rot.values[i] * 1e3).flatten()
+        Ie_mv = (fits.Ie_rot.values[i] * 1e3).flatten()
+        
+        fit_params = {}
+        fit_errors = {}
+        
+        if plot:
+            ax.axvline(1e3 * fits.ge_threshold.values[i], color="r", linestyle="--", lw=1, label="Threshold")
+        
+        # Process Ground state (single gaussian)
+        data = Ig_mv
+        label = "Ground"
+        color = "tab:blue"
+        counts, bins = np.histogram(data, bins=100)
+        centers = (bins[:-1] + bins[1:]) / 2
+        p0 = [np.mean(data), np.std(data), np.max(counts)]
+        
+        try:
+            param, cov = curve_fit(gaussian, centers, counts, p0=p0)
+            mu, sigma, A = param
+            # Extract standard errors from covariance matrix diagonal
+            errors = np.sqrt(np.diag(cov))
+            mu_err, sigma_err, A_err = np.round(errors, 2)
+            fit_params[label] = (mu, sigma)
+            fit_errors[label] = (mu_err, sigma_err)
+            
+            if plot:
+                x_range = np.linspace(min(data), max(data), 200)
+                ax.plot(x_range, gaussian(x_range, *param), color=color, lw=2)
+                ax.hist(data, bins=100, alpha=0.3, color=color, label=label)
+        
+        except RuntimeError:
+            fit_params[label] = (np.nan, np.nan)
+            fit_errors[label] = (np.nan, np.nan)
+        
+        # Process Excited state (single or double gaussian based on T1/readout_length ratio)
+        data = Ie_mv
+        label = "Excited"
+        color = "tab:orange"
+        counts, bins = np.histogram(data, bins=100)
+        centers = (bins[:-1] + bins[1:]) / 2
+        
+        # Get T1 and readout length to determine fitting method
+        readout_length = qubits[i].resonator.operations['readout'].length
+        T1 = qubits[i].T1
+        
+        # Calculate T1/readout_length ratio
+        # readout_length is in nanoseconds, T1 is in seconds
+        # Convert readout_length to seconds for consistent units
+        readout_length_sec = readout_length * 1e-9
+        t1_ratio =  readout_length_sec / T1
+        
+        # Use single gaussian if T1/readout_length < 5% (0.05), otherwise use double gaussian
+        if t1_ratio < 0.03:
+            # Single gaussian fitting for excited state
+            p0 = [np.mean(data), np.std(data), np.max(counts)]
+            
+            try:
+                param, cov = curve_fit(gaussian, centers, counts, p0=p0)
+                mu, sigma, A = param
+                # Extract standard errors from covariance matrix diagonal
+                errors = np.sqrt(np.diag(cov))
+                mu_err, sigma_err, A_err = np.round(errors, 2)
+                fit_params[label] = (mu, sigma)
+                fit_errors[label] = (mu_err, sigma_err)
+                
+                if plot:
+                    x_range = np.linspace(min(data), max(data), 200)
+                    ax.plot(x_range, gaussian(x_range, *param), color=color, lw=2, label=label)
+                    ax.hist(data, bins=100, alpha=0.3, color=color)
+            
+            except RuntimeError:
+                fit_params[label] = (np.nan, np.nan)
+                fit_errors[label] = (np.nan, np.nan)
+        else:
+            # Double gaussian fitting for excited state (original behavior)
+            # Get ground state peak position for second peak search
+            mu_g, sig_g = fit_params.get("Ground", (np.nan, np.nan))
+            if np.isnan(mu_g):
+                mu_g = np.mean(Ig_mv)
+            
+            mean_data = np.mean(data)
+            std_data = np.std(data)
+            max_counts = np.max(counts)
+            
+            # Initialize peaks variable for error handling
+            peaks_all = None
+            
+            # Find the highest peak in excited state for first Gaussian
+            prominence_levels = [max_counts * 0.1, max_counts * 0.05, max_counts * 0.02]
+            for prominence in prominence_levels:
+                peaks_found, properties = find_peaks(counts, prominence=prominence, distance=3)
+                if len(peaks_found) >= 1:
+                    peaks_all = peaks_found
+                    break
+            
+            if peaks_all is None:
+                peaks_all, properties = find_peaks(counts, distance=3)
+            
+            if len(peaks_all) >= 1:
+                # Find highest peak for first Gaussian
+                peak_heights = counts[peaks_all]
+                highest_peak_idx = np.argmax(peak_heights)
+                mu1_init = centers[peaks_all[highest_peak_idx]]
+                A1_init = peak_heights[highest_peak_idx]
+                
+                # Look for second peak near ground state position
+                search_radius = 2 * std_data
+                peaks_near_ground = []
+                peak_heights_near_ground = []
+                
+                for peak_idx in peaks_all:
+                    peak_pos = centers[peak_idx]
+                    if abs(peak_pos - mu_g) <= search_radius:
+                        peaks_near_ground.append(peak_idx)
+                        peak_heights_near_ground.append(counts[peak_idx])
+                
+                if len(peaks_near_ground) > 0:
+                    # Found peak(s) near ground state - use the highest one
+                    best_idx = np.argmax(peak_heights_near_ground)
+                    mu2_init = centers[peaks_near_ground[best_idx]]
+                    A2_init = peak_heights_near_ground[best_idx]
+                    
+                    peak_separation = abs(mu2_init - mu1_init)
+                    sigma_init = max(peak_separation / 4, std_data * 0.3)
+                    sigma_init = min(sigma_init, std_data * 0.8)
+                else:
+                    # No peak found near ground state - place second Gaussian at ground state position
+                    mu2_init = mu_g
+                    ground_bin_idx = np.argmin(np.abs(centers - mu_g))
+                    A2_init = max(counts[ground_bin_idx], max_counts * 0.1)
+                    
+                    peak_separation = abs(mu2_init - mu1_init)
+                    sigma_init = max(peak_separation / 4, std_data * 0.3)
+                    sigma_init = min(sigma_init, std_data * 0.8)
+            else:
+                # No peaks found at all - use mean-based approach
+                mu1_init = mean_data
+                mu2_init = mu_g
+                A1_init = max_counts * 0.7
+                A2_init = max_counts * 0.3
+                sigma_init = std_data * 0.5
+            
+            # Ensure first gaussian has higher amplitude (majority peak)
+            if A2_init > A1_init:
+                mu1_init, mu2_init = mu2_init, mu1_init
+                A1_init, A2_init = A2_init, A1_init
+            
+            p0_double = [mu1_init, sigma_init, A1_init, mu2_init, sigma_init, A2_init]
+            
+            try:
+                # Set bounds to constrain the fit
+                data_range = np.max(data) - np.min(data)
+                bounds = ([np.min(data) - 0.5*data_range, 0.01*std_data, 0.1*max_counts, 
+                           np.min(data) - 0.5*data_range, 0.01*std_data, 0.1*max_counts],
+                          [np.max(data) + 0.5*data_range, 5*std_data, 2*max_counts,
+                           np.max(data) + 0.5*data_range, 5*std_data, 2*max_counts])
+                
+                try:
+                    param, cov = curve_fit(double_gaussian, centers, counts, p0=p0_double, 
+                                          bounds=bounds, maxfev=10000)
+                except (RuntimeError, ValueError):
+                    param, cov = curve_fit(double_gaussian, centers, counts, p0=p0_double, 
+                                          maxfev=10000)
+                mu1, sigma1, A1, mu2, sigma2, A2 = param
+                
+                # Extract standard errors from covariance matrix diagonal
+                if cov is None or cov.shape != (6, 6):
+                    raise ValueError(f"Invalid covariance matrix shape: {cov.shape if cov is not None else 'None'}")
+                
+                errors = np.sqrt(np.diag(cov))
+                mu1_err_raw, sigma1_err_raw, A1_err_raw, mu2_err_raw, sigma2_err_raw, A2_err_raw = errors
+                
+                # Ensure first gaussian is the majority (highest amplitude) after fitting
+                if A2 > A1:
+                    mu1, mu2 = mu2, mu1
+                    sigma1, sigma2 = sigma2, sigma1
+                    A1, A2 = A2, A1
+                    mu1_err_raw, mu2_err_raw = mu2_err_raw, mu1_err_raw
+                    sigma1_err_raw, sigma2_err_raw = sigma2_err_raw, sigma1_err_raw
+                    A1_err_raw, A2_err_raw = A2_err_raw, A1_err_raw
+                
+                # Validate and cap unreasonable error values
+                max_reasonable_error = 1000  # mV
+                errors_list = [mu1_err_raw, sigma1_err_raw, A1_err_raw, mu2_err_raw, sigma2_err_raw, A2_err_raw]
+                param_list = [mu1, sigma1, A1, mu2, sigma2, A2]
+                errors_validated = []
+                param_names = ['mu1', 'sigma1', 'A1', 'mu2', 'sigma2', 'A2']
+                
+                for j, (err, param_val) in enumerate(zip(errors_list, param_list)):
+                    err_float = float(err)
+                    if (np.isnan(err_float) or np.isinf(err_float) or 
+                        err_float > max_reasonable_error or err_float < 0):
+                        capped_err = min(abs(float(param_val)) * 0.1, max_reasonable_error)
+                        errors_validated.append(capped_err)
+                        print(f"Warning ({qubit_id}): Invalid error for {param_names[j]} "
+                              f"({err_float:.2e}), using fallback estimate: {capped_err:.2f}")
+                    else:
+                        errors_validated.append(err_float)
+                
+                errors = np.array(errors_validated)
+                errors_rounded = np.round(errors, 2)
+                errors_rounded = np.clip(errors_rounded, 0, max_reasonable_error)
+                mu1_err, sigma1_err, A1_err, mu2_err, sigma2_err, A2_err = errors_rounded
+                
+                # For SNR calculation, use weighted mean and combined sigma
+                total_A = A1 + A2
+                mu_combined = (mu1 * A1 + mu2 * A2) / total_A
+                sigma_combined = np.sqrt((sigma1**2 * A1 + sigma2**2 * A2) / total_A)
+                fit_params[label] = (mu_combined, sigma_combined)
+                
+                # Store errors for the combined parameters
+                mu_err_combined = np.round(np.sqrt((mu1_err**2 * A1**2 + mu2_err**2 * A2**2) / total_A**2), 2)
+                sigma_err_combined = np.round(np.sqrt((sigma1_err**2 * A1**2 + sigma2_err**2 * A2**2) / total_A**2), 2)
+                fit_errors[label] = (mu_err_combined, sigma_err_combined)
+                
+                # Store detailed double gaussian parameters and errors
+                mu1_err_final = min(mu1_err, max_reasonable_error)
+                sigma1_err_final = min(sigma1_err, max_reasonable_error)
+                A1_err_final = min(A1_err, max_reasonable_error)
+                mu2_err_final = min(mu2_err, max_reasonable_error)
+                sigma2_err_final = min(sigma2_err, max_reasonable_error)
+                A2_err_final = min(A2_err, max_reasonable_error)
+                
+                fit_params[f"{label}_double"] = {
+                    'mu1': mu1, 'sigma1': sigma1, 'A1': A1,
+                    'mu2': mu2, 'sigma2': sigma2, 'A2': A2,
+                    'mu1_err': mu1_err_final, 'sigma1_err': sigma1_err_final, 'A1_err': A1_err_final,
+                    'mu2_err': mu2_err_final, 'sigma2_err': sigma2_err_final, 'A2_err': A2_err_final
+                }
+                
+                if plot:
+                    x_range = np.linspace(min(data), max(data), 200)
+                    ax.plot(x_range, double_gaussian(x_range, *param), color=color, lw=2, label=label)
+                    ax.hist(data, bins=100, alpha=0.3, color=color)
+            
+            except (RuntimeError, ValueError, IndexError) as e:
+                fit_params[label] = (np.nan, np.nan)
+                fit_errors[label] = (np.nan, np.nan)
+                print(f"Double gaussian fit failed for {qubit_id}: {e}")
+        
+        # SNR Calculation
+        mu_g, sig_g = fit_params.get("Ground", (np.nan, np.nan))
+        mu_e, sig_e = fit_params.get("Excited", (np.nan, np.nan))
+        mu_g_err, sig_g_err = fit_errors.get("Ground", (np.nan, np.nan))
+        mu_e_err, sig_e_err = fit_errors.get("Excited", (np.nan, np.nan))
+        
+        if not np.isnan(mu_g) and not np.isnan(mu_e):
+            snr_val = abs(mu_e - mu_g) / (abs(sig_g) + abs(sig_e))
+            snr.append(snr_val)
+            if plot:
+                ax.set_title(f"{qubit_id} \n SNR: {snr_val:.3f}, Amp={qubits[i].resonator.operations['readout'].amplitude},Tro={qubits[i].resonator.operations['readout'].length}, F={fit_results[qubits[i].name].readout_fidelity:.2f}%", fontsize=18)
+        else:
+            snr.append(np.nan)
+            if plot:
+                ax.set_title(f"{qubit_id} | Fit Failed")
+        
+        if plot:
+            ax.set_xlabel("I [mV]", fontsize=15)
+            ax.set_ylabel("Counts", fontsize=15)
+            ax.legend(fontsize=12, loc="upper right")
+        
+        all_fit_params.append(fit_params)
+        all_fit_errors.append(fit_errors)
+    
+    if plot:
+        # Hide unused subplots if num_qubits is odd
+        for j in range(num_qubits, len(axes)):
+            axes[j].axis('off')
+    
+    return snr, all_fit_params, all_fit_errors
