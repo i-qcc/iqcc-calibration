@@ -234,7 +234,7 @@ with program() as CPhase_Oscillations:
                     qp.align()
                     
                     # set both qubits to the excited state
-                    for qubit in  [qp.qubit_control, qp.qubit_target]:
+                    for qubit in [qp.qubit_control, qp.qubit_target]:
                         qubit.xy.play("x180")
                     qp.align()
                     

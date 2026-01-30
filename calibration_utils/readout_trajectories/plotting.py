@@ -267,11 +267,9 @@ def plot_readout_trajectories(
     square_length: int,
     zero_length: int,
     W: int,
-    *,
-    apply_correction: bool = False,
-) -> Tuple[Figure, Figure, Figure]:
+) -> Tuple[Figure, Figure]:
     """
-    Plot all readout trajectory figures: difference plots and IQ trajectories.
+    Plot all readout trajectory figures: difference plots and raw IQ trajectories.
 
     Parameters
     ----------
@@ -285,13 +283,11 @@ def plot_readout_trajectories(
         Zero pulse length in nanoseconds.
     W : int
         Slice width in nanoseconds.
-    apply_correction : bool, optional
-        Whether to apply offset correction to square pulse region (default is False).
 
     Returns
     -------
-    Tuple[Figure, Figure, Figure]
-        Tuple containing (fig_diff_log, fig_IQ_raw, fig_IQ_corrected).
+    Tuple[Figure, Figure]
+        Tuple containing (fig_diff_log, fig_IQ_raw).
     """
     # Filter qubits to only include those that have data in the dataset
     qubits_in_dataset = [q for q in qubits if q.name in ds.qubit.values]
@@ -302,12 +298,12 @@ def plot_readout_trajectories(
     # Plot difference (log scale) - using QubitGrid for multiple qubits
     fig_diff = plot_trajectory_difference(ds, qubits_in_dataset, square_length, zero_length, W, log_scale=True)
     
-    # Plot IQ trajectories - using QubitGrid for multiple qubits
-    fig_IQ_raw, fig_IQ = plot_iq_trajectories(
-        ds, qubits_in_dataset, square_length, zero_length, W, apply_correction=apply_correction
+    # Plot raw IQ trajectories - using QubitGrid for multiple qubits
+    fig_IQ_raw = plot_iq_trajectories_raw(
+        ds, qubits_in_dataset, square_length, zero_length, W
     )
     
-    return fig_diff, fig_IQ_raw, fig_IQ
+    return fig_diff, fig_IQ_raw
 
 
 def plot_trajectory_difference(
@@ -442,6 +438,51 @@ def plot_individual_trajectory_difference(
     ax.set_title(f"{qubit_name}\nsquare length: {square_length}ns, zero length: {zero_length}ns, total: {duration}ns")
     ax.grid(True, which="both" if log_scale else "major")
     ax.legend(loc='best', fontsize=8)
+
+
+def plot_iq_trajectories_raw(
+    ds: xr.Dataset,
+    qubits: List[AnyTransmon],
+    square_length: int,
+    zero_length: int,
+    W: int,
+) -> Figure:
+    """
+    Plot raw IQ plane trajectories for ground and excited states for multiple qubits.
+
+    Parameters
+    ----------
+    ds : xr.Dataset
+        The dataset containing the quadrature data.
+    qubits : List[AnyTransmon]
+        List of qubits to plot.
+    square_length : int
+        Square pulse length in nanoseconds.
+    zero_length : int
+        Zero pulse length in nanoseconds.
+    W : int
+        Slice width in nanoseconds.
+
+    Returns
+    -------
+    Figure
+        Raw IQ trajectory figure.
+    """
+    # Create grid for raw IQ trajectories
+    grid_raw = QubitGrid(ds, [q.grid_location for q in qubits])
+    for ax, qubit in grid_iter(grid_raw):
+        plot_individual_iq_trajectories_raw(
+            ax, ds, qubit, square_length, zero_length, W
+        )
+    
+    grid_raw.fig.suptitle("IQ Plane (Raw)")
+    grid_raw.fig.set_size_inches(15, 9)
+    handles, labels = grid_raw.fig.axes[0].get_legend_handles_labels()
+    if handles:
+        grid_raw.fig.legend(handles, labels, loc="upper right", ncols=2)
+    grid_raw.fig.tight_layout()
+    
+    return grid_raw.fig
 
 
 def plot_iq_trajectories(
@@ -705,17 +746,31 @@ def plot_individual_iq_trajectories_corrected(
     Qg = np.mean(Qg, axis=0)
 
     # Apply offset correction to square pulse region
+    # Calculate the jump point (transition from square pulse to zero pulse)
     square_num = int(square_length / W)
-    diff_Ig = Ig[-1] - Ig[0]
-    diff_Qg = Qg[-1] - Qg[0]
+    # Ensure square_num is within bounds
+    jump_idx = min(square_num, len(Ig) - 1)
+    
+    # Calculate drift at the jump point separately for each state
+    # This is more robust than using the last point, especially when there's no closing
+    # Ground state drift at jump point
+    diff_Ig = Ig[jump_idx] - Ig[0]
+    diff_Qg = Qg[jump_idx] - Qg[0]
+    # Excited state drift at jump point
+    diff_Ie = Ie[jump_idx] - Ie[0]
+    diff_Qe = Qe[jump_idx] - Qe[0]
+    
     Ie_corr = Ie.copy()
     Qe_corr = Qe.copy()
     Ig_corr = Ig.copy()
     Qg_corr = Qg.copy()
-    Ie_corr[:square_num] = Ie_corr[:square_num] + diff_Ig
-    Ig_corr[:square_num] = Ig_corr[:square_num] + diff_Ig
-    Qe_corr[:square_num] = Qe_corr[:square_num] + diff_Qg
-    Qg_corr[:square_num] = Qg_corr[:square_num] + diff_Qg
+    
+    # Subtract the drift at jump point from square pulse region to correct for offset
+    # Apply each state's own drift correction
+    Ie_corr[:square_num] = Ie_corr[:square_num] - diff_Ie
+    Qe_corr[:square_num] = Qe_corr[:square_num] - diff_Qe
+    Ig_corr[:square_num] = Ig_corr[:square_num] - diff_Ig
+    Qg_corr[:square_num] = Qg_corr[:square_num] - diff_Qg
 
     # Create color gradients for time progression (dark to bright)
     n_slices = len(Ie_corr)

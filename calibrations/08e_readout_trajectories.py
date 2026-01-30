@@ -42,7 +42,7 @@ def custom_param(node: QualibrationNode[Parameters, Quam]):
     # You can get type hinting in your IDE by typing node.parameters.
     # When this is commented out, the experiment will use machine.active_qubits if qubits is not set in the GUI
     # To specify qubits when running through the GUI, set the 'qubits' parameter in the GUI's parameter panel
-    node.parameters.qubits = ["Q5","Q6"]
+    node.parameters.qubits = ["Q2","Q4","Q6"]
     pass
 
 # Instantiate the QUAM class from the state file
@@ -325,25 +325,22 @@ def plot_data(node: QualibrationNode[Parameters, Quam]):
     W = node.parameters.segment_length * 4  # Slice width in nanoseconds
     
     # Plot all readout trajectory figures
-    fig_diff, fig_IQ_raw, fig_IQ = plot_readout_trajectories(
+    fig_diff, fig_IQ_raw = plot_readout_trajectories(
         node.results["ds_raw"],
         node.namespace["qubits"],
         square,
         zero,
         W,
-        apply_correction=True,
     )
 
     # Add node info subtitles to figures
     node.add_node_info_subtitle(fig_IQ_raw)
-    node.add_node_info_subtitle(fig_IQ)
     node.add_node_info_subtitle(fig_diff)
 
     plt.show()
     # Store the generated figures
     node.results["figures"] = {
         "IQ_raw": fig_IQ_raw,
-        "IQ": fig_IQ,
         "diff_log": fig_diff,
     }
 

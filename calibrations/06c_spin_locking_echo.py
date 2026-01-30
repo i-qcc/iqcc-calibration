@@ -104,13 +104,13 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                     align()
                     # Qubit manipulation
                     for i, qubit in multiplexed_qubits.items():
-                        qubit.xy_sl.play("-y90")
-                        qubit.xy_sl.update_frequency(qubit.xy_sl.intermediate_frequency +1*u.kHz)
+                        qubit.xy.play("-y90")
+                        # qubit.xy_sl.update_frequency(qubit.xy_sl.intermediate_frequency +1*u.kHz)
                         qubit.xy_sl.play("x180_BlackmanIntegralPulse_Rise")
                         qubit.xy_sl.play("x180_Square",duration = 2*t_sl)
                         qubit.xy_sl.play("x180_BlackmanIntegralPulse_Fall")
-                        qubit.xy_sl.update_frequency(qubit.xy_sl.intermediate_frequency -1*u.kHz)
-                        qubit.xy_sl.play("-y90")
+                        # qubit.xy_sl.update_frequency(qubit.xy_sl.intermediate_frequency -1*u.kHz)
+                        qubit.xy.play("-y90")
                     align()
                     # Qubit readout
                     for i, qubit in multiplexed_qubits.items():
