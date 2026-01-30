@@ -25,6 +25,13 @@ def _should_show_fit(fit: xr.Dataset) -> bool:
     return _is_fit_successful(fit) or _is_lo_limit_exceeded(fit)
 
 
+def _get_flux_values(ds: xr.Dataset, qubit_name: str, fallback_array: xr.DataArray = None):
+    """Get flux values for a qubit, using per-qubit values if available."""
+    if "flux_actual" in ds.data_vars:
+        return ds.flux_actual.sel(qubit=qubit_name).values
+    return fallback_array.values if fallback_array is not None else ds.flux_bias.values
+
+
 def plot_raw_data_with_fit(ds: xr.Dataset, qubits: List[AnyTransmon], fits: xr.Dataset):
     """
     Plots the resonator spectroscopy amplitude IQ_abs with fitted curves for the given qubits.
@@ -92,10 +99,8 @@ def plot_parabolas_with_fit(ds: xr.Dataset, qubits: List[AnyTransmon], fits: xr.
         fit_qubit = fits.sel(qubit=qubit["qubit"])
         
         # Calculate x-axis limits for this specific qubit
-        frequency = fit_qubit.sel(fit_vals="f").fit_results
-        flux_bias = frequency.flux_bias
-        flux_min = float(flux_bias.min().values)
-        flux_max = float(flux_bias.max().values)
+        flux_values = _get_flux_values(ds, qubit["qubit"], fit_qubit.sel(fit_vals="f").fit_results.flux_bias)
+        flux_min, flux_max = float(np.min(flux_values)), float(np.max(flux_values))
         
         # Extend limits to include target_offset and flux_offset for this qubit
         # Show if fit succeeded (even if LO limit exceeded)
@@ -161,11 +166,14 @@ def plot_individual_data_with_fit(ax: Axes, ds: xr.Dataset, qubit: dict[str, str
     -----
     - If the fit dataset is provided, the fitted curve is plotted along with the raw data.
     """
-
-    ds.sel(qubit=qubit["qubit"]).state.plot(ax=ax)
+    state = ds.sel(qubit=qubit["qubit"]).state
+    flux_values = _get_flux_values(ds, qubit["qubit"], state.flux_bias)
+    
+    # Plot using pcolormesh with correct flux values
+    ax.pcolormesh(state.idle_times.values, flux_values, state.values, shading='auto')
     ax.set_title(qubit["qubit"])
-    ax.set_xlabel("Idle_time (uS)")
-    ax.set_ylabel(" Flux (V)")
+    ax.set_xlabel("Idle_time (ns)")
+    ax.set_ylabel("Flux (V)")
 
     # Only plot flux offset if fit is successful
     if _is_fit_successful(fit):
@@ -203,10 +211,11 @@ def plot_individual_parabolas_with_fit(ax: Axes, ds: xr.Dataset, qubit: dict[str
     """
     detuning = float(fit.artifitial_detuning.values)
     frequency = fit.sel(fit_vals="f").fit_results  # frequency is in GHz
-    flux_bias = frequency.flux_bias
+    flux_values = _get_flux_values(ds, qubit["qubit"], frequency.flux_bias)
     
     # Plot data points (convert GHz to MHz and subtract detuning)
-    (frequency * 1e3 - detuning).plot(ax=ax, linestyle="", marker=".", label="Data", color="blue")
+    freq_mhz = frequency.values * 1e3 - detuning
+    ax.plot(flux_values, freq_mhz, linestyle="", marker=".", label="Data", color="blue")
     
     # Plot parabolic fit and calculate offsets if fit succeeded (even if LO limit exceeded)
     if _should_show_fit(fit):
@@ -221,8 +230,8 @@ def plot_individual_parabolas_with_fit(ax: Axes, ds: xr.Dataset, qubit: dict[str
         c0 = freq_offset_val / 1e9 - c2 * flux_offset_val**2 - c1 * flux_offset_val  # GHz
         
         # Determine flux range for plotting parabola
-        data_flux_min = float(flux_bias.min().values)
-        data_flux_max = float(flux_bias.max().values)
+        data_flux_min = float(np.min(flux_values))
+        data_flux_max = float(np.max(flux_values))
         
         if xlim_min is not None and xlim_max is not None:
             # Extend parabola to cover full xlim range

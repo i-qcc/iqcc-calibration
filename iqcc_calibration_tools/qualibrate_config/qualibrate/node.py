@@ -309,7 +309,7 @@ class QualibrationNode(QualibrationNodeBase, Generic[ParametersType, MachineType
             str: The formatted node information text
         """
         # Build the base subtitle
-        subtitle_parts = [f"{self.date_time} GMT+3 #{self.node_id}"]
+        subtitle_parts = [f"{self.date_time} GMT+{self.time_zone} #{self.node_id}"]
         
         # Add multiplexed info if the parameter exists
         if hasattr(self.parameters, 'multiplexed'):

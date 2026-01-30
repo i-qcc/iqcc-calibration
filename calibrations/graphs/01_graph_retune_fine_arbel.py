@@ -33,6 +33,7 @@ node_params = {
             "flux_span": 0.02,
             "max_wait_time_in_ns": 500,
             "wait_time_step_in_ns": 5,
+            "scale_flux_span" : {"qA1": 3, "qA3":3, "qA6": 3, "qD3": 3, "qB2": 3},
             "flux_num": 11,
             "frequency_detuning_in_mhz": 4},
     "power_rabi_x180" : {"operation": "x180",

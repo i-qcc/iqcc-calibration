@@ -104,8 +104,12 @@ def _extract_relevant_fit_parameters(fit: xr.Dataset, node: QualibrationNode):
     limits = [instrument_limits(q.xy) for q in node.namespace["qubits"]]
     if node.parameters.max_number_pulses_per_sweep == 1:
         # Process the fit parameters to get the right amplitude
-        phase = fit.fit.sel(fit_vals="phi") - np.pi * (fit.fit.sel(fit_vals="phi") > np.pi / 2)
-        factor = (np.pi - phase) / (2 * np.pi * fit.fit.sel(fit_vals="f"))
+        # The fit is: a * cos(2*pi*f*x + phi) + offset
+        # Maximum occurs when 2*pi*f*x + phi = 2*pi*n (n integer)
+        # First positive maximum: x = ((-phi) mod 2*pi) / (2*pi*f)
+        phi = fit.fit.sel(fit_vals="phi")
+        f = fit.fit.sel(fit_vals="f")
+        factor = ((-phi) % (2 * np.pi)) / (2 * np.pi * f)
         fit = fit.assign({"opt_amp_prefactor": factor})
         fit.opt_amp_prefactor.attrs = {
             "long_name": "factor to get a pi pulse",

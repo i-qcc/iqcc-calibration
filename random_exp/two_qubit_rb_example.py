@@ -86,7 +86,7 @@ def bake_cz(baker: Baking, q1, q2):
 
 def prep():
     # wait(int(machine.thermalization_time))  # thermal preparation in clock cycles (time = 10 x T1 x 4ns)
-    machine.set_all_fluxes(flux_point="joint", target=machine.qubits["qubitC3"])
+    machine.initialize_qpu(flux_point="joint", target=machine.qubits["qubitC3"])
     align()
     # active_reset(QC)
     # active_reset(QT)

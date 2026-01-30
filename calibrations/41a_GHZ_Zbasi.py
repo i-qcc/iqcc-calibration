@@ -132,12 +132,12 @@ with program() as CPhase_Oscillations:
     
     if flux_point == "joint":
         # Bring the active qubits to the desired frequency point
-        machine.set_all_fluxes(flux_point=flux_point, target=qubit_triplets[0].qubit_A)
+        machine.initialize_qpu(flux_point=flux_point, target=qubit_triplets[0].qubit_A)
     
     for i, qubit_triplet in enumerate(qubit_triplets):
         # Bring the active qubits to the minimum frequency point
         if flux_point != "joint":
-            machine.set_all_fluxes(flux_point=flux_point, target=qubit_triplet.qubit_A)
+            machine.initialize_qpu(flux_point=flux_point, target=qubit_triplet.qubit_A)
         align()
         
         with for_(n, 0, n < n_shots, n + 1):

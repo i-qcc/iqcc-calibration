@@ -28,26 +28,20 @@ from qualibration_libs.data import XarrayDataFetcher
 from quam.components import pulses
 
 
-# %% {Node initialisation}
-description = """
-        READOUT OPTIMISATION: FREQUENCY (G-E-F vs AMP)
-This sequence involves measuring the state of the resonator in three scenarios: first, after thermalization
-(with the qubit in the |g> state), then after applying a pi pulse to the qubit (transitioning the qubit to the
-|e> state), and finally after applying an E->F transition pulse (transitioning the qubit to the |f> state).
-This is done while varying both the readout frequency and the E->F drive amplitude.
-The average I & Q quadratures for the qubit states |g>, |e>, and |f>, along with their distances, are extracted to
-determine the optimal readout frequency and E->F drive amplitude for maximum state discrimination.
 
-Prerequisites:
-    - Having found the resonance frequency of the resonator coupled to the qubit under study (resonator_spectroscopy).
-    - Having calibrated qubit pi pulse (x180) by running qubit spectroscopy, rabi_chevron, power_rabi and updated the state.
-    - Having calibrated the E->F transition (node 12a).
-    - Set the desired flux bias.
+# %% {Node_parameters}
+class Parameters(NodeParameters):
 
-State update:
-    - The GEF readout frequency shift: qubit.resonator.GEF_frequency_shift
-    - The E->F drive amplitude: qubit.xy.operations["EF_x180"].amplitude
-"""
+    qubits: Optional[List[str]] = None
+    num_averages: int = 100
+    amp_min: float = 0.1
+    amp_max: float = 1.5
+    amp_step: float = 0.05
+    frequency_span_in_mhz: float = 7
+    frequency_step_in_mhz: float = 0.2
+    flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
+    simulate: bool = False
+    timeout: int = 100
 
 
 node = QualibrationNode[Parameters, Quam](
@@ -196,29 +190,18 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                 Q_f_st[i].buffer(len(amps)).buffer(len(dfs)).average().save(f"Q_f{i + 1}")
 
 
-# %% {Simulate}
-@node.run_action(skip_if=node.parameters.load_data_id is not None or not node.parameters.simulate)
-def simulate_qua_program(node: QualibrationNode[Parameters, Quam]):
-    """Connect to the QOP and simulate the QUA program"""
-    # Connect to the QOP
-    qmm = node.machine.connect()
-    # Get the config from the machine
-    config = node.machine.generate_config()
-    # Simulate the QUA program, generate the waveform report and plot the simulated samples
-    samples, fig, wf_report = simulate_and_plot(qmm, config, node.namespace["qua_program"], node.parameters)
-    # Store the figure, waveform report and simulated samples
-    node.results["simulation"] = {"figure": fig, "wf_report": wf_report, "samples": samples}
+# %% {Simulate_or_execute}
+if node.parameters.simulate:
+    # Simulates the QUA program for the specified duration
+    simulation_config = SimulationConfig(duration=10_000)  # In clock cycles = 4ns
+    job = qmm.simulate(config, ro_freq_opt, simulation_config)
+    job.get_simulated_samples().con1.plot()
+    node.results = {"figure": plt.gcf()}
+    node.machine = machine
+    node.save()
 
-
-# %% {Execute}
-@node.run_action(skip_if=node.parameters.load_data_id is not None or node.parameters.simulate)
-def execute_qua_program(node: QualibrationNode[Parameters, Quam]):
-    """Connect to the QOP, execute the QUA program and fetch the raw data and store it in a xarray dataset called "ds_raw"."""
-    # Connect to the QOP
-    qmm = node.machine.connect()
-    # Get the config from the machine
-    config = node.machine.generate_config()
-    # Execute the QUA program only if the quantum machine is available (this is to avoid interrupting running jobs).
+else:
+    
     with qm_session(qmm, config, timeout=node.parameters.timeout) as qm:
         # The job is stored in the node namespace to be reused in the fetching_data run_action
         node.namespace["job"] = job = qm.execute(node.namespace["qua_program"])
@@ -283,13 +266,55 @@ def plot_data(node: QualibrationNode[Parameters, Quam]):
     node.add_node_info_subtitle(fig_iq_abs)
     node.add_node_info_subtitle(fig_optimal)
     plt.show()
-    # Store the generated figures
-    node.results["figures"] = {
-        "distances": fig_distances,
-        "iq_abs": fig_iq_abs,
-        "optimal_parameters": fig_optimal,
-    }
+    node.results["figure3"] = grid.fig
 
+    grid = QubitGrid(ds, [q.grid_location for q in qubits])
+    for ax, qubit in grid_iter(grid):
+        best_ds = ds.sel(amp = fit_results[qubit["qubit"]]["GEF_amp"])
+        (1e3 * best_ds.assign_coords(freq_MHz=best_ds.freq / 1e6).Dge.loc[qubit]).plot(
+            ax=ax, x="freq_MHz", label="GE"
+        )
+        (1e3 * best_ds.assign_coords(freq_MHz=ds.freq / 1e6).Def.loc[qubit]).plot(
+            ax=ax, x="freq_MHz", label="EF"
+        )
+        (1e3 * best_ds.assign_coords(freq_MHz=ds.freq / 1e6).Dgf.loc[qubit]).plot(
+            ax=ax, x="freq_MHz", label="GF"
+        )
+        (1e3 * best_ds.assign_coords(freq_MHz=ds.freq / 1e6).D.loc[qubit]).plot(
+            ax=ax, x="freq_MHz"
+        )
+        # ax.axvline(
+        #     fit_results[qubit["qubit"]]["GEF_detuning"] / 1e6,
+        #     color="red",
+        #     linestyle="--",
+        # )
+        ax.set_xlabel("Frequency [MHz]")
+        ax.set_ylabel("Distance between IQ blobs [m.v.]")
+        ax.legend()
+    grid.fig.suptitle(f"{node.date_time} #{node.node_id}")
+    plt.tight_layout()
+    plt.show()
+    node.results["figure"] = grid.fig
+
+    grid = QubitGrid(ds, [q.grid_location for q in qubits])
+    for ax, qubit in grid_iter(grid):
+        best_ds = ds.sel(amp = fit_results[qubit["qubit"]]["GEF_amp"])
+        (1e3 * best_ds.assign_coords(freq_MHz=best_ds.freq / 1e6).IQ_abs_g.loc[qubit]).plot(
+            ax=ax, x="freq_MHz", label="g.s."
+        )
+        (1e3 * best_ds.assign_coords(freq_MHz=best_ds.freq / 1e6).IQ_abs_e.loc[qubit]).plot(
+            ax=ax, x="freq_MHz", label="e.s."
+        )
+        (1e3 * best_ds.assign_coords(freq_MHz=best_ds.freq / 1e6).IQ_abs_f.loc[qubit]).plot(
+            ax=ax, x="freq_MHz", label="f.s."
+        )
+        ax.set_xlabel("Frequency [MHz]")
+        ax.set_ylabel("Resonator response [mV]")
+        ax.legend()
+    grid.fig.suptitle(f"{node.date_time} #{node.node_id}")
+    plt.tight_layout()
+    plt.show()
+    node.results["figure2"] = grid.fig
 
 # %% {Update_state}
 @node.run_action(skip_if=node.parameters.simulate)

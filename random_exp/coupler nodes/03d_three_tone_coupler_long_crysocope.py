@@ -129,7 +129,7 @@ with program() as multi_res_spec_vs_flux:
     
     if flux_point == "joint":
         # Bring the active qubits to the desired frequency point
-        machine.set_all_fluxes(flux_point=flux_point, target=qubit_pairs[0].qubit_target)
+        machine.initialize_qpu(flux_point=flux_point, target=qubit_pairs[0].qubit_target)
 
     align()
     with for_(n, 0, n < n_avg, n + 1):

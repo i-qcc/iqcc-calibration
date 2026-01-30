@@ -7,6 +7,7 @@ import xarray as xr
 from qualibrate import QualibrationNode
 from qualibration_libs.analysis import peaks_dips
 from qualibration_libs.data import add_amplitude_and_phase, convert_IQ_to_V
+from scipy.optimize import curve_fit
 
 
 @dataclass
@@ -170,9 +171,96 @@ def _remove_outliers(filtered_positions: xr.DataArray, outlier_fraction: float =
     return outlier_removed
 
 
+def _parabola(x, c2, c1, c0):
+    """Parabola function: f(x) = c2*x^2 + c1*x + c0"""
+    return c2 * x**2 + c1 * x + c0
+
+
+def _constrained_parabolic_fit(filtered_positions: xr.DataArray) -> xr.Dataset:
+    """
+    Perform a constrained parabolic fit where the quadratic coefficient must be negative.
+    
+    This ensures the parabola opens downward (has a maximum), which is physically
+    expected for qubit frequency vs flux curves near the sweet spot.
+    
+    Parameters:
+    -----------
+    filtered_positions : xr.DataArray
+        DataArray with peak positions indexed by qubit and flux_bias.
+    
+    Returns:
+    --------
+    xr.Dataset
+        Dataset with polyfit_coefficients in the same format as xr.polyfit.
+    """
+    qubit_values = filtered_positions.qubit.values
+    flux_bias_values = filtered_positions.flux_bias.values
+    
+    # Storage for coefficients: shape (num_qubits, 3) for degree 2, 1, 0
+    coefficients = np.full((len(qubit_values), 3), np.nan)
+    
+    for i, q in enumerate(qubit_values):
+        positions_q = filtered_positions.sel(qubit=q).values
+        valid_mask = ~np.isnan(positions_q)
+        
+        if np.sum(valid_mask) < 3:
+            # Not enough points for fitting
+            continue
+        
+        valid_flux = flux_bias_values[valid_mask]
+        valid_positions = positions_q[valid_mask]
+        
+        try:
+            # Initial guess from unconstrained fit
+            initial_coeffs = np.polyfit(valid_flux, valid_positions, 2)
+            p0 = [initial_coeffs[0], initial_coeffs[1], initial_coeffs[2]]
+            
+            # If initial quadratic term is already negative, use it as starting point
+            # Otherwise, flip sign for initial guess
+            if p0[0] > 0:
+                p0[0] = -abs(p0[0])
+            
+            # Bounds: c2 must be negative (from -inf to 0), c1 and c0 are unbounded
+            bounds = (
+                [-np.inf, -np.inf, -np.inf],  # lower bounds
+                [0, np.inf, np.inf]            # upper bounds (c2 <= 0)
+            )
+            
+            popt, _ = curve_fit(
+                _parabola, 
+                valid_flux, 
+                valid_positions, 
+                p0=p0, 
+                bounds=bounds,
+                maxfev=10000
+            )
+            
+            coefficients[i, :] = popt  # [c2, c1, c0]
+            
+        except (RuntimeError, ValueError, np.linalg.LinAlgError):
+            # Fit failed, leave as NaN
+            continue
+    
+    # Create dataset in same format as xr.polyfit output
+    # xr.polyfit returns coefficients indexed by 'degree' in descending order
+    polyfit_coefficients = xr.DataArray(
+        coefficients,
+        dims=["qubit", "degree"],
+        coords={
+            "qubit": qubit_values,
+            "degree": [2, 1, 0]  # quadratic, linear, constant
+        }
+    )
+    
+    return xr.Dataset({"polyfit_coefficients": polyfit_coefficients})
+
+
 def fit_raw_data(ds: xr.Dataset, node: QualibrationNode) -> Tuple[xr.Dataset, dict[str, FitParameters]]:
     """
     Fit the qubit frequency vs flux response using a parabolic (quadratic) fit.
+    
+    The fit is constrained to have a negative quadratic coefficient (downward-opening
+    parabola), which is physically expected for qubit frequency vs flux curves.
 
     Parameters:
     -----------
@@ -212,8 +300,8 @@ def fit_raw_data(ds: xr.Dataset, node: QualibrationNode) -> Tuple[xr.Dataset, di
     # Remove outliers (30% worst points) before fitting
     filtered_positions = _remove_outliers(filtered_positions, outlier_fraction=0.30)
     
-    # Fit with parabola
-    parabolic_fit_results = filtered_positions.polyfit("flux_bias", 2)
+    # Fit with parabola (constrained to have negative quadratic coefficient)
+    parabolic_fit_results = _constrained_parabolic_fit(filtered_positions)
     
     # Check if fit failed for any qubit and retry with even more lenient settings
     failed_qubits = []
@@ -236,8 +324,8 @@ def fit_raw_data(ds: xr.Dataset, node: QualibrationNode) -> Tuple[xr.Dataset, di
                     filtered_positions.loc[dict(qubit=q)] = filtered_positions_retry.sel(qubit=q).values
                     peak_mask.loc[dict(qubit=q)] = peak_mask_retry.sel(qubit=q).values
         
-        # Refit with updated positions
-        parabolic_fit_results = filtered_positions.polyfit("flux_bias", 2)
+        # Refit with updated positions using constrained fit
+        parabolic_fit_results = _constrained_parabolic_fit(filtered_positions)
     
     # Merge results
     fit_results_ds = xr.merge([

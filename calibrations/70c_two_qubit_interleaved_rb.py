@@ -33,7 +33,7 @@ Prerequisites:
 
 # %%
 
-from datetime import datetime, timezone, timedelta
+
 from typing import List, Literal, Optional
 from matplotlib import pyplot as plt
 import matplotlib.patches as mpatches
@@ -152,7 +152,7 @@ if node.parameters.simulate:
 elif node.parameters.load_data_id is None:
     # Prepare data for saving
     node.results = {}
-    date_time = datetime.now(timezone(timedelta(hours=3))).strftime("%Y-%m-%d %H:%M:%S")
+    
     
     with qm_session(node.machine.qmm, config, timeout=node.parameters.timeout) as qm:
         if node.parameters.use_input_stream:
@@ -351,7 +351,7 @@ for i in range(num_pairs, num_rows * num_cols):
     ax_unused = fig.add_subplot(num_rows, num_cols, i + 1)
     ax_unused.axis('off')
 
-fig.suptitle(f"2Q Interleaved Randomized Benchmarking \n {node.date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type}, reduce_to_1q_cliffords = {node.parameters.reduce_to_1q_cliffords}, target_gate = {node.parameters.target_gate}", y=0.995)
+fig.suptitle(f"2Q Interleaved Randomized Benchmarking \n {node.date_time} GMT+{node.time_zone} #{node.node_id} \n reset type = {node.parameters.reset_type}, reduce_to_1q_cliffords = {node.parameters.reduce_to_1q_cliffords}, target_gate = {node.parameters.target_gate}", y=0.995)
 fig.subplots_adjust(top=0.75, hspace=0.4, wspace=0.3)
 
 # Add legend explaining the batch number indicator

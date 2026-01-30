@@ -113,12 +113,12 @@ with program() as power_rabi:
 
     if node.parameters.multiplexed:
         for i , qubit in enumerate(qubits):
-            machine.set_all_fluxes(flux_point=flux_point, target=qubit)
+            machine.initialize_qpu(flux_point=flux_point, target=qubit)
 
     for i, qubit in enumerate(qubits):
         if not node.parameters.multiplexed:
             # Bring the active qubits to the desired frequency point
-            machine.set_all_fluxes(flux_point=flux_point, target=qubit)
+            machine.initialize_qpu(flux_point=flux_point, target=qubit)
 
         with for_(shots[i], 0, shots[i] < n_avg, shots[i] + 1):
             save(shots[i], n_st)

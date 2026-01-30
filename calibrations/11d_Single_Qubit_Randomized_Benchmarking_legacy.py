@@ -20,7 +20,7 @@ Prerequisites:
 """
 
 # %% {Imports}
-from datetime import datetime, timezone, timedelta
+
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
 from iqcc_calibration_tools.quam_config.components import Quam, Transmon
 from iqcc_calibration_tools.quam_config.macros import qua_declaration, active_reset, readout_state
@@ -218,6 +218,9 @@ def play_sequence(sequence_list, depth, qubit: Transmon):
 
 
 # %% {QUA_program}
+
+# TODO : running twice initialize_qpu between two qua programs will only initialize twpa in the first. fix this.
+
 with program() as randomized_benchmarking_individual:
     depth = declare(int)  # QUA variable for the varying depth
     # QUA variable to store the last Clifford gate of the current sequence which is replaced by the recovery gate
@@ -231,7 +234,7 @@ with program() as randomized_benchmarking_individual:
 
     if flux_point == "joint":
         # Bring the active qubits to the desired frequency point
-        node.machine.set_all_fluxes(flux_point=flux_point, target=qubits[0])
+        node.machine.set_all_fluxes(flux_point=flux_point, target=qubits[0]) # Don't change until twpa issue is fixed.
     
     for i, qubit in enumerate(qubits):
         # Bring the active qubits to the desired frequency point
@@ -374,7 +377,7 @@ if node.parameters.simulate:
 elif node.parameters.load_data_id is None:
     # Prepare data for saving
     node.results = {}
-    date_time = datetime.now(timezone(timedelta(hours=3))).strftime("%Y-%m-%d %H:%M:%S")
+    
     with qm_session(qmm, config, timeout=node.parameters.timeout) as qm:
         if not node.parameters.multiplexed:
             job = qm.execute(randomized_benchmarking_individual)

@@ -250,7 +250,7 @@ with program() as BayesFreq:
     # Main experiment loop
     for i, qubit in enumerate(qubits):
         # Set flux bias
-        machine.set_all_fluxes(flux_point="joint", target=qubit)
+        machine.initialize_qpu(flux_point="joint", target=qubit)
 
         # Averaging loop
         with for_(n, 0, n < n_reps, n + 1):
