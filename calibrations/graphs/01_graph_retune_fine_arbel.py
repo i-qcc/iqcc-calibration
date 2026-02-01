@@ -30,7 +30,7 @@ node_params = {
             "reset_type": reset_type},
     "ramsey_flux_calibration" : {"multiplexed": multiplexed,
             "num_shots": 300,
-            "flux_span": 0.02,
+            "flux_span": 0.04,
             "max_wait_time_in_ns": 500,
             "wait_time_step_in_ns": 5,
             "scale_flux_span" : {"qA1": 3, "qA3":3, "qA6": 3, "qD3": 3, "qB2": 3},
