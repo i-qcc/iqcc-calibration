@@ -213,8 +213,30 @@ def analyse_data(node: QualibrationNode[Parameters, Quam]):
 @node.run_action(skip_if=node.parameters.simulate)
 def plot_data(node: QualibrationNode[Parameters, Quam]):
     """Plot the raw and fitted data in specific figures whose shape is given by qubit.grid_location."""
-    fig_raw_fit = plot_raw_data_with_fit(node.results["ds_raw"], node.namespace["qubits"], node.results["ds_fit"])
-    node.add_node_info_subtitle(fig_raw_fit)
+    fig_raw_fit = plot_raw_data_with_fit(
+        node.results["ds_raw"], 
+        node.namespace["qubits"], 
+        node.results["ds_fit"],
+        sweep_type=getattr(node.parameters, 'log_or_linear_sweep', None)
+    )
+    
+    # Build subtitle in the correct order: sweep, multiplexed, reset_type, then date/time
+    subtitle_parts = []
+    if hasattr(node.parameters, 'log_or_linear_sweep') and node.parameters.log_or_linear_sweep:
+        subtitle_parts.append(f"sweep = {node.parameters.log_or_linear_sweep}")
+    if hasattr(node.parameters, 'multiplexed'):
+        subtitle_parts.append(f"multiplexed = {node.parameters.multiplexed}")
+    if hasattr(node.parameters, 'reset_type'):
+        subtitle_parts.append(f"reset type = {node.parameters.reset_type}")
+    # Add date/time last
+    subtitle_parts.append(f"{node.date_time} GMT+{node.time_zone} #{node.node_id}")
+    
+    # Get existing title and append subtitle
+    existing_title = fig_raw_fit._suptitle.get_text() if fig_raw_fit._suptitle else ""
+    combined_text = f"{existing_title}\n{chr(10).join(subtitle_parts)}"
+    fig_raw_fit.suptitle(combined_text, fontsize=10, y=0.98)
+    fig_raw_fit.tight_layout(rect=[0, 0, 1, 0.97])
+    
     plt.show()
     # Store the generated figures
     node.results["figures"] = {

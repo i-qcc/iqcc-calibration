@@ -18,8 +18,9 @@ from calibration_utils.spin_echo_sl import (
     fit_raw_data,
     log_fitted_results,
     plot_raw_data_with_fit,
+    get_sl_times_in_clock_cycles,
 )
-from qualibration_libs.parameters import get_qubits, get_sl_times_in_clock_cycles
+from qualibration_libs.parameters import get_qubits
 from qualibration_libs.runtime import simulate_and_plot
 from qualibration_libs.data import XarrayDataFetcher
 
@@ -88,12 +89,10 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
         t_sl = declare(int)
 
         for multiplexed_qubits in qubits.batch():
-            
             # Initialize the QPU in terms of flux points (flux tunable transmons and/or tunable couplers)
             for qubit in multiplexed_qubits.values():
                 node.machine.initialize_qpu(target=qubit)
             align()
-        
             with for_(shot, 0, shot < n_avg, shot + 1):
                 save(shot, n_st)
                 with for_each_(t_sl, spin_locking_times):
@@ -102,17 +101,17 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                         # reset_frame(qubit.xy.name)
                         qubit.reset(node.parameters.reset_type, node.parameters.simulate)
                     align()
+                    qubit.xy.update_frequency(qubit.xy.intermediate_frequency -1*u.MHz)
                     # Qubit manipulation
                     for i, qubit in multiplexed_qubits.items():
                         qubit.xy.play("-y90")
-                        # qubit.xy_sl.update_frequency(qubit.xy_sl.intermediate_frequency +1*u.kHz)
-                        qubit.xy_sl.play("x180_BlackmanIntegralPulse_Rise")
-                        qubit.xy_sl.play("x180_Square",duration = 2*t_sl)
-                        qubit.xy_sl.play("x180_BlackmanIntegralPulse_Fall")
-                        # qubit.xy_sl.update_frequency(qubit.xy_sl.intermediate_frequency -1*u.kHz)
+                        qubit.xy.play("x180_BlackmanIntegralPulse_Rise")
+                        qubit.xy.play("x180_Square",duration = 2*t_sl)
+                        qubit.xy.play("x180_BlackmanIntegralPulse_Fall")
                         qubit.xy.play("-y90")
                     align()
                     # Qubit readout
+                    qubit.xy.update_frequency(qubit.xy.intermediate_frequency +1*u.MHz)
                     for i, qubit in multiplexed_qubits.items():
                         # Measure the state of the resonators
                         if node.parameters.use_state_discrimination:
@@ -231,11 +230,29 @@ def plot_data(node: QualibrationNode[Parameters, Quam]):
         ds_fit_compat
     )
     
+    # Build subtitle in the correct order: sweep, multiplexed, reset_type, then date/time
+    subtitle_parts = []
+    if hasattr(node.parameters, 'log_or_linear_sweep') and node.parameters.log_or_linear_sweep:
+        subtitle_parts.append(f"sweep = {node.parameters.log_or_linear_sweep}")
+    if hasattr(node.parameters, 'multiplexed'):
+        subtitle_parts.append(f"multiplexed = {node.parameters.multiplexed}")
+    if hasattr(node.parameters, 'reset_type'):
+        subtitle_parts.append(f"reset type = {node.parameters.reset_type}")
+    # Add date/time last
+    subtitle_parts.append(f"{node.date_time} GMT+{node.time_zone} #{node.node_id}")
+    
     # Handle both single figure (state discrimination) and tuple of figures (I, Q mode)
     if isinstance(fig_result, tuple):
         fig_I, fig_Q = fig_result
-        node.add_node_info_subtitle(fig_I)
-        node.add_node_info_subtitle(fig_Q)
+        # Get existing titles and append subtitle
+        existing_title_I = fig_I._suptitle.get_text() if fig_I._suptitle else ""
+        existing_title_Q = fig_Q._suptitle.get_text() if fig_Q._suptitle else ""
+        combined_text_I = f"{existing_title_I}\n{chr(10).join(subtitle_parts)}"
+        combined_text_Q = f"{existing_title_Q}\n{chr(10).join(subtitle_parts)}"
+        fig_I.suptitle(combined_text_I, fontsize=10, y=0.98)
+        fig_Q.suptitle(combined_text_Q, fontsize=10, y=0.98)
+        fig_I.tight_layout(rect=[0, 0, 1, 0.97])
+        fig_Q.tight_layout(rect=[0, 0, 1, 0.97])
         plt.show()
         # Store the generated figures
         node.results["figures"] = {
@@ -243,7 +260,11 @@ def plot_data(node: QualibrationNode[Parameters, Quam]):
             "T2_SL_Q": fig_Q,
         }
     else:
-        node.add_node_info_subtitle(fig_result)
+        # Get existing title and append subtitle
+        existing_title = fig_result._suptitle.get_text() if fig_result._suptitle else ""
+        combined_text = f"{existing_title}\n{chr(10).join(subtitle_parts)}"
+        fig_result.suptitle(combined_text, fontsize=10, y=0.98)
+        fig_result.tight_layout(rect=[0, 0, 1, 0.97])
         plt.show()
         # Store the generated figures
         node.results["figures"] = {

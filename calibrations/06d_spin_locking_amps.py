@@ -21,7 +21,8 @@ from calibration_utils.spin_locking_amps import (
     extract_t2_sl_vs_amplitude,
     plot_t2_sl_vs_amplitude,
 )
-from qualibration_libs.parameters import get_qubits, get_sl_times_in_clock_cycles
+from calibration_utils.spin_echo_sl import get_sl_times_in_clock_cycles
+from qualibration_libs.parameters import get_qubits
 from qualibration_libs.runtime import simulate_and_plot
 from qualibration_libs.data import XarrayDataFetcher
 

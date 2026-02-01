@@ -10,7 +10,7 @@ from quam_builder.architecture.superconducting.qubit import AnyTransmon
 u = unit(coerce_to_integer=True)
 
 
-def plot_raw_data_with_fit(ds: xr.Dataset, qubits: List[AnyTransmon], fits: xr.Dataset):
+def plot_raw_data_with_fit(ds: xr.Dataset, qubits: List[AnyTransmon], fits: xr.Dataset, multiplexed: bool = None, reset_type: str = None, sweep_type: str = None):
     """
     Plots the resonator spectroscopy amplitude IQ_abs with fitted curves for the given qubits.
 
@@ -22,6 +22,12 @@ def plot_raw_data_with_fit(ds: xr.Dataset, qubits: List[AnyTransmon], fits: xr.D
         A list of qubits to plot.
     fits : xr.Dataset
         The dataset containing the fit parameters.
+    multiplexed : bool, optional
+        Whether multiplexed readout was used.
+    reset_type : str, optional
+        The reset type used (e.g., "active" or "thermal").
+    sweep_type : str, optional
+        The sweep type used (e.g., "log" or "linear").
 
     Returns
     -------
@@ -37,7 +43,8 @@ def plot_raw_data_with_fit(ds: xr.Dataset, qubits: List[AnyTransmon], fits: xr.D
     for ax, qubit in grid_iter(grid):
         plot_individual_data_with_fit(ax, ds, qubit, fits.sel(qubit=qubit["qubit"]))
 
-    grid.fig.suptitle("T2 Dynamical Decoupling with fit")
+    title = "T2 Dynamical Decoupling with fit"
+    grid.fig.suptitle(title)
     grid.fig.set_size_inches(15, 9)
     grid.fig.tight_layout()
     return grid.fig
@@ -88,7 +95,7 @@ def plot_individual_data_with_fit(ax: Axes, ds: xr.Dataset, qubit: dict[str, str
     ax.text(
         0.1,
         0.9,
-        f'T2e = {fit["T2_echo"].values*1e-3:.1f} ± {fit["T2_echo_error"].values*1e-3:.1f} µs',
+        f'T2dd = {fit["T2_echo"].values*1e-3:.1f} ± {fit["T2_echo_error"].values*1e-3:.1f} µs',
         transform=ax.transAxes,
         fontsize=10,
         verticalalignment="top",

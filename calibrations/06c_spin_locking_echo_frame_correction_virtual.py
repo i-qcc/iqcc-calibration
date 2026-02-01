@@ -18,8 +18,9 @@ from calibration_utils.spin_echo_sl import (
     fit_raw_data,
     log_fitted_results,
     plot_raw_data_with_fit,
+    get_sl_times_in_clock_cycles,
 )
-from qualibration_libs.parameters import get_qubits, get_sl_times_in_clock_cycles
+from qualibration_libs.parameters import get_qubits
 from qualibration_libs.runtime import simulate_and_plot
 from qualibration_libs.data import XarrayDataFetcher
 
