@@ -141,7 +141,7 @@ def generate_sequence():
     return sequence, inv_gate
 
 
-def play_sequence(sequence_list, depth, qubit: Transmon):
+def play_sequence(sequence_list, depth, qubit):
     i = declare(int)
     with for_(i, 0, i <= depth, i + 1):
         with switch_(sequence_list[i], unsafe=True):
