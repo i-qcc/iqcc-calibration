@@ -751,12 +751,13 @@ requires-dist = [
     { name = "more-itertools" },
     { name = "pylatexenc" },
     { name = "qiskit", specifier = "==2.0.0" },
-    { name = "qm-qua", specifier = "==1.2.4" },
+    { name = "qm-qua", specifier = "==1.2.4.1" },
     { name = "qualang-tools", specifier = "<=0.21.0" },
     { name = "qualibrate", specifier = ">=0.6.0" },
     { name = "qualibration-libs", git = "https://github.com/qua-platform/qualibration-libs.git" },
     { name = "quam", specifier = "==0.5.0a3" },
-    { name = "quam-builder", editable = "../quam-builder" },
+    { name = "quam-builder" },
+    { name = "quam-builder", git = "https://github.com/qua-platform/quam-builder.git?rev=IQCC-dev-12%2F25" },
     { name = "tqdm" },
     { name = "xarray" },
 ]
@@ -1756,7 +1757,7 @@ wheels = [
 
 [[package]]
 name = "qm-qua"
-version = "1.2.4"
+version = "1.2.4.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "betterproto" },
@@ -1774,9 +1775,9 @@ dependencies = [
     { name = "tinydb" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/51/fe/7f3750e37f9b91ece9ef65f81b8ae423b33a7dc3fbbf1fb902d5a7117d13/qm_qua-1.2.4.tar.gz", hash = "sha256:1866a86511d8bec8fa3d579dcd00d94c650a8672fe7d964fa7ae05af956d4e0d", size = 306620 }
+sdist = { url = "https://files.pythonhosted.org/packages/ed/b0/a44b1bfe214e5a51a73bf7b25238891c6622c3be2bf66aa73a1d8fd8e385/qm_qua-1.2.4.1.tar.gz", hash = "sha256:b87ac015efa3edb64ab251181d4746593f629937825dda1c423bcd40956ed736", size = 306946 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/63/b7/bec53806f20367b0574986597bb3f6e257f9b577636e486023fa00d5f77f/qm_qua-1.2.4-py3-none-any.whl", hash = "sha256:2d29fee7895d0c4885f85d6d3b3366fbdf28fa8bbc1b6b2371c66eb5705b9ceb", size = 381596 },
+    { url = "https://files.pythonhosted.org/packages/35/fe/d6292906ba80fb4162cbe3b45e35386ee2f8b973a62d50d05512d3ba64c7/qm_qua-1.2.4.1-py3-none-any.whl", hash = "sha256:d0541f158adb6053195fd3cd6d4ad3454d6f150d35f5778f7a0c242703bba835", size = 381768 },
 ]
 
 [[package]]
@@ -1927,29 +1928,13 @@ wheels = [
 
 [[package]]
 name = "quam-builder"
-version = "0.2.1"
-source = { editable = "../quam-builder" }
+version = "0.2.2"
+source = { git = "https://github.com/qua-platform/quam-builder.git?rev=IQCC-dev-12%2F25#bf68697c526753352814efe3f9110d3a63753763" }
 dependencies = [
     { name = "qm-qua" },
     { name = "qualang-tools" },
     { name = "quam" },
     { name = "xarray" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "qm-qua", specifier = ">=1.2.2" },
-    { name = "qualang-tools", specifier = ">=0.19.0" },
-    { name = "quam", specifier = ">=0.4.0" },
-    { name = "xarray", specifier = ">=2024.7.0" },
-]
-
-[package.metadata.requires-dev]
-ast = [{ name = "qua-qsim", git = "https://github.com/qua-platform/qua-qsim.git?rev=bare-ast-visitor" }]
-dev = [
-    { name = "ipykernel", specifier = ">=7.0.0a1" },
-    { name = "pytest", specifier = ">=8.3.5" },
-    { name = "pytest-mock", specifier = ">=3.14.0" },
 ]
 
 [[package]]
