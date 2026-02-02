@@ -21,6 +21,7 @@ reset_type = "thermal"
 nodes = {
         "IQ_blobs": library.nodes["07_iq_blobs"],
         "ramsey_flux_calibration": library.nodes["09_ramsey_vs_flux_calibration"],
+        "ramsey": library.nodes["06a_ramsey"],
         "power_rabi_x180": library.nodes["04b_power_rabi"],
         "single_qubit_randomized_benchmarking": library.nodes["11d_Single_Qubit_Randomized_Benchmarking_legacy"],
     }
@@ -33,9 +34,14 @@ node_params = {
             "flux_span": 0.04,
             "max_wait_time_in_ns": 500,
             "wait_time_step_in_ns": 5,
-            "scale_flux_span" : {"qA1": 3, "qA3":3, "qA6": 3, "qD3": 3, "qB2": 3},
             "flux_num": 11,
             "frequency_detuning_in_mhz": 4},
+    "ramsey" : {"multiplexed": False,
+            "reset_type": reset_type,
+            "num_shots": 50,
+            "frequency_detuning_in_mhz": 1.0,
+            "max_wait_time_in_ns": 7000,
+            "wait_time_num_points": 100},
     "power_rabi_x180" : {"operation": "x180",
             "reset_type": reset_type,
             "min_amp_factor": 0.8,
@@ -61,7 +67,8 @@ g = QualibrationGraph(
     nodes=nodes,
     connectivity=[
         ("IQ_blobs", "ramsey_flux_calibration"),
-        ("ramsey_flux_calibration", "power_rabi_x180"),
+        ("ramsey_flux_calibration", "ramsey"),
+        ("ramsey", "power_rabi_x180"),
         ("power_rabi_x180", "single_qubit_randomized_benchmarking")
     ],
     orchestrator=BasicOrchestrator(skip_failed=True),
