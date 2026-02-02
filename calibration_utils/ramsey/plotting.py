@@ -1,7 +1,7 @@
 from typing import List
 import xarray as xr
+import matplotlib.lines as mlines
 from matplotlib.axes import Axes
-from matplotlib.figure import Figure
 
 from qualang_tools.units import unit
 from qualibration_libs.plotting import QubitGrid, grid_iter
@@ -13,7 +13,7 @@ u = unit(coerce_to_integer=True)
 
 def plot_raw_data_with_fit(ds: xr.Dataset, qubits: List[AnyTransmon], fits: xr.Dataset, fit_results: dict = None):
     """
-    Plots the resonator spectroscopy amplitude IQ_abs with fitted curves for the given qubits.
+    Plots the Ramsey oscillation data with fitted curves for the given qubits.
 
     Parameters
     ----------
@@ -38,9 +38,27 @@ def plot_raw_data_with_fit(ds: xr.Dataset, qubits: List[AnyTransmon], fits: xr.D
     for ax, qubit in grid_iter(grid):
         plot_individual_data_with_fit(ax, ds, qubit, fits.sel(qubit=qubit["qubit"]), fit_results[qubit["qubit"]])
 
-    grid.fig.suptitle("Qubit spectroscopy (rotated 'I' quadrature + fit)")
+    # Create a single global legend for the entire figure
+    handles, labels = [], []
+    for ax in grid.fig.axes:
+        h, l = ax.get_legend_handles_labels()
+        if h:
+            handles, labels = h, l
+            break
+    if not handles:
+        # Fallback: proxy artists when get_legend_handles_labels is empty (e.g. xarray)
+        handles = [
+            mlines.Line2D([], [], color="C0", marker=".", ms=5.0, ls="", label=r"$\Delta$ = +"),
+            mlines.Line2D([], [], color="C1", marker=".", ms=5.0, ls="", label=r"$\Delta$ = -"),
+        ]
+        labels = [h.get_label() for h in handles]
+
+    grid.fig.legend(handles, labels, loc='lower center', bbox_to_anchor=(0.5, -0.04),
+                    ncol=2, frameon=True, fontsize=12)
+
+    grid.fig.suptitle("Ramsey (rotated 'I' quadrature + fit)")
     grid.fig.set_size_inches(15, 9)
-    grid.fig.tight_layout()
+    grid.fig.tight_layout(rect=[0, 0.10, 1, 0.98])
     return grid.fig
 
 
@@ -63,7 +81,6 @@ def plot_individual_data_with_fit(ax: Axes, ds: xr.Dataset, qubit: dict[str, str
     -----
     - If the fit dataset is provided, the fitted curve is plotted along with the raw data.
     """
-    pass
     if fit:
         fitted_ramsey_data = oscillation_decay_exp(
             ds.idle_time,
@@ -77,10 +94,10 @@ def plot_individual_data_with_fit(ax: Axes, ds: xr.Dataset, qubit: dict[str, str
         fitted_ramsey_data = None
 
     if hasattr(fit, "state"):
-        plot_state(ax, fit, qubit, fitted_ramsey_data)
+        plot_state(ax, fit, fitted_ramsey_data)
         ax.set_ylabel("State Population")
     elif hasattr(fit, "I"):
-        plot_transmission_amplitude(ax, fit, qubit, fitted_ramsey_data)
+        plot_transmission_amplitude(ax, fit, fitted_ramsey_data)
         ax.set_ylabel("Trans. amp. I [mV]")
     else:
         raise RuntimeError("The dataset must contain either 'I' or 'state' for the plotting function to work.")
@@ -89,13 +106,12 @@ def plot_individual_data_with_fit(ax: Axes, ds: xr.Dataset, qubit: dict[str, str
     ax.set_title(qubit["qubit"])
     if fit is not None:
         add_fit_text(ax, fit_results)
-    ax.legend()
 
 
-def plot_state(ax, ds, qubit, fitted=None):
+def plot_state(ax, ds, fitted=None):
     """Plot state data for a qubit."""
-    ds.sel(detuning_signs=1).state.plot(ax=ax, x="idle_time", c="C0", marker=".", ms=5.0, ls="", label="$\Delta$ = +")
-    ds.sel(detuning_signs=-1).state.plot(ax=ax, x="idle_time", c="C1", marker=".", ms=5.0, ls="", label="$\Delta$ = -")
+    ds.sel(detuning_signs=1).state.plot(ax=ax, x="idle_time", c="C0", marker=".", ms=5.0, ls="", label=r"$\Delta$ = +")
+    ds.sel(detuning_signs=-1).state.plot(ax=ax, x="idle_time", c="C1", marker=".", ms=5.0, ls="", label=r"$\Delta$ = -")
     if fitted is not None:
         ax.plot(
             ds.idle_time,
@@ -113,13 +129,13 @@ def plot_state(ax, ds, qubit, fitted=None):
         )
 
 
-def plot_transmission_amplitude(ax, ds, qubit, fitted=None):
+def plot_transmission_amplitude(ax, ds, fitted=None):
     """Plot transmission amplitude for a qubit."""
     (ds.sel(detuning_signs=1).I * 1e3).plot(
-        ax=ax, x="idle_time", c="C0", marker=".", ms=5.0, ls="", label="$\Delta$ = +"
+        ax=ax, x="idle_time", c="C0", marker=".", ms=5.0, ls="", label=r"$\Delta$ = +"
     )
     (ds.sel(detuning_signs=-1).I * 1e3).plot(
-        ax=ax, x="idle_time", c="C1", marker=".", ms=5.0, ls="", label="$\Delta$ = -"
+        ax=ax, x="idle_time", c="C1", marker=".", ms=5.0, ls="", label=r"$\Delta$ = -"
     )
     if fitted is not None:
         ax.plot(ds.idle_time, 1e3 * fitted.fit.sel(detuning_signs=1), c="C0", ls="-", lw=1)
@@ -138,4 +154,3 @@ def add_fit_text(ax, fit_results):
         horizontalalignment="right",
         bbox=dict(facecolor="white", alpha=0.5),
     )
-    ax.legend(loc='upper right', bbox_to_anchor=(1, 1), bbox_transform=ax.transAxes)
