@@ -18,6 +18,7 @@ from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Qua
 
 # Constants
 STALE_DASH_COLOR = "black"  # Dash shown when fidelity data is outdated or missing
+OUTDATED_THRESHOLD_HOURS = 5  # Data older than this (hours) is considered outdated; change as needed
 QUBIT_RADIUS_ACTIVE = 0.25
 QUBIT_RADIUS_INACTIVE = 0.15
 ARROWHEAD_LENGTH = 0.15
@@ -33,9 +34,12 @@ def parse_grid_location(location_str: str) -> Tuple[int, int]:
     return (x, y)
 
 
-def is_within_last_hour(updated_at_str: Optional[str]) -> bool:
+def is_within_last_hour(
+    updated_at_str: Optional[str],
+    threshold_hours: float = OUTDATED_THRESHOLD_HOURS,
+) -> bool:
     """
-    Return True if updated_at_str is within the last hour (in its timezone), False otherwise.
+    Return True if updated_at_str is within the given threshold (hours), False otherwise.
     Missing or invalid date/time (None, empty, wrong format) is treated as outdated → False.
     updated_at_str format: "YYYY-MM-DD HH:MM:SS GMT+N" (e.g. "2025-02-03 14:30:00 GMT+2").
     """
@@ -50,7 +54,7 @@ def is_within_last_hour(updated_at_str: Optional[str]) -> bool:
         tz = timezone(timedelta(hours=tz_hours))
         dt_aware = dt_naive.replace(tzinfo=tz)
         now = datetime.now(tz)
-        return (now - dt_aware) <= timedelta(hours=1)
+        return (now - dt_aware) <= timedelta(hours=threshold_hours)
     except (ValueError, TypeError):
         return False
 
@@ -275,11 +279,12 @@ def plot_qubit_grid(
     bell_updated_at: Optional[Dict[Tuple[str, str], Optional[str]]] = None,
     standard_rb_updated_at: Optional[Dict[Tuple[str, str], Optional[str]]] = None,
     rb_updated_at: Optional[Dict[str, Optional[str]]] = None,
-    output_file: Optional[str] = None
+    output_file: Optional[str] = None,
+    outdated_threshold_hours: float = OUTDATED_THRESHOLD_HOURS,
 ):
     """
     Plot all qubits on a grid, highlighting active qubits and active pairs.
-    If updated_at for a fidelity is not within the last hour, a magenta "-" is shown instead.
+    If updated_at for a fidelity is older than outdated_threshold_hours, a "-" is shown instead.
     
     Args:
         qubit_grids: Dictionary mapping qubit names to (x, y) grid coordinates
@@ -292,6 +297,7 @@ def plot_qubit_grid(
         standard_rb_updated_at: Optional dict of (q1, q2) -> updated_at string for Standard RB
         rb_updated_at: Optional dict of qubit name -> updated_at string for 1Q RB
         output_file: Optional path to save the plot
+        outdated_threshold_hours: Data older than this (hours) is shown as outdated "-". Default from OUTDATED_THRESHOLD_HOURS.
     """
     # Create figure and axis
     fig, ax = plt.subplots(figsize=(12, 10))
@@ -327,8 +333,8 @@ def plot_qubit_grid(
             standard_rb_fidelity = (standard_rb_fidelities.get(pair_key) or standard_rb_fidelities.get(reverse_key)) if standard_rb_fidelities else None
             bell_upd = (bell_updated_at or {}).get(pair_key) or (bell_updated_at or {}).get(reverse_key)
             std_rb_upd = (standard_rb_updated_at or {}).get(pair_key) or (standard_rb_updated_at or {}).get(reverse_key)
-            bell_stale = bell_fidelity is not None and not is_within_last_hour(bell_upd)
-            standard_rb_stale = standard_rb_fidelity is not None and not is_within_last_hour(std_rb_upd)
+            bell_stale = bell_fidelity is not None and not is_within_last_hour(bell_upd, threshold_hours=outdated_threshold_hours)
+            standard_rb_stale = standard_rb_fidelity is not None and not is_within_last_hour(std_rb_upd, threshold_hours=outdated_threshold_hours)
             pair_has_stale_or_missing = (
                 (bell_fidelity is not None and bell_stale)
                 or (standard_rb_fidelity is not None and standard_rb_stale)
@@ -426,7 +432,7 @@ def plot_qubit_grid(
     # Plot all qubits
     for qubit_name, (x, y) in qubit_grids.items():
         is_active = qubit_name in active_qubits
-        rb_stale = is_active and rb_values and qubit_name in rb_values and not is_within_last_hour((rb_updated_at or {}).get(qubit_name))
+        rb_stale = is_active and rb_values and qubit_name in rb_values and not is_within_last_hour((rb_updated_at or {}).get(qubit_name), threshold_hours=outdated_threshold_hours)
         
         # Determine qubit color: gray (like inactive) when 1Q fidelity is outdated, else by RB or green
         if rb_stale:
@@ -495,9 +501,6 @@ def plot_qubit_grid(
     pair_arrow = plt.Line2D([0], [0], color='blue', linewidth=2.5,
                             marker='>', markersize=10, markeredgecolor='blue',
                             label='Active Pair\n(control→target)')
-    pair_arrow_stale = plt.Line2D([0], [0], color='black', linewidth=2.5,
-                                  marker='>', markersize=10, markeredgecolor='black',
-                                  label='Pair: data outdated\nor missing')
     bell_state_label = plt.Line2D([0], [0], color='blue', linewidth=0, marker='D',
                                   markersize=8, markerfacecolor='blue',
                                   markeredgecolor='blue', markeredgewidth=1,
@@ -510,12 +513,13 @@ def plot_qubit_grid(
                           markersize=10, markerfacecolor='green',
                           markeredgecolor='darkgreen', markeredgewidth=1,
                           label='1Q RB Fidelity (%)')
+    _h = int(outdated_threshold_hours) if outdated_threshold_hours == int(outdated_threshold_hours) else outdated_threshold_hours
     stale_dash_label = (
-        '"-" = fidelity data\nolder than 1 h or missing'
+        f'"-" = fidelity data\nolder than {_h} h or missing'
     )
     # Use a short line (dash) as legend handle instead of a patch, so it looks like a normal "-"
     stale_dash_handle = plt.Line2D([0, 1], [0, 0], color=STALE_DASH_COLOR, linewidth=2.5, label=stale_dash_label)
-    ax.legend(handles=[active_patch, inactive_patch, pair_arrow, pair_arrow_stale,
+    ax.legend(handles=[active_patch, inactive_patch, pair_arrow,
                       bell_state_label, standard_rb_label, rb_label, stale_dash_handle],
              loc='upper left', fontsize=9, framealpha=0.9)
     
