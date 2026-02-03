@@ -11,10 +11,13 @@ import numpy as np
 from math import floor, log10
 from typing import Dict, Tuple, List, Set, Optional
 from pathlib import Path
+from datetime import datetime, timezone, timedelta
+import re
 
-from iqcc_calibration_tools.quam_config.components.quam_root import Quam
+from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
 
 # Constants
+STALE_DASH_COLOR = "black"  # Dash shown when fidelity data is outdated or missing
 QUBIT_RADIUS_ACTIVE = 0.25
 QUBIT_RADIUS_INACTIVE = 0.15
 ARROWHEAD_LENGTH = 0.15
@@ -28,6 +31,28 @@ def parse_grid_location(location_str: str) -> Tuple[int, int]:
     """Parse grid location string like '2,4' into (x, y) tuple."""
     x, y = map(int, location_str.split(','))
     return (x, y)
+
+
+def is_within_last_hour(updated_at_str: Optional[str]) -> bool:
+    """
+    Return True if updated_at_str is within the last hour (in its timezone), False otherwise.
+    Missing or invalid date/time (None, empty, wrong format) is treated as outdated → False.
+    updated_at_str format: "YYYY-MM-DD HH:MM:SS GMT+N" (e.g. "2025-02-03 14:30:00 GMT+2").
+    """
+    if not updated_at_str or not isinstance(updated_at_str, str):
+        return False  # no date & time → treat as outdated
+    match = re.match(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\s+GMT\+(\d+)$", updated_at_str.strip())
+    if not match:
+        return False
+    try:
+        dt_naive = datetime.strptime(match.group(1), "%Y-%m-%d %H:%M:%S")
+        tz_hours = int(match.group(2))
+        tz = timezone(timedelta(hours=tz_hours))
+        dt_aware = dt_naive.replace(tzinfo=tz)
+        now = datetime.now(tz)
+        return (now - dt_aware) <= timedelta(hours=1)
+    except (ValueError, TypeError):
+        return False
 
 
 def _interpolate_color(normalized: float, red_start: float = 0.7) -> Tuple[float, float, float]:
@@ -158,87 +183,86 @@ def get_active_qubit_pairs(machine: Quam) -> List[Tuple[str, str]]:
     return pairs
 
 
-def extract_bell_state_fidelities(machine: Quam) -> Dict[Tuple[str, str], float]:
+def extract_bell_state_fidelities(machine: Quam) -> Tuple[Dict[Tuple[str, str], float], Dict[Tuple[str, str], Optional[str]]]:
     """
-    Extract Bell state fidelities for qubit pairs.
-    Returns a dictionary mapping (q1, q2) tuples to fidelity values.
+    Extract Bell state fidelities and their updated_at strings for qubit pairs.
+    Returns (fidelities dict, updated_at dict).
     """
     fidelities = {}
+    updated_at = {}
     
     for pair_name, qubit_pair in machine.qubit_pairs.items():
-        # Parse pair name like "qB1-qB2"
         parts = pair_name.split('-')
         if len(parts) != 2:
             continue
-        
         pair_tuple = (parts[0], parts[1])
-        
-        # Search through macros to find Bell state fidelity
         if not (hasattr(qubit_pair, 'macros') and qubit_pair.macros):
             continue
-            
         for macro in qubit_pair.macros.values():
-            # Skip if macro is a string reference
             if isinstance(macro, str) or not hasattr(macro, 'fidelity'):
                 continue
-            
-            fidelity = _safe_get_nested(macro, 'fidelity', 'Bell_State', 'Fidelity')
+            bell = _safe_get_nested(macro, 'fidelity', 'Bell_State')
+            if bell is None:
+                continue
+            fidelity = _safe_get_nested(bell, 'Fidelity') if isinstance(bell, dict) else getattr(bell, 'Fidelity', None)
             if fidelity is not None:
                 fidelities[pair_tuple] = fidelity
-                break  # Use the first fidelity found
-    
-    return fidelities
+                upd = bell.get('updated_at') if isinstance(bell, dict) else getattr(bell, 'updated_at', None)
+                updated_at[pair_tuple] = upd
+                break
+    return fidelities, updated_at
 
 
-def extract_standard_rb_fidelities(machine: Quam) -> Dict[Tuple[str, str], float]:
+def extract_standard_rb_fidelities(machine: Quam) -> Tuple[Dict[Tuple[str, str], float], Dict[Tuple[str, str], Optional[str]]]:
     """
-    Extract Standard RB fidelities for qubit pairs.
-    Returns a dictionary mapping (q1, q2) tuples to average_gate_fidelity values.
-    Path: macros -> cz -> StandardRB -> average_gate_fidelity
+    Extract Standard RB fidelities and their updated_at strings for qubit pairs.
+    Returns (fidelities dict, updated_at dict).
     """
     fidelities = {}
+    updated_at = {}
     
     for pair_name, qubit_pair in machine.qubit_pairs.items():
-        # Parse pair name like "qB1-qB2"
         parts = pair_name.split('-')
         if len(parts) != 2:
             continue
-        
         pair_tuple = (parts[0], parts[1])
-        
-        # Access macros -> cz -> StandardRB -> average_gate_fidelity
         if not (hasattr(qubit_pair, 'macros') and qubit_pair.macros):
             continue
-        
         cz_macro = qubit_pair.macros.get('cz')
         if cz_macro is None or isinstance(cz_macro, str):
             continue
-        
-        fidelity = _safe_get_nested(cz_macro, 'fidelity', 'StandardRB', 'average_gate_fidelity')
+        std_rb = _safe_get_nested(cz_macro, 'fidelity', 'StandardRB')
+        if std_rb is None:
+            continue
+        fidelity = _safe_get_nested(std_rb, 'average_gate_fidelity') if isinstance(std_rb, dict) else getattr(std_rb, 'average_gate_fidelity', None)
         if fidelity is not None:
             fidelities[pair_tuple] = fidelity
-    
-    return fidelities
+            upd = std_rb.get('updated_at') if isinstance(std_rb, dict) else getattr(std_rb, 'updated_at', None)
+            updated_at[pair_tuple] = upd
+    return fidelities, updated_at
 
 
-def extract_single_qubit_rb(machine: Quam, qubit_names: Set[str]) -> Dict[str, float]:
+def extract_single_qubit_rb(machine: Quam, qubit_names: Set[str]) -> Tuple[Dict[str, float], Dict[str, Optional[str]]]:
     """
-    Extract single qubit randomized benchmarking (1Q RB) values.
-    Extracts for all provided qubits, using the 'averaged' value from gate_fidelity.
-    Returns a dictionary mapping qubit names to 1Q RB fidelity values.
+    Extract single qubit RB values and their updated_at strings.
+    Returns (rb_values dict, updated_at dict).
     """
     rb_values = {}
+    updated_at = {}
     
     for qubit_name in qubit_names:
         if qubit_name not in machine.qubits:
             continue
-        
         qubit = machine.qubits[qubit_name]
-        rb_value = _safe_get_nested(qubit, 'gate_fidelity', 'averaged')
+        gate_fidelity = _safe_get_nested(qubit, 'gate_fidelity')
+        if gate_fidelity is None:
+            continue
+        rb_value = gate_fidelity.get('averaged') if isinstance(gate_fidelity, dict) else getattr(gate_fidelity, 'averaged', None)
         if rb_value is not None:
             rb_values[qubit_name] = rb_value
-    
-    return rb_values
+            upd = gate_fidelity.get('averaged_updated_at') if isinstance(gate_fidelity, dict) else getattr(gate_fidelity, 'averaged_updated_at', None)
+            updated_at[qubit_name] = upd
+    return rb_values, updated_at
 
 
 def plot_qubit_grid(
@@ -248,10 +272,14 @@ def plot_qubit_grid(
     fidelities: Optional[Dict[Tuple[str, str], float]] = None,
     rb_values: Optional[Dict[str, float]] = None,
     standard_rb_fidelities: Optional[Dict[Tuple[str, str], float]] = None,
+    bell_updated_at: Optional[Dict[Tuple[str, str], Optional[str]]] = None,
+    standard_rb_updated_at: Optional[Dict[Tuple[str, str], Optional[str]]] = None,
+    rb_updated_at: Optional[Dict[str, Optional[str]]] = None,
     output_file: Optional[str] = None
 ):
     """
     Plot all qubits on a grid, highlighting active qubits and active pairs.
+    If updated_at for a fidelity is not within the last hour, a magenta "-" is shown instead.
     
     Args:
         qubit_grids: Dictionary mapping qubit names to (x, y) grid coordinates
@@ -260,6 +288,9 @@ def plot_qubit_grid(
         fidelities: Dictionary mapping (q1, q2) tuples to Bell state fidelity values
         rb_values: Dictionary mapping qubit names to 1Q RB fidelity values
         standard_rb_fidelities: Dictionary mapping (q1, q2) tuples to Standard RB fidelity values
+        bell_updated_at: Optional dict of (q1, q2) -> updated_at string for Bell fidelities
+        standard_rb_updated_at: Optional dict of (q1, q2) -> updated_at string for Standard RB
+        rb_updated_at: Optional dict of qubit name -> updated_at string for 1Q RB
         output_file: Optional path to save the plot
     """
     # Create figure and axis
@@ -294,9 +325,20 @@ def plot_qubit_grid(
             
             bell_fidelity = (fidelities.get(pair_key) or fidelities.get(reverse_key)) if fidelities else None
             standard_rb_fidelity = (standard_rb_fidelities.get(pair_key) or standard_rb_fidelities.get(reverse_key)) if standard_rb_fidelities else None
-            
-            # Use Bell state fidelity for arrow color, default to blue
-            arrow_color = get_pair_color(bell_fidelity * 100) if bell_fidelity else 'blue'
+            bell_upd = (bell_updated_at or {}).get(pair_key) or (bell_updated_at or {}).get(reverse_key)
+            std_rb_upd = (standard_rb_updated_at or {}).get(pair_key) or (standard_rb_updated_at or {}).get(reverse_key)
+            bell_stale = bell_fidelity is not None and not is_within_last_hour(bell_upd)
+            standard_rb_stale = standard_rb_fidelity is not None and not is_within_last_hour(std_rb_upd)
+            pair_has_stale_or_missing = (
+                (bell_fidelity is not None and bell_stale)
+                or (standard_rb_fidelity is not None and standard_rb_stale)
+                or (bell_fidelity is None and standard_rb_fidelity is None)
+            )
+            # Arrow black when any pair data is outdated or missing; else color by Bell fidelity
+            if pair_has_stale_or_missing:
+                arrow_color = "black"
+            else:
+                arrow_color = get_pair_color(bell_fidelity * 100) if bell_fidelity else "blue"
             
             # Calculate arrow direction and adjust start/end points
             dx, dy = x2 - x1, y2 - y1
@@ -346,42 +388,59 @@ def plot_qubit_grid(
                 
                 label_x, label_y = mid_x + offset_x, mid_y + offset_y
                 
-                # Build labels with colors
-                labels = []
+                # Build labels: symbol + value or " -" (outdated: symbol and dash both black, dash 2x size)
+                labels = []  # list of (symbol_str, value_str, color_for_symbol, color_for_dash_or_value)
                 if bell_fidelity is not None:
-                    bell_pct = bell_fidelity * 100
-                    labels.append((f'◆ {bell_pct:.2f}%', get_pair_color(bell_pct)))
-                
+                    if bell_stale:
+                        labels.append(("◆", " -", STALE_DASH_COLOR, STALE_DASH_COLOR))
+                    else:
+                        bell_pct = bell_fidelity * 100
+                        c = get_pair_color(bell_pct)
+                        labels.append((f"◆ {bell_pct:.2f}%", "", c, c))
                 if standard_rb_fidelity is not None:
-                    rb_pct = standard_rb_fidelity * 100
-                    labels.append((f'■ {rb_pct:.2f}%', get_pair_color(rb_pct)))
+                    if standard_rb_stale:
+                        labels.append(("■", " -", STALE_DASH_COLOR, STALE_DASH_COLOR))
+                    else:
+                        rb_pct = standard_rb_fidelity * 100
+                        c = get_pair_color(rb_pct)
+                        labels.append((f"■ {rb_pct:.2f}%", "", c, c))
                 
-                # Render labels
-                text_kwargs = dict(fontsize=9, ha='center', va='center', zorder=6, weight='bold')
+                text_kwargs = dict(fontsize=9, ha="center", va="center", zorder=6, weight="bold")
+                dash_fontsize = 18  # 2x pair label size for the dash
                 if len(labels) == 2:
-                    # Two lines: Bell state on top, Standard RB below
-                    ax.text(label_x, label_y + 0.04, labels[0][0], color=labels[0][1], **text_kwargs)
-                    ax.text(label_x, label_y - 0.04, labels[1][0], color=labels[1][1], **text_kwargs)
+                    for i, (sym, val, c1, c2) in enumerate(labels):
+                        dy = 0.04 if i == 0 else -0.04
+                        if val:
+                            ax.text(label_x, label_y + dy, sym, color=c1, **text_kwargs)
+                            ax.text(label_x + 0.08, label_y + dy, val, color=c2, fontsize=dash_fontsize, ha="center", va="center", zorder=6, weight="bold")
+                        else:
+                            ax.text(label_x, label_y + dy, sym, color=c1, **text_kwargs)
                 elif labels:
-                    # Single line
-                    ax.text(label_x, label_y, labels[0][0], color=labels[0][1], **text_kwargs)
+                    sym, val, c1, c2 = labels[0]
+                    if val:
+                        ax.text(label_x - 0.04, label_y, sym, color=c1, **text_kwargs)
+                        ax.text(label_x + 0.04, label_y, val, color=c2, fontsize=dash_fontsize, ha="center", va="center", zorder=6, weight="bold")
+                    else:
+                        ax.text(label_x, label_y, sym, color=c1, **text_kwargs)
     
     # Plot all qubits
     for qubit_name, (x, y) in qubit_grids.items():
         is_active = qubit_name in active_qubits
+        rb_stale = is_active and rb_values and qubit_name in rb_values and not is_within_last_hour((rb_updated_at or {}).get(qubit_name))
         
-        # Determine qubit color based on RB fidelity
-        if is_active and rb_values and qubit_name in rb_values:
+        # Determine qubit color: gray (like inactive) when 1Q fidelity is outdated, else by RB or green
+        if rb_stale:
+            qubit_color = 'lightgray'
+            border_color = 'gray'
+        elif is_active and rb_values and qubit_name in rb_values:
             rb_value = rb_values[qubit_name]
             rb_pct = rb_value * 100
             qubit_color = get_qubit_color(rb_pct)
-            border_color = 'black'  # Black border for active qubits
+            border_color = 'black'
         elif is_active:
-            # Active qubit but no RB data - use default green
             qubit_color = 'green'
-            border_color = 'black'  # Black border for active qubits
+            border_color = 'black'
         else:
-            # Inactive qubits remain gray
             qubit_color = 'lightgray'
             border_color = 'gray'
         
@@ -390,37 +449,29 @@ def plot_qubit_grid(
         ax.add_patch(circle)
         
         if is_active:
-            # Add border for active qubits
-            border = plt.Circle((x, y), radius, fill=False, edgecolor=border_color, 
+            border = plt.Circle((x, y), radius, fill=False, edgecolor=border_color,
                               linewidth=2, zorder=4)
             ax.add_patch(border)
         
-        # Build qubit label text - include RB fidelity if available
-        label_text = qubit_name
-        if rb_values and qubit_name in rb_values:
-            rb_value = rb_values[qubit_name]
-            # Format as percentage with 4 significant digits
-            rb_pct = rb_value * 100
-            if rb_pct > 0:
-                digits = 4 - int(floor(log10(abs(rb_pct))))
-                rb_str = f'{rb_pct:.{max(0, digits-1)}f}%'
+        # Build qubit label: name + RB % or " -" when stale
+        text_kw = dict(fontsize=7, ha="center", va="center", zorder=6, weight="bold" if is_active else "normal")
+        if is_active and rb_values and qubit_name in rb_values:
+            if rb_stale:
+                ax.text(x, y + 0.06, qubit_name, color="black", **text_kw)  # black on lightgray
+                ax.text(x, y - 0.06, "-", color=STALE_DASH_COLOR, fontsize=14, ha="center", va="center", zorder=6, weight="bold")  # 2x qubit fontsize
             else:
-                rb_str = f'{rb_pct:.3f}%'
-            label_text = f'{qubit_name}\n{rb_str}'
-        
-        # Add qubit label inside the circle (with RB fidelity if available)
-        # Determine text color for good contrast
-        # For active qubits with RB data, use white text (works well on red/orange/green)
-        # For inactive qubits, use black text on light gray
-        if is_active:
-            text_color = 'white'  # White text on colored backgrounds
+                rb_value = rb_values[qubit_name]
+                rb_pct = rb_value * 100
+                if rb_pct > 0:
+                    digits = 4 - int(floor(log10(abs(rb_pct))))
+                    rb_str = f"{rb_pct:.{max(0, digits-1)}f}%"
+                else:
+                    rb_str = f"{rb_pct:.3f}%"
+                ax.text(x, y, f"{qubit_name}\n{rb_str}", color="white", **text_kw)
         else:
-            text_color = 'black'  # Black text on light gray
-        
-        ax.text(x, y, label_text, fontsize=7, ha='center', va='center',
-               weight='bold' if is_active else 'normal',
-               color=text_color,
-               zorder=6)
+            label_text = qubit_name
+            text_color = "white" if is_active else "black"
+            ax.text(x, y, label_text, color=text_color, **text_kw)
     
     # Set labels and title
     ax.set_xlabel('Grid X Coordinate', fontsize=12)
@@ -441,23 +492,31 @@ def plot_qubit_grid(
     active_patch = mpatches.Patch(color='green', label='Active Qubit')
     inactive_patch = mpatches.Patch(color='lightgray', label='Inactive Qubit')
     # Create an arrow line for the legend using Line2D with right arrow marker
-    pair_arrow = plt.Line2D([0], [0], color='blue', linewidth=2.5, 
+    pair_arrow = plt.Line2D([0], [0], color='blue', linewidth=2.5,
                             marker='>', markersize=10, markeredgecolor='blue',
-                            label='Active Pair (control→target)')
-    bell_state_label = plt.Line2D([0], [0], color='blue', linewidth=0, marker='D', 
-                                  markersize=8, markerfacecolor='blue', 
+                            label='Active Pair\n(control→target)')
+    pair_arrow_stale = plt.Line2D([0], [0], color='black', linewidth=2.5,
+                                  marker='>', markersize=10, markeredgecolor='black',
+                                  label='Pair: data outdated\nor missing')
+    bell_state_label = plt.Line2D([0], [0], color='blue', linewidth=0, marker='D',
+                                  markersize=8, markerfacecolor='blue',
                                   markeredgecolor='blue', markeredgewidth=1,
                                   label='Bell State Fidelity (%)')
-    standard_rb_label = plt.Line2D([0], [0], color='blue', linewidth=0, marker='s', 
-                                   markersize=8, markerfacecolor='blue', 
+    standard_rb_label = plt.Line2D([0], [0], color='blue', linewidth=0, marker='s',
+                                   markersize=8, markerfacecolor='blue',
                                    markeredgecolor='blue', markeredgewidth=1,
                                    label='Standard RB Fidelity (%)')
-    rb_label = plt.Line2D([0], [0], color='green', linewidth=0, marker='o', 
-                          markersize=10, markerfacecolor='green', 
+    rb_label = plt.Line2D([0], [0], color='green', linewidth=0, marker='o',
+                          markersize=10, markerfacecolor='green',
                           markeredgecolor='darkgreen', markeredgewidth=1,
                           label='1Q RB Fidelity (%)')
-    ax.legend(handles=[active_patch, inactive_patch, pair_arrow, bell_state_label, 
-                      standard_rb_label, rb_label], 
+    stale_dash_label = (
+        '"-" = fidelity data\nolder than 1 h or missing'
+    )
+    # Use a short line (dash) as legend handle instead of a patch, so it looks like a normal "-"
+    stale_dash_handle = plt.Line2D([0, 1], [0, 0], color=STALE_DASH_COLOR, linewidth=2.5, label=stale_dash_label)
+    ax.legend(handles=[active_patch, inactive_patch, pair_arrow, pair_arrow_stale,
+                      bell_state_label, standard_rb_label, rb_label, stale_dash_handle],
              loc='upper left', fontsize=9, framealpha=0.9)
     
     # Add statistics text box in lower left to avoid overlap with legend
@@ -503,23 +562,27 @@ def main():
     print(f"Found {len(active_pairs)} active qubit pairs")
     
     print("Extracting Bell state fidelities...")
-    fidelities = extract_bell_state_fidelities(machine)
+    fidelities, bell_updated_at = extract_bell_state_fidelities(machine)
     print(f"Found {len(fidelities)} pairs with Bell state fidelity data")
     
     print("Extracting Standard RB fidelities...")
-    standard_rb_fidelities = extract_standard_rb_fidelities(machine)
+    standard_rb_fidelities, standard_rb_updated_at = extract_standard_rb_fidelities(machine)
     print(f"Found {len(standard_rb_fidelities)} pairs with Standard RB fidelity data")
     
     print("Extracting single qubit RB values (averaged) for active qubits...")
-    # Extract RB values only for active qubits
-    rb_values = extract_single_qubit_rb(machine, active_qubits)
+    rb_values, rb_updated_at = extract_single_qubit_rb(machine, active_qubits)
     print(f"Found {len(rb_values)} active qubits with 1Q RB data")
     
-    # Create plot
     print("\nGenerating plot...")
     output_file = Path(__file__).parent / 'qubit_grid_plot.png'
-    plot_qubit_grid(qubit_grids, active_qubits, active_pairs, fidelities, rb_values,
-                   standard_rb_fidelities, output_file=str(output_file))
+    plot_qubit_grid(
+        qubit_grids, active_qubits, active_pairs,
+        fidelities, rb_values, standard_rb_fidelities,
+        bell_updated_at=bell_updated_at,
+        standard_rb_updated_at=standard_rb_updated_at,
+        rb_updated_at=rb_updated_at,
+        output_file=str(output_file),
+    )
     
     print("\nDone!")
 

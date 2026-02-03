@@ -390,6 +390,7 @@ def update_state(node: QualibrationNode[Parameters, Quam]):
             if node.outcomes[q.name] == "failed":
                 continue
             q.gate_fidelity["averaged"] = float(1 - node.results["fit_results"][q.name]["error_per_gate"])
+            q.gate_fidelity["averaged_updated_at"] = f"{node.date_time} GMT+{node.time_zone}"
 
 
 # %% {Save_results}

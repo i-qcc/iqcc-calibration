@@ -478,6 +478,7 @@ if not node.parameters.simulate:
         with node.record_state_updates():
             for q in qubits:
                 q.gate_fidelity["averaged"] = fidelities_per_qubit[q.name]
+                q.gate_fidelity["averaged_updated_at"] = f"{node.date_time} GMT+{node.time_zone}"
                 print(f"Updated {q.name} fidelity to {q.gate_fidelity['averaged']:.4f}")
 
 

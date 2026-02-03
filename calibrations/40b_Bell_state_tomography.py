@@ -484,7 +484,11 @@ if not node.parameters.simulate:
     if node.parameters.load_data_id is None:
         with node.record_state_updates():
             for qp in qubit_pairs:
-                node.machine.qubit_pairs[qp.id].macros[node.parameters.cz_macro_name].fidelity["Bell_State"] = {"Fidelity":  node.results[f"{qp.name}_fidelity"], "Purity":  node.results[f"{qp.name}_purity"]}
+                node.machine.qubit_pairs[qp.id].macros[node.parameters.cz_macro_name].fidelity["Bell_State"] = {
+                    "Fidelity": node.results[f"{qp.name}_fidelity"],
+                    "Purity": node.results[f"{qp.name}_purity"],
+                    "updated_at": f"{node.date_time} GMT+{node.time_zone}",
+                }
                 
 
 # %% {Save_results}
