@@ -18,7 +18,7 @@ name = "graph_retune_fine_qolab"
 multiplexed = True
 flux_point = "joint"
 reset_type = "thermal"
-flux_span = 0.06
+flux_span = 0.08
 
 nodes = {
         "IQ_blobs": library.nodes["07_iq_blobs"],

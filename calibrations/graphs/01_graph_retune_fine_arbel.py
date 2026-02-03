@@ -18,7 +18,7 @@ name = "graph_retune_fine_arbel"
 multiplexed = True
 flux_point = "joint"
 reset_type = "thermal"
-flux_span = 0.04
+flux_span = 0.06
 
 nodes = {
         "IQ_blobs": library.nodes["07_iq_blobs"],
