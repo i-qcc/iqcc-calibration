@@ -49,8 +49,8 @@ allow-direct-references = true
 [tool.hatch.build.targets.wheel]
 packages = ["iqcc_calibration_tools"]
 
-#[tool.uv.sources]
-#quam-builder = { path = "../quam-builder", editable = true }
+# [tool.uv.sources]
+# quam-builder = { path = "../quam-builder", editable = true }
 
 # [tool.uv]
 # prerelease = "allow"
