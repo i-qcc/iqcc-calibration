@@ -8,7 +8,6 @@ The cryoscope protocol is used to characterize and analyze the flux distortion a
 """
 
 
-from qm import QuantumMachinesManager
 from qm.qua import *
 from qm import SimulationConfig
 import matplotlib.pyplot as plt
@@ -20,7 +19,6 @@ from qualang_tools.units import unit
 from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
 from qualang_tools.bakery import baking
 from qualang_tools.loops import from_array
-from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
 from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray
 import xarray as xr
 from scipy.optimize import curve_fit
