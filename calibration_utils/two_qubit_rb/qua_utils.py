@@ -202,7 +202,7 @@ def play_gate(gate: QuaVariable, qubit_pair: dict[int, TransmonPair], state: Qua
                 # qp.qubit_control.xy.align(qp.qubit_target.xy.name, qp.qubit_control.resonator.name, qp.qubit_target.resonator.name)
                
                 
-                # wait(4)
+                wait(8)
                 
                 qp.qubit_control.readout_state(state_control)
                 qp.qubit_target.readout_state(state_target)

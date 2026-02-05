@@ -26,6 +26,7 @@ class NodeSpecificParameters(RunnableParameters):
     amp_range: float = 0.1
     amp_step: float = 0.003
     use_state_discrimination: bool = True
+    update_all_pulses: bool = True
 
 
 class Parameters(
@@ -61,6 +62,4 @@ def baked_waveform(qubit, baked_config, base_level: float = 0.5, max_samples: in
             b.add_op(f"flux_pulse{i}", qubit.z.name, wf)
             b.play(f"flux_pulse{i}", qubit.z.name)
         pulse_segments.append(b)
-    return pulse_segments
-    return pulse_segments
     return pulse_segments

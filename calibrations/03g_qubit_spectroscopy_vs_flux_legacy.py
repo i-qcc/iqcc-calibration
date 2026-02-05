@@ -17,9 +17,9 @@ Before proceeding to the next node:
 
 
 # %% {Imports}
-from datetime import datetime, timezone, timedelta
+
 from qualibrate import QualibrationNode, NodeParameters
-from iqcc_calibration_tools.quam_config.components import Quam as QuAM
+from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
 from iqcc_calibration_tools.quam_config.macros import qua_declaration
 from iqcc_calibration_tools.quam_config.lib.qua_datasets import convert_IQ_to_V
 from iqcc_calibration_tools.quam_config.legacy_tools.plot_utils import QubitGrid, grid_iter
@@ -33,6 +33,7 @@ from qm import SimulationConfig
 from qm.qua import *
 from typing import Literal, Optional, List
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 import numpy as np
 
 
@@ -64,7 +65,7 @@ node_id = get_node_id()
 # Class containing tools to help handling units and conversions.
 u = unit(coerce_to_integer=True)
 # Instantiate the QuAM class from the state file
-machine = QuAM.load()
+machine = Quam.load()
 # Generate the OPX and Octave configurations
 config = machine.generate_config()
 # Open Communication with the QOP
@@ -73,9 +74,14 @@ if node.parameters.load_data_id is None:
 
 # Get the relevant QuAM components
 if node.parameters.qubits is None or node.parameters.qubits == "":
-    qubits = machine.active_qubits
+    all_qubits = machine.active_qubits
 else:
-    qubits = [machine.qubits[q] for q in node.parameters.qubits]
+    all_qubits = [machine.qubits[q] for q in node.parameters.qubits]
+# Filter out qubits that are not at sweep spot
+excluded_qubits = [q for q in all_qubits if not q.at_sweep_spot]
+if excluded_qubits:
+    print(f"Excluding qubits not at sweep spot: {[q.name for q in excluded_qubits]}")
+qubits = [q for q in all_qubits if q.at_sweep_spot]
 num_qubits = len(qubits)
 
 
@@ -107,12 +113,12 @@ with program() as multi_qubit_spec_vs_flux:
 
     if flux_point == "joint":
         # Bring the active qubits to the desired frequency point
-        machine.set_all_fluxes(flux_point=flux_point, target=qubits[0])
+        machine.initialize_qpu(flux_point=flux_point, target=qubits[0])
     
     for i, qubit in enumerate(qubits):
         # Bring the active qubits to the minimum frequency point
         if flux_point != "joint":
-            machine.set_all_fluxes(flux_point=flux_point, target=qubit)
+            machine.initialize_qpu(flux_point=flux_point, target=qubit)
 
         n = declare(int)
         df = declare(int)  # QUA variable for the qubit frequency
@@ -176,7 +182,7 @@ if node.parameters.simulate:
     node.save()
 
 elif node.parameters.load_data_id is None:
-    date_time = datetime.now(timezone(timedelta(hours=3))).strftime("%Y-%m-%d %H:%M:%S")
+    
     with qm_session(qmm, config, timeout=node.parameters.timeout) as qm:
         job = qm.execute(multi_qubit_spec_vs_flux)
         results = fetching_tool(job, ["n"], mode="live")
@@ -259,19 +265,87 @@ if not node.parameters.simulate:
         node.results["fit_results"] = fit_results
 
     # %% {Plotting}
-    grid = QubitGrid(ds, [q.grid_location for q in qubits])
-
-    for ax, qubit in grid_iter(grid):
-        freq_ref = (ds.freq_full-ds.freq).sel(qubit = qubit["qubit"]).values[0]
-        ds.assign_coords(freq_GHz=ds.freq_full / 1e9).loc[qubit].I.plot(
-            ax=ax, add_colorbar=False, x="flux", y="freq_GHz", robust=True
-        )
-        ((fitted + freq_ref) / 1e9).loc[qubit].plot(ax=ax, linewidth=0.5, ls="--", color="r")
-        ax.plot(flux_shift.loc[qubit], ((freq_shift.loc[qubit] + freq_ref) / 1e9), "r*")
-        ((peaks.position.loc[qubit] + freq_ref) / 1e9).plot(ax=ax, ls="", marker=".", color="g", ms=0.5)
-        ax.set_ylabel("Freq (GHz)")
-        ax.set_xlabel("Flux (V)")
-        ax.set_title(qubit["qubit"])
+    # Create grid including excluded qubits
+    included_names = {q.name for q in qubits}
+    
+    if excluded_qubits:
+        # Custom grid creation to include excluded qubits
+        import re
+        def clean_loc(loc):
+            if isinstance(loc, str):
+                return tuple(map(int, [re.sub("[^0-9]", "", s) for s in loc.split(",")]))
+            return tuple(map(int, [re.sub("[^0-9]", "", str(x)) for x in loc]))
+        
+        all_qubits_for_grid = qubits + excluded_qubits
+        grid_indices = [clean_loc(q.grid_location) for q in all_qubits_for_grid]
+        grid_name_mapping = dict(zip(grid_indices, [q.name for q in all_qubits_for_grid]))
+        
+        rows = [idx[1] for idx in grid_indices]
+        cols = [idx[0] for idx in grid_indices]
+        min_row, max_row, min_col = min(rows), max(rows), min(cols)
+        shape = (max_row - min_row + 1, max(cols) - min_col + 1)
+        
+        fig, all_axes = plt.subplots(*shape, figsize=(shape[1] * 3, shape[0] * 3), squeeze=False)
+        
+        n_subplots = len(grid_indices)
+        scale = max(1, n_subplots ** 0.5)
+        fs_x = max(12, int(96 / scale))
+        fs_text = max(6, int(20 / scale))
+        
+        for row_idx, axis_row in enumerate(all_axes):
+            for col_idx, ax in enumerate(axis_row):
+                grid_row = max_row - row_idx
+                grid_col = col_idx + min_col
+                if (grid_col, grid_row) not in grid_indices:
+                    ax.axis("off")
+                    continue
+                    
+                qubit_name = grid_name_mapping[(grid_col, grid_row)]
+                if qubit_name not in included_names:
+                    # Excluded qubit - mark with green X (sized to subplot)
+                    ax.text(0.5, 0.5, 'X', transform=ax.transAxes, fontsize=fs_x,
+                           color='green', fontweight='bold', ha='center', va='center')
+                    ax.text(0.5, 0.15, 'Excluded: qubit set outside sweetspot', transform=ax.transAxes, fontsize=fs_text,
+                           color='black', ha='center', va='center')
+                    ax.set_title(qubit_name)
+                    ax.set_xticks([])
+                    ax.set_yticks([])
+                else:
+                    qubit = {"qubit": qubit_name}
+                    freq_ref = (ds.freq_full-ds.freq).sel(qubit=qubit_name).values[0]
+                    ds.assign_coords(freq_GHz=ds.freq_full / 1e9).loc[qubit].I.plot(
+                        ax=ax, add_colorbar=False, x="flux", y="freq_GHz", robust=True
+                    )
+                    ((fitted + freq_ref) / 1e9).loc[qubit].plot(ax=ax, linewidth=0.5, ls="--", color="r")
+                    ax.plot(flux_shift.loc[qubit], ((freq_shift.loc[qubit] + freq_ref) / 1e9), "r*")
+                    ((peaks.position.loc[qubit] + freq_ref) / 1e9).plot(ax=ax, ls="", marker=".", color="g", ms=0.5)
+                    ax.set_ylabel("Freq (GHz)")
+                    ax.set_xlabel("Flux (V)")
+                    ax.set_title(qubit_name)
+        
+        # Create a simple grid object for compatibility
+        class GridResult:
+            def __init__(self, f): self.fig = f
+        grid = GridResult(fig)
+        
+        legend_handle = Line2D([0], [0], color='green', marker='x', linestyle='', markersize=6, 
+                               markeredgewidth=2, label='Excluded: qubit set outside sweetspot')
+        grid.fig.legend([legend_handle], ['Excluded: qubit set outside sweetspot'], loc='upper right', 
+                       bbox_to_anchor=(0.98, 0.98), frameon=True, fontsize=9)
+    else:
+        grid = QubitGrid(ds, [q.grid_location for q in qubits])
+        for ax, qubit in grid_iter(grid):
+            freq_ref = (ds.freq_full-ds.freq).sel(qubit = qubit["qubit"]).values[0]
+            ds.assign_coords(freq_GHz=ds.freq_full / 1e9).loc[qubit].I.plot(
+                ax=ax, add_colorbar=False, x="flux", y="freq_GHz", robust=True
+            )
+            ((fitted + freq_ref) / 1e9).loc[qubit].plot(ax=ax, linewidth=0.5, ls="--", color="r")
+            ax.plot(flux_shift.loc[qubit], ((freq_shift.loc[qubit] + freq_ref) / 1e9), "r*")
+            ((peaks.position.loc[qubit] + freq_ref) / 1e9).plot(ax=ax, ls="", marker=".", color="g", ms=0.5)
+            ax.set_ylabel("Freq (GHz)")
+            ax.set_xlabel("Flux (V)")
+            ax.set_title(qubit["qubit"])
+    
     grid.fig.suptitle(f"Qubit spectroscopy vs flux \n {node.date_time} GMT+{node.time_zone} #{node_id} \n multiplexed = {node.parameters.multiplexed}")
     
     plt.tight_layout()

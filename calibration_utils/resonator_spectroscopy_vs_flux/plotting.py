@@ -38,6 +38,17 @@ def plot_raw_data_with_fit(ds: xr.Dataset, qubits: List[AnyTransmon], fits: xr.D
     for ax, qubit in grid_iter(grid):
         plot_individual_raw_data_with_fit(ax, ds, qubit, fits.sel(qubit=qubit["qubit"]))
 
+    # Add a single shared legend for the whole figure
+    # Get handles and labels from the first axis that has them
+    handles, labels = [], []
+    for ax in grid.fig.axes:
+        h, l = ax.get_legend_handles_labels()
+        if h:
+            handles, labels = h, l
+            break
+    if handles:
+        grid.fig.legend(handles, labels, loc="upper right", bbox_to_anchor=(0.99, 0.99))
+
     grid.fig.suptitle("Resonator spectroscopy vs flux")
     grid.fig.set_size_inches(15, 9)
     grid.fig.tight_layout()

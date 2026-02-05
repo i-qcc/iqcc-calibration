@@ -4,7 +4,7 @@
 
 
 # %% {Imports}
-from datetime import datetime, timezone, timedelta
+
 from qualibrate import QualibrationNode, NodeParameters
 
 from iqcc_calibration_tools.quam_config.components import Quam
@@ -108,7 +108,7 @@ with program() as waveform_drive:
 
     for i, qubit in enumerate(qubits):
         # Bring the active qubits to the desired frequency point        
-        machine.set_all_fluxes(flux_point=flux_point, target=qubit)
+        machine.initialize_qpu(flux_point=flux_point, target=qubit)
         with for_(n, 0, n < n_avg, n + 1):
             save(n, n_st)
             qubit.xy.play("waveform")
@@ -152,7 +152,7 @@ if node.parameters.simulate:
     node.save()
 
 elif node.parameters.load_data_id is None:
-    date_time = datetime.now(timezone(timedelta(hours=3))).strftime("%Y-%m-%d %H:%M:%S")
+    
     with qm_session(qmm, config, timeout=node.parameters.timeout) as qm:
         job = qm.execute(waveform_drive)
         results = fetching_tool(job, ["n"], mode="live")

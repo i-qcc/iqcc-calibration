@@ -87,7 +87,7 @@ with program() as BayesFreq:
     
     # Main experiment loop
 
-    machine.set_all_fluxes(flux_point="joint", target=qubit)
+    machine.initialize_qpu(flux_point="joint", target=qubit)
     align()
     save(n, n_st)
     with for_(t, 13, t < 50, t + 26):

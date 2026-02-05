@@ -30,7 +30,7 @@ Before proceeding to the next node:
 
 # %% {Imports}
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
-from iqcc_calibration_tools.quam_config.components import Quam
+from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
 from iqcc_calibration_tools.quam_config.macros import qua_declaration
 from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
 from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset
@@ -44,7 +44,7 @@ from qm.qua import *
 from typing import Literal, Optional, List
 import matplotlib.pyplot as plt
 import numpy as np
-from datetime import datetime, timezone, timedelta
+
 
 
 # %% {Node_parameters}
@@ -64,7 +64,7 @@ class Parameters(NodeParameters):
     load_data_id: Optional[int] = None
 
 
-node = QualibrationNode(name="12a_Qubit_Spectroscopy_E_to_F", parameters=Parameters())
+node = QualibrationNode(name="12a_Qubit_Spectroscopy_E_to_F_legacy", parameters=Parameters())
 
 
 # %% {Initialize_QuAM_and_QOP}
@@ -110,12 +110,12 @@ with program() as qubit_spec:
 
     if flux_point == "joint":
         # Bring the active qubits to the desired frequency point
-        machine.set_all_fluxes(flux_point=flux_point, target=qubits[0])
+        machine.initialize_qpu(flux_point=flux_point, target=qubits[0])
     
     for i, qubit in enumerate(qubits):
         # Bring the active qubits to the desired frequency point
         if flux_point != "joint":
-            machine.set_all_fluxes(flux_point=flux_point, target=qubit)
+            machine.initialize_qpu(flux_point=flux_point, target=qubit)
 
         with for_(n, 0, n < n_avg, n + 1):
             save(n, n_st)
@@ -165,7 +165,7 @@ if node.parameters.simulate:
     node.save()
 
 elif node.parameters.load_data_id is None:
-    date_time = datetime.now(timezone(timedelta(hours=3))).strftime("%Y-%m-%d %H:%M:%S")
+    
     with qm_session(qmm, config, timeout=node.parameters.timeout) as qm:
         job = qm.execute(qubit_spec)
         results = fetching_tool(job, ["n"], mode="live")

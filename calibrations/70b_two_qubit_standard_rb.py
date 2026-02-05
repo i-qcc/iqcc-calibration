@@ -32,7 +32,7 @@ Prerequisites:
 
 # %%
 
-from datetime import datetime, timezone, timedelta
+
 from typing import List, Literal, Optional
 from matplotlib import pyplot as plt
 import matplotlib.patches as mpatches
@@ -58,9 +58,9 @@ from calibration_utils.two_qubit_rb.qua_utils import QuaProgramHandler
 from iqcc_calibration_tools.analysis.plot_utils import plot_samples
 from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray
 
-from iqcc_calibration_tools.quam_config.components import Quam
+from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
 from calibration_utils.two_qubit_rb.cloud_utils import write_sync_hook
-from calibration_utils.two_qubit_rb.rb_utils import StandardRB
+from calibration_utils.two_qubit_rb.rb_utils import StandardRB, validate_multiplexed_batches
 from calibration_utils.two_qubit_rb.plot_utils import gate_mapping
 
 # Average gates per 2q layer calculation:
@@ -107,6 +107,9 @@ else:
 
 if len(qubit_pairs) == 0:
     raise ValueError("No qubit pairs selected")
+
+# Validate multiplexed batch configuration
+validate_multiplexed_batches(qubit_pairs, node.parameters.multiplexed)
 
 # Generate the OPX and Octave configurations
 
@@ -163,7 +166,7 @@ if node.parameters.simulate:
 elif node.parameters.load_data_id is None:
     # Prepare data for saving
     node.results = {}
-    date_time = datetime.now(timezone(timedelta(hours=3))).strftime("%Y-%m-%d %H:%M:%S")
+    
     
     with qm_session(node.machine.qmm, config, timeout=node.parameters.timeout) as qm:
         if node.parameters.use_input_stream:
@@ -382,7 +385,7 @@ for i in range(num_pairs, num_rows * num_cols):
     ax_unused = fig.add_subplot(num_rows, num_cols, i + 1)
     ax_unused.axis('off')
 
-fig.suptitle(f"2Q Randomized Benchmarking \n {node.date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type}, reduce_to_1q_cliffords = {node.parameters.reduce_to_1q_cliffords}", y=0.995)
+fig.suptitle(f"2Q Randomized Benchmarking \n {node.date_time} GMT+{node.time_zone} #{node.node_id} \n reset type = {node.parameters.reset_type}, reduce_to_1q_cliffords = {node.parameters.reduce_to_1q_cliffords}", y=0.995)
 fig.subplots_adjust(top=0.75, hspace=0.4, wspace=0.3)
 
 # Add legend explaining the batch number indicator
@@ -402,7 +405,9 @@ with node.record_state_updates():
                 "error_per_2q_layer": rb_result[qp.id].error_per_2q_layer if hasattr(rb_result[qp.id], 'error_per_2q_layer') else None,
                 "error_per_gate": rb_result[qp.id].error_per_gate if hasattr(rb_result[qp.id], 'error_per_gate') else None,
                 "average_gate_fidelity": 1 - rb_result[qp.id].error_per_gate if hasattr(rb_result[qp.id], 'error_per_gate') else None,
-                "alpha": rb_result[qp.id].alpha if hasattr(rb_result[qp.id], 'alpha') else None}
+                "alpha": rb_result[qp.id].alpha if hasattr(rb_result[qp.id], 'alpha') else None,
+                "updated_at": f"{node.date_time} GMT+{node.time_zone}",
+            }
         else:
             print(f"Warning: Skipping state update for {qp.id} because fit failed.")
 # %% {Save_results}

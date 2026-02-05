@@ -33,10 +33,10 @@ Outcomes:
 """
 
 # %% {Imports}
-from datetime import datetime, timezone, timedelta
+
 from iqcc_calibration_tools.analysis.fit import extract_dominant_frequencies
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
-from iqcc_calibration_tools.quam_config.components import Quam
+from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
 from iqcc_calibration_tools.quam_config.macros import active_reset, readout_state, readout_state_gef, active_reset_gef, active_reset_simple
 from iqcc_calibration_tools.analysis.plot_utils import QubitPairGrid, grid_iter, grid_pair_names
 from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset
@@ -146,12 +146,12 @@ with program() as CPhase_Oscillations:
 
     
     if flux_point == "joint":
-        machine.set_all_fluxes(flux_point=flux_point, target=qubit_pairs[0].qubit_control)
+        machine.initialize_qpu(flux_point=flux_point, target=qubit_pairs[0].qubit_control)
     
     for i, qp in enumerate(qubit_pairs):
         # Bring the active qubits to the minimum frequency point
         if flux_point != "joint":
-            machine.set_all_fluxes(flux_point=flux_point, target=qp.qubit_control)
+            machine.initialize_qpu(flux_point=flux_point, target=qp.qubit_control)
         wait(1000)
 
         with for_(n, 0, n < n_avg, n + 1):
@@ -206,7 +206,7 @@ if node.parameters.simulate:
     node.machine = machine
     node.save()
 elif node.parameters.load_data_id is None:
-    date_time = datetime.now(timezone(timedelta(hours=3))).strftime("%Y-%m-%d %H:%M:%S")
+    
     with qm_session(qmm, config, timeout=node.parameters.timeout) as qm:
         job = qm.execute(CPhase_Oscillations)
 

@@ -24,7 +24,7 @@ from qm.qua import *
 from qm import SimulationConfig
 from qualang_tools.results import progress_counter, fetching_tool
 from qualang_tools.units import unit
-from iqcc_calibration_tools.quam_config.components import Quam
+from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
 from iqcc_calibration_tools.quam_config.macros import qua_declaration, active_reset, readout_state
 from quam.components.pulses import SquarePulse
 import matplotlib.pyplot as plt
@@ -160,12 +160,12 @@ with program() as ramsey:
 
     if node.parameters.multiplexed:
         for i , qubit in enumerate(qubits):
-            machine.set_all_fluxes(flux_point=flux_point, target=qubit)
+            machine.initialize_qpu(flux_point=flux_point, target=qubit)
 
     for i, qubit in enumerate(qubits):
         if not node.parameters.multiplexed:
             # Bring the active qubits to the desired frequency point
-            machine.set_all_fluxes(flux_point=flux_point, target=qubit)
+            machine.initialize_qpu(flux_point=flux_point, target=qubit)
 
         with for_(shots[i], 0, shots[i] < n_avg, shots[i] + 1):
             save(shots[i], n_st)

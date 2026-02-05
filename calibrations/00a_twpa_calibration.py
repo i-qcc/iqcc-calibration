@@ -29,9 +29,8 @@ Prerequisites:
 """
 
 # %% {Imports}
-from datetime import datetime, timezone, timedelta
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
-from iqcc_calibration_tools.quam_config.components import Quam
+from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
 from iqcc_calibration_tools.quam_config.macros import qua_declaration
 from iqcc_calibration_tools.quam_config.lib.qua_datasets import convert_IQ_to_V
 from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray
@@ -69,8 +68,8 @@ class Parameters(NodeParameters):
     pumpline_attenuation: int = -50-10-4 #(-50: fridge atten(-30)+directional coupler(-20))  
     signalline_attenuation : int = -60-9 #-60dB : fridge atten
 node = QualibrationNode[Parameters, Quam](name="00a_twpa2_1_calibration", parameters=Parameters())
-date_time = datetime.now(timezone(timedelta(hours=2))).strftime("%Y-%m-%d %H:%M:%S")
-node.results["date"]={"date":date_time}
+
+node.results["date"]={"date":node.date_time}
 # %% {Initialize_QuAM_and_QOP}
 # Class containing tools to help handling units and conversions.
 u = unit(coerce_to_integer=True)
@@ -220,7 +219,6 @@ if node.parameters.simulate:
     node.machine = machine
     node.save()
 elif node.parameters.load_data_id is None:
-    date_time = datetime.now(timezone(timedelta(hours=3))).strftime("%Y-%m-%d %H:%M:%S")
     with qm_session(qmm, config, timeout=node.parameters.timeout) as qm:
         job = qm.execute(twpa_pump_off)
         results = fetching_tool(job, ["n"], mode="live")
@@ -286,7 +284,7 @@ for i, ax in enumerate(axes):
         ax.plot(RF_freq[i]*1e-9, ds.IQ_abs_signal.values[i][0][0], label='pumpoff',color='black') #[0][0] arbitrary n_avg number of averaged S21 data
         ax.plot(RF_freq[i]*1e-9,ds_.IQ_abs_signal.values[i][pumpATmaxG[1][0]][pumpATmaxG[1][1]], label='pump @ maxG',color='red')
         ax.plot(RF_freq[i]*1e-9, ds_.IQ_abs_signal.values[i][pumpATmaxDSNR[1][0]][pumpATmaxDSNR[1][1]], label='pump @ maxDsnr',color='blue')
-        ax.set_title(f'{qubits[i].name} Signal S21 \n {date_time}', fontsize=14)
+        ax.set_title(f'{qubits[i].name} Signal S21 \n {node.date_time}', fontsize=14)
         ax.set_xlabel('Res.freq [GHz]', fontsize=12)
         ax.set_ylabel('Trans.amp. [mV]', fontsize=12)
         ax.legend(fontsize=4, loc='upper right')
@@ -303,7 +301,7 @@ for i, ax in enumerate(axes):
         ax.plot(RF_freq[i]*1e-9, ds.IQ_abs_noise.values[i][0][0], label='pumpoff',color='black') #[0][0] arbitrary n_avg number of averaged S21 data
         ax.plot(RF_freq[i]*1e-9,ds_.IQ_abs_noise.values[i][pumpATmaxG[1][0]][pumpATmaxG[1][1]], label='pump @ maxG',color='red')
         ax.plot(RF_freq[i]*1e-9, ds_.IQ_abs_noise.values[i][pumpATmaxDSNR[1][0]][pumpATmaxDSNR[1][1]], label='pump @ maxDsnr',color='blue')
-        ax.set_title(f'{qubits[i].name}, Noise\n {date_time}', fontsize=14)
+        ax.set_title(f'{qubits[i].name}, Noise\n {node.date_time}', fontsize=14)
         ax.set_xlabel('Res.freq [GHz]', fontsize=12)
         ax.set_ylabel('Trans.amp. [mV]', fontsize=12)
         ax.set_ylim(0, max(ds_.IQ_abs_signal.values[i][pumpATmaxG[1][0]][pumpATmaxG[1][1]]))
@@ -336,12 +334,12 @@ axs[0].set_xticks(xtick_pos)
 axs[0].set_xticklabels(selected_powers,rotation=90)
 axs[0].set_yticks(ytick_pos)
 axs[0].set_yticklabels(selected_frequencies)
-axs[0].set_title(f'{twpas[0].id} pump vs Gain \n {date_time}', fontsize=15)
+axs[0].set_title(f'{twpas[0].id} pump vs Gain \n {node.date_time}', fontsize=15)
 axs[0].set_xlabel('pump power[dBm]', fontsize=20)
 axs[0].set_ylabel('pump frequency[GHz]', fontsize=20)
 cbar0 = fig.colorbar(im0, ax=axs[0])
 cbar0.set_label('Avg Gain [dB]', fontsize=14)
-print(f'max Avg dSNR({np.round(20*np.log10(np.max(np.mean(linear_dsnr,axis=0))),2)}dB) \n at fp={np.round((p_lo+p_if+pumpATmaxDSNR[0][0])*1e-9,3)}GHz,Pp={np.round(node.parameters.pumpline_attenuation+opxoutput(full_scale_power_dbm,pumpATmaxDSNR[0][1]),2)},Pamp={np.round(pumpATmaxDSNR[0][1],3)} \n {date_time} \n {len(dfs)}*{len(daps)}*{len(dfps)}*{n_avg}')
+print(f'max Avg dSNR({np.round(20*np.log10(np.max(np.mean(linear_dsnr,axis=0))),2)}dB) \n at fp={np.round((p_lo+p_if+pumpATmaxDSNR[0][0])*1e-9,3)}GHz,Pp={np.round(node.parameters.pumpline_attenuation+opxoutput(full_scale_power_dbm,pumpATmaxDSNR[0][1]),2)},Pamp={np.round(pumpATmaxDSNR[0][1],3)} \n {node.date_time} \n {len(dfs)}*{len(daps)}*{len(dfps)}*{n_avg}')
 
 # plot dSNR vs pump
 
@@ -351,7 +349,7 @@ axs[1].set_xticks(xtick_pos)
 axs[1].set_xticklabels(selected_powers,rotation=90)
 axs[1].set_yticks(ytick_pos)
 axs[1].set_yticklabels(selected_frequencies)
-axs[1].set_title(f'{twpas[0].id} pump vs dSNR\n {date_time} ', fontsize=15)
+axs[1].set_title(f'{twpas[0].id} pump vs dSNR\n {node.date_time} ', fontsize=15)
 axs[1].set_xlabel('pump amplitude', fontsize=20)
 axs[1].set_ylabel('pump frequency[GHz]', fontsize=20)
 cbar1 = fig.colorbar(im1, ax=axs[1])
@@ -377,7 +375,7 @@ plt.scatter(gain_avg, dsnr_avg, s=4)
 plt.scatter(gain_avg[optimized_pump],  dsnr_avg[optimized_pump], s=10, color='red')
 plt.axhline(y=mindsnr, color='red', linestyle='--', linewidth=1)
 plt.axvline(x=mingain, color='red', linestyle='--', linewidth=1)
-plt.title(f'{twpas[0].id} operation window \n {date_time}', fontsize=20)
+plt.title(f'{twpas[0].id} operation window \n {node.date_time}', fontsize=20)
 plt.xlabel('Average Gain', fontsize=20)
 plt.ylabel('Average dSNR', fontsize=20)
 plt.xlim(0,np.max(gain_avg)+1)

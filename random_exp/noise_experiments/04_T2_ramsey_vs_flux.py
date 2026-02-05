@@ -120,7 +120,7 @@ with program() as ramsey:
     for i, qubit in enumerate(qubits):
         freqs_qua = declare(int,value=freqs[qubit.name])
         # Bring the active qubits to the minimum frequency point
-        machine.set_all_fluxes(flux_point=flux_point, target=qubit)
+        machine.initialize_qpu(flux_point=flux_point, target=qubit)
         assign(init_state[i], 0)
         
         

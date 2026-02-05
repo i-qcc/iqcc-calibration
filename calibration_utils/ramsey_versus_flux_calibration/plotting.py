@@ -1,4 +1,5 @@
-from typing import List
+import re
+from typing import List, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -7,6 +8,57 @@ from matplotlib.axes import Axes
 from matplotlib.lines import Line2D
 from qualibration_libs.plotting import QubitGrid, grid_iter
 from quam_builder.architecture.superconducting.qubit import AnyTransmon
+
+
+def _excluded_qubit_font_sizes(n_subplots: int):
+    """Font sizes for excluded-qubit X and text, scaled by number of subplots."""
+    scale = max(1, n_subplots ** 0.5)
+    return max(12, int(96 / scale)), max(6, int(20 / scale))
+
+
+def _mark_excluded_qubit(ax, qubit_name: str, fs_x: int, fs_text: int):
+    """Mark a subplot as excluded with green X and explanatory text."""
+    ax.text(0.5, 0.5, 'X', transform=ax.transAxes, fontsize=fs_x,
+            color='green', fontweight='bold', ha='center', va='center')
+    ax.text(0.5, 0.15, 'Excluded: qubit set outside sweetspot', transform=ax.transAxes, 
+            fontsize=fs_text, color='black', ha='center', va='center')
+    ax.set_title(qubit_name)
+    ax.set_xticks([])
+    ax.set_yticks([])
+
+
+def _create_grid_with_all_locations(ds: xr.Dataset, grid_locations: List, qubit_names: List[str]):
+    """Create a QubitGrid-like object that includes all specified grid locations."""
+    clean_up = lambda s: re.sub("[^0-9]", "", s)
+    
+    grid_indices = [
+        tuple(map(int, [clean_up(x) for x in (loc.split(",") if isinstance(loc, str) else [str(x) for x in loc])]))
+        for loc in grid_locations
+    ]
+    grid_name_mapping = dict(zip(grid_indices, qubit_names))
+    
+    rows, cols = [idx[1] for idx in grid_indices], [idx[0] for idx in grid_indices]
+    min_row, max_row, min_col = min(rows), max(rows), min(cols)
+    shape = (max_row - min_row + 1, max(cols) - min_col + 1)
+    
+    figure, all_axes = plt.subplots(*shape, figsize=(shape[1] * 3, shape[0] * 3), squeeze=False)
+    grid_axes, name_dicts = [], []
+    
+    for row, axis_row in enumerate(all_axes):
+        for col, ax in enumerate(axis_row):
+            grid_idx = (col + min_col, max_row - row)
+            if grid_idx in grid_indices:
+                grid_axes.append(ax)
+                if (name := grid_name_mapping.get(grid_idx)) is not None:
+                    name_dicts.append({"qubit": name})
+            else:
+                ax.axis("off")
+    
+    class GridResult:
+        def __init__(self, fig, axes, name_dicts):
+            self.fig, self.axes, self.name_dicts = fig, [axes], [name_dicts]
+    
+    return GridResult(figure, grid_axes, name_dicts)
 
 
 def _is_fit_successful(fit: xr.Dataset) -> bool:
@@ -25,7 +77,15 @@ def _should_show_fit(fit: xr.Dataset) -> bool:
     return _is_fit_successful(fit) or _is_lo_limit_exceeded(fit)
 
 
-def plot_raw_data_with_fit(ds: xr.Dataset, qubits: List[AnyTransmon], fits: xr.Dataset):
+def _get_flux_values(ds: xr.Dataset, qubit_name: str, fallback_array: xr.DataArray = None):
+    """Get flux values for a qubit, using per-qubit values if available."""
+    if "flux_actual" in ds.data_vars:
+        return ds.flux_actual.sel(qubit=qubit_name).values
+    return fallback_array.values if fallback_array is not None else ds.flux_bias.values
+
+
+def plot_raw_data_with_fit(ds: xr.Dataset, qubits: List[AnyTransmon], fits: xr.Dataset, 
+                           excluded_qubits: Optional[List[AnyTransmon]] = None):
     """
     Plots the resonator spectroscopy amplitude IQ_abs with fitted curves for the given qubits.
 
@@ -37,28 +97,39 @@ def plot_raw_data_with_fit(ds: xr.Dataset, qubits: List[AnyTransmon], fits: xr.D
         A list of qubits to plot.
     fits : xr.Dataset
         The dataset containing the fit parameters.
+    excluded_qubits : list of AnyTransmon, optional
+        Qubits excluded from the experiment (e.g., not at sweep spot).
 
     Returns
     -------
     Figure
         The matplotlib figure object containing the plots.
-
-    Notes
-    -----
-    - The function creates a grid of subplots, one for each qubit.
-    - Each subplot contains the raw data and the fitted curve.
     """
-    grid = QubitGrid(ds, [q.grid_location for q in qubits])
+    # Include all qubits in grid creation so excluded qubits have subplot positions
+    all_qubits = list(qubits) + (excluded_qubits or [])
+    all_grid_locs = [q.grid_location for q in all_qubits]
+    included_names = {q.name for q in qubits}
+    
+    grid = QubitGrid(ds, [q.grid_location for q in qubits]) if not excluded_qubits else \
+           _create_grid_with_all_locations(ds, all_grid_locs, [q.name for q in all_qubits])
+    
+    n_subplots = len(grid.fig.axes)
+    fs_x, fs_text = _excluded_qubit_font_sizes(n_subplots)
+    
     for ax, qubit in grid_iter(grid):
-        plot_individual_data_with_fit(ax, ds, qubit, fits.sel(qubit=qubit["qubit"]))
-
+        if qubit["qubit"] in included_names:
+            plot_individual_data_with_fit(ax, ds, qubit, fits.sel(qubit=qubit["qubit"]))
+        else:
+            _mark_excluded_qubit(ax, qubit["qubit"], fs_x, fs_text)
+    
     grid.fig.suptitle("Ramsey vs flux")
     grid.fig.set_size_inches(15, 9)
     grid.fig.tight_layout()
     return grid.fig
 
 
-def plot_parabolas_with_fit(ds: xr.Dataset, qubits: List[AnyTransmon], fits: xr.Dataset, outcomes: dict = None):
+def plot_parabolas_with_fit(ds: xr.Dataset, qubits: List[AnyTransmon], fits: xr.Dataset, 
+                            outcomes: dict = None, excluded_qubits: Optional[List[AnyTransmon]] = None):
     """
     Plots the resonator spectroscopy amplitude IQ_abs with fitted curves for the given qubits.
 
@@ -72,30 +143,36 @@ def plot_parabolas_with_fit(ds: xr.Dataset, qubits: List[AnyTransmon], fits: xr.
         The dataset containing the fit parameters.
     outcomes : dict, optional
         Dictionary containing outcomes ("successful" or "failed") for each qubit.
+    excluded_qubits : list of AnyTransmon, optional
+        Qubits excluded from the experiment (e.g., not at sweep spot).
 
     Returns
     -------
     Figure
         The matplotlib figure object containing the plots.
-
-    Notes
-    -----
-    - The function creates a grid of subplots, one for each qubit.
-    - Each subplot contains the raw data and the fitted curve.
     """
-    grid = QubitGrid(ds, [q.grid_location for q in qubits])
+    # Include all qubits in grid creation so excluded qubits have subplot positions
+    all_qubits = list(qubits) + (excluded_qubits or [])
+    all_grid_locs = [q.grid_location for q in all_qubits]
+    included_names = {q.name for q in qubits}
     
-    # Create a mapping from qubit name to qubit object for easy access
+    grid = QubitGrid(ds, [q.grid_location for q in qubits]) if not excluded_qubits else \
+           _create_grid_with_all_locations(ds, all_grid_locs, [q.name for q in all_qubits])
+    
+    n_subplots = len(grid.fig.axes)
+    fs_x, fs_text = _excluded_qubit_font_sizes(n_subplots)
+    
     qubit_dict = {q.name: q for q in qubits}
     for ax, qubit in grid_iter(grid):
+        if qubit["qubit"] not in included_names:
+            _mark_excluded_qubit(ax, qubit["qubit"], fs_x, fs_text)
+            continue
         qubit_obj = qubit_dict.get(qubit["qubit"])
         fit_qubit = fits.sel(qubit=qubit["qubit"])
         
         # Calculate x-axis limits for this specific qubit
-        frequency = fit_qubit.sel(fit_vals="f").fit_results
-        flux_bias = frequency.flux_bias
-        flux_min = float(flux_bias.min().values)
-        flux_max = float(flux_bias.max().values)
+        flux_values = _get_flux_values(ds, qubit["qubit"], fit_qubit.sel(fit_vals="f").fit_results.flux_bias)
+        flux_min, flux_max = float(np.min(flux_values)), float(np.max(flux_values))
         
         # Extend limits to include target_offset and flux_offset for this qubit
         # Show if fit succeeded (even if LO limit exceeded)
@@ -135,6 +212,9 @@ def plot_parabolas_with_fit(ds: xr.Dataset, qubits: List[AnyTransmon], fits: xr.
         Line2D([0], [0], color='red', marker='x', linestyle='', markersize=6, markeredgewidth=2, label='Fit failed'),
         Line2D([0], [0], color='magenta', marker='x', linestyle='', markersize=6, markeredgewidth=2, label='LO limit exceeded'),
     ]
+    if excluded_qubits:
+        legend_handles.append(Line2D([0], [0], color='green', marker='x', linestyle='', markersize=6, 
+                                     markeredgewidth=2, label='Excluded: qubit set outside sweetspot'))
     grid.fig.legend(legend_handles, [h.get_label() for h in legend_handles], 
                     loc='upper right', bbox_to_anchor=(0.98, 0.98),
                     frameon=True, fancybox=True, shadow=True, fontsize=9)
@@ -161,11 +241,14 @@ def plot_individual_data_with_fit(ax: Axes, ds: xr.Dataset, qubit: dict[str, str
     -----
     - If the fit dataset is provided, the fitted curve is plotted along with the raw data.
     """
-
-    ds.sel(qubit=qubit["qubit"]).state.plot(ax=ax)
+    state = ds.sel(qubit=qubit["qubit"]).state
+    flux_values = _get_flux_values(ds, qubit["qubit"], state.flux_bias)
+    
+    # Plot using pcolormesh with correct flux values
+    ax.pcolormesh(state.idle_times.values, flux_values, state.values, shading='auto')
     ax.set_title(qubit["qubit"])
-    ax.set_xlabel("Idle_time (uS)")
-    ax.set_ylabel(" Flux (V)")
+    ax.set_xlabel("Idle_time (ns)")
+    ax.set_ylabel("Flux (V)")
 
     # Only plot flux offset if fit is successful
     if _is_fit_successful(fit):
@@ -203,10 +286,11 @@ def plot_individual_parabolas_with_fit(ax: Axes, ds: xr.Dataset, qubit: dict[str
     """
     detuning = float(fit.artifitial_detuning.values)
     frequency = fit.sel(fit_vals="f").fit_results  # frequency is in GHz
-    flux_bias = frequency.flux_bias
+    flux_values = _get_flux_values(ds, qubit["qubit"], frequency.flux_bias)
     
     # Plot data points (convert GHz to MHz and subtract detuning)
-    (frequency * 1e3 - detuning).plot(ax=ax, linestyle="", marker=".", label="Data", color="blue")
+    freq_mhz = frequency.values * 1e3 - detuning
+    ax.plot(flux_values, freq_mhz, linestyle="", marker=".", label="Data", color="blue")
     
     # Plot parabolic fit and calculate offsets if fit succeeded (even if LO limit exceeded)
     if _should_show_fit(fit):
@@ -221,8 +305,8 @@ def plot_individual_parabolas_with_fit(ax: Axes, ds: xr.Dataset, qubit: dict[str
         c0 = freq_offset_val / 1e9 - c2 * flux_offset_val**2 - c1 * flux_offset_val  # GHz
         
         # Determine flux range for plotting parabola
-        data_flux_min = float(flux_bias.min().values)
-        data_flux_max = float(flux_bias.max().values)
+        data_flux_min = float(np.min(flux_values))
+        data_flux_max = float(np.max(flux_values))
         
         if xlim_min is not None and xlim_max is not None:
             # Extend parabola to cover full xlim range

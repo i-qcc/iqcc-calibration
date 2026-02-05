@@ -3,7 +3,7 @@ from qualang_tools.wirer.wirer.channel_specs import *
 from qualang_tools.wirer import Instruments, Connectivity, allocate_wiring, visualize
 from quam_builder.builder.qop_connectivity import build_quam_wiring
 from quam_builder.builder.superconducting import build_quam
-from iqcc_calibration_tools.quam_config.components.quam_root import Quam
+from quam_config import Quam
 
 ########################################################################################################################
 # %%                                              Define static parameters
@@ -71,3 +71,5 @@ if user_input.lower() == "y":
     # Reload QUAM, build the QUAM object and save the state as state.json
     machine = Quam.load()
     build_quam(machine)
+
+# %%

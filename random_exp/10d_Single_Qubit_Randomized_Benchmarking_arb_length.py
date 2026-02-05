@@ -303,7 +303,7 @@ with program() as randomized_benchmarking:
     for i, qubit in enumerate(qubits):
 
         # Bring the active qubits to the desired frequency point
-        machine.set_all_fluxes(flux_point=flux_point, target=qubit)
+        machine.initialize_qpu(flux_point=flux_point, target=qubit)
 
         # QUA for_ loop over the random sequences
         gate = declare(int)

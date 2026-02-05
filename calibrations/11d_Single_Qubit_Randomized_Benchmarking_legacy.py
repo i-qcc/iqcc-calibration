@@ -20,12 +20,12 @@ Prerequisites:
 """
 
 # %% {Imports}
-from datetime import datetime, timezone, timedelta
+
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
-from iqcc_calibration_tools.quam_config.components import Quam, Transmon
+from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
 from iqcc_calibration_tools.quam_config.macros import qua_declaration, active_reset, readout_state
 from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
-from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset
+from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray
 from iqcc_calibration_tools.quam_config.legacy_tools.fit import fit_decay_exp, decay_exp
 from qualang_tools.results import progress_counter, fetching_tool
 from qualang_tools.bakery.randomized_benchmark_c1 import c1_table
@@ -141,7 +141,7 @@ def generate_sequence():
     return sequence, inv_gate
 
 
-def play_sequence(sequence_list, depth, qubit: Transmon):
+def play_sequence(sequence_list, depth, qubit):
     i = declare(int)
     with for_(i, 0, i <= depth, i + 1):
         with switch_(sequence_list[i], unsafe=True):
@@ -218,6 +218,9 @@ def play_sequence(sequence_list, depth, qubit: Transmon):
 
 
 # %% {QUA_program}
+
+# TODO : running twice initialize_qpu between two qua programs will only initialize twpa in the first. fix this.
+
 with program() as randomized_benchmarking_individual:
     depth = declare(int)  # QUA variable for the varying depth
     # QUA variable to store the last Clifford gate of the current sequence which is replaced by the recovery gate
@@ -231,7 +234,7 @@ with program() as randomized_benchmarking_individual:
 
     if flux_point == "joint":
         # Bring the active qubits to the desired frequency point
-        node.machine.set_all_fluxes(flux_point=flux_point, target=qubits[0])
+        node.machine.set_all_fluxes(flux_point=flux_point, target=qubits[0]) # Don't change until twpa issue is fixed.
     
     for i, qubit in enumerate(qubits):
         # Bring the active qubits to the desired frequency point
@@ -374,7 +377,7 @@ if node.parameters.simulate:
 elif node.parameters.load_data_id is None:
     # Prepare data for saving
     node.results = {}
-    date_time = datetime.now(timezone(timedelta(hours=3))).strftime("%Y-%m-%d %H:%M:%S")
+    
     with qm_session(qmm, config, timeout=node.parameters.timeout) as qm:
         if not node.parameters.multiplexed:
             job = qm.execute(randomized_benchmarking_individual)
@@ -475,6 +478,7 @@ if not node.parameters.simulate:
         with node.record_state_updates():
             for q in qubits:
                 q.gate_fidelity["averaged"] = fidelities_per_qubit[q.name]
+                q.gate_fidelity["averaged_updated_at"] = f"{node.date_time} GMT+{node.time_zone}"
                 print(f"Updated {q.name} fidelity to {q.gate_fidelity['averaged']:.4f}")
 
 

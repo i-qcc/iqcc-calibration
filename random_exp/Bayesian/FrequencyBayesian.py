@@ -195,7 +195,7 @@ with program() as BayesFreq:
         assign(beta, 1 - qubit.resonator.confusion_matrix[0][1] - qubit.resonator.confusion_matrix[1][0])
 
         # Set flux bias
-        machine.set_all_fluxes(flux_point="joint", target=qubit)
+        machine.initialize_qpu(flux_point="joint", target=qubit)
 
         # Averaging loop
         with for_(n, 0, n < n_reps, n + 1):

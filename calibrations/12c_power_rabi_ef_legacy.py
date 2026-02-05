@@ -22,7 +22,7 @@ Next steps before going to the next node:
 # %% {Imports}
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
 from quam.components import pulses
-from iqcc_calibration_tools.quam_config.components import Quam
+from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
 from iqcc_calibration_tools.quam_config.macros import qua_declaration
 from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
 from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray
@@ -36,7 +36,7 @@ from qm.qua import *
 from typing import Literal, Optional, List
 import matplotlib.pyplot as plt
 import numpy as np
-from datetime import datetime, timezone, timedelta
+
 
 
 # %% {Node_parameters}
@@ -52,7 +52,7 @@ class Parameters(NodeParameters):
     simulate: bool = False
     timeout: int = 100
 
-node = QualibrationNode(name="12c_Power_Rabi_E_to_F", parameters=Parameters())
+node = QualibrationNode(name="12c_Power_Rabi_E_to_F_legacy", parameters=Parameters())
 
 # %% {Initialize_QuAM_and_QOP}
 # Class containing tools to help handling units and conversions.
@@ -169,7 +169,7 @@ if node.parameters.simulate:
     node.save()
 
 else:
-    date_time = datetime.now(timezone(timedelta(hours=3))).strftime("%Y-%m-%d %H:%M:%S")
+    
     with qm_session(qmm, config, timeout=node.parameters.timeout) as qm:
         job = qm.execute(power_rabi)
         results = fetching_tool(job, ["n"], mode="live")

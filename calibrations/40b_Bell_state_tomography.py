@@ -33,10 +33,9 @@ Outcomes:
 """
 
 # %% {Imports}
-from datetime import datetime, timezone
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
-from iqcc_calibration_tools.quam_config.components import Quam
-from iqcc_calibration_tools.quam_config.macros import active_reset, readout_state
+from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
+from iqcc_calibration_tools.quam_config.macros import readout_state
 from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset
 from qualang_tools.results import progress_counter, fetching_tool
 from qualang_tools.multi_user import qm_session
@@ -323,7 +322,7 @@ if not node.parameters.simulate:
         col = i % num_cols
         axes_3d_real[row, col].axis('off')
     
-    fig_3d_real.suptitle(f"Bell state tomography - Real part (3D city plots) \n {node.date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type}", y=0.98)
+    fig_3d_real.suptitle(f"Bell state tomography - Real part (3D city plots) \n {node.date_time} GMT+{node.time_zone} #{node.node_id} \n reset type = {node.parameters.reset_type}", y=0.98)
     fig_3d_real.subplots_adjust(top=0.92, hspace=0.4, wspace=0.3)
     # Add legend explaining the batch number indicator
     legend_circle = mpatches.Circle((0, 0), 0.5, facecolor='plum', edgecolor='magenta', linewidth=1.2)
@@ -356,7 +355,7 @@ if not node.parameters.simulate:
         col = i % num_cols
         axes_3d_imag[row, col].axis('off')
     
-    fig_3d_imag.suptitle(f"Bell state tomography - Imaginary part (3D city plots) \n {node.date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type}", y=0.98)
+    fig_3d_imag.suptitle(f"Bell state tomography - Imaginary part (3D city plots) \n {node.date_time} GMT+{node.time_zone} #{node.node_id} \n reset type = {node.parameters.reset_type}", y=0.98)
     fig_3d_imag.subplots_adjust(top=0.92, hspace=0.4, wspace=0.3)
     # Add legend explaining the batch number indicator
     legend_circle = mpatches.Circle((0, 0), 0.5, facecolor='plum', edgecolor='magenta', linewidth=1.2)
@@ -396,7 +395,7 @@ if not node.parameters.simulate:
         ax.text(0.98, -0.08, str(batch_num), transform=ax.transAxes, 
                fontsize=8, ha='right', va='top',
                bbox=dict(boxstyle='circle', facecolor='plum', edgecolor='magenta', linewidth=1.2))
-    fig_real.suptitle(f"Bell state tomography (real part) \n {node.date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type}")
+    fig_real.suptitle(f"Bell state tomography (real part) \n {node.date_time} GMT+{node.time_zone} #{node.node_id} \n reset type = {node.parameters.reset_type}")
     fig_real.tight_layout()
     # Add legend explaining the batch number indicator
     legend_circle = mpatches.Circle((0, 0), 0.5, facecolor='plum', edgecolor='magenta', linewidth=1.2)
@@ -432,7 +431,7 @@ if not node.parameters.simulate:
         ax.text(0.98, -0.08, str(batch_num), transform=ax.transAxes, 
                fontsize=8, ha='right', va='top',
                bbox=dict(boxstyle='circle', facecolor='plum', edgecolor='magenta', linewidth=1.2))
-    fig_imag.suptitle(f"Bell state tomography (imaginary part) \n {node.date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type}")
+    fig_imag.suptitle(f"Bell state tomography (imaginary part) \n {node.date_time} GMT+{node.time_zone} #{node.node_id} \n reset type = {node.parameters.reset_type}")
     fig_imag.tight_layout()
     # Add legend explaining the batch number indicator
     legend_circle = mpatches.Circle((0, 0), 0.5, facecolor='plum', edgecolor='magenta', linewidth=1.2)
@@ -485,7 +484,11 @@ if not node.parameters.simulate:
     if node.parameters.load_data_id is None:
         with node.record_state_updates():
             for qp in qubit_pairs:
-                node.machine.qubit_pairs[qp.id].macros[node.parameters.cz_macro_name].fidelity["Bell_State"] = {"Fidelity":  node.results[f"{qp.name}_fidelity"], "Purity":  node.results[f"{qp.name}_purity"]}
+                node.machine.qubit_pairs[qp.id].macros[node.parameters.cz_macro_name].fidelity["Bell_State"] = {
+                    "Fidelity": node.results[f"{qp.name}_fidelity"],
+                    "Purity": node.results[f"{qp.name}_purity"],
+                    "updated_at": f"{node.date_time} GMT+{node.time_zone}",
+                }
                 
 
 # %% {Save_results}

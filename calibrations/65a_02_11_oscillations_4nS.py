@@ -28,7 +28,7 @@ Outcomes:
 
 # %% {Imports}
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
-from iqcc_calibration_tools.quam_config.components import Quam
+from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
 from iqcc_calibration_tools.quam_config.macros import active_reset_simple, readout_state, readout_state_gef, active_reset_gef
 from iqcc_calibration_tools.analysis.plot_utils import QubitPairGrid, grid_iter, grid_pair_names
 from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset
@@ -154,12 +154,12 @@ with program() as CPhase_Oscillations:
     state_st_target = [declare_stream() for _ in range(num_qubit_pairs)]
     
     if flux_point == "joint":
-        machine.set_all_fluxes(flux_point=flux_point, target=qubit_pairs[0].qubit_control)
+        machine.initialize_qpu(flux_point=flux_point, target=qubit_pairs[0].qubit_control)
     
     for i, qp in enumerate(qubit_pairs):
         # Bring the active qubits to the minimum frequency point
         if flux_point != "joint":
-            machine.set_all_fluxes(flux_point=flux_point, target=qp.qubit_control)
+            machine.initialize_qpu(flux_point=flux_point, target=qp.qubit_control)
         assign(comp_flux_coupler, qp.extras["CZ_coupler_flux"])
         if "coupler_qubit_crosstalk" in qp.extras:
             assign(comp_flux_qubit, qp.extras["CZ_qubit_flux"]  +  qp.extras["coupler_qubit_crosstalk"] * qp.extras["CZ_coupler_flux"] )

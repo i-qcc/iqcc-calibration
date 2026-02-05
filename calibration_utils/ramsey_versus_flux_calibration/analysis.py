@@ -70,11 +70,6 @@ def fit_raw_data(ds: xr.Dataset, node: QualibrationNode) -> Tuple[xr.Dataset, di
 
     frequency = frequency.where(frequency > 0, drop=True)
 
-    # Polyfit on frequency (GHz) vs flux_bias (V)
-    # Results: c0 in GHz, c1 in GHz/V, c2 in GHz/V^2
-    fitvals = frequency.polyfit(dim="flux_bias", deg=2)
-    
-
     # Constants for success determination
     SUCCESS_THRESHOLD = 0.005
     MIN_FREQ_RANGE_MHZ = 500000e-9  # 500 nHz in MHz
@@ -89,34 +84,42 @@ def fit_raw_data(ds: xr.Dataset, node: QualibrationNode) -> Tuple[xr.Dataset, di
     freq_range = {}
     success_dict = {}
     lo_limit_exceeded_dict = {}
+    polyfit_coeffs = {}  # Store per-qubit polyfit coefficients
 
     qubits = ds.qubit.values
+    has_per_qubit_flux = "flux_actual" in ds.data_vars
 
     for q in qubits:
-        # Extract polynomial coefficients for this qubit
-        # c0, c1, c2 are in GHz, GHz/V, GHz/V^2 respectively
-        coeffs = fitvals.sel(qubit=q)
-        c0 = float(coeffs.sel(degree=0).polyfit_coefficients.values)  # GHz
-        c1 = float(coeffs.sel(degree=1).polyfit_coefficients.values)  # GHz/V
-        c2 = float(coeffs.sel(degree=2).polyfit_coefficients.values)  # GHz/V^2
-        
-        # Get observed data for this qubit
         freq_q = frequency.sel(qubit=q)
-        flux_q = freq_q.flux_bias
+        freq_q_values = freq_q.values
+        
+        # Get flux values and perform polyfit
+        if has_per_qubit_flux:
+            flux_q_values = ds.flux_actual.sel(qubit=q).values
+            freq_for_fit = xr.DataArray(freq_q_values, dims=["flux"], coords={"flux": flux_q_values})
+            fitvals_q = freq_for_fit.polyfit(dim="flux", deg=2)
+        else:
+            flux_q_values = freq_q.flux_bias.values
+            fitvals_q = freq_q.polyfit(dim="flux_bias", deg=2)
+        
+        # Extract polynomial coefficients (GHz, GHz/V, GHz/V^2)
+        c0, c1, c2 = [float(fitvals_q.sel(degree=d).polyfit_coefficients.values) for d in range(3)]
+        polyfit_coeffs[q] = {"c0": c0, "c1": c1, "c2": c2}
         
         # Calculate frequency range (max - min) in GHz
-        freq_range[q] = float(freq_q.max() - freq_q.min())
+        freq_range[q] = float(np.max(freq_q_values) - np.min(freq_q_values))
         
         # Calculate fitted values and fit norm (excluding 10% of points with largest residuals)
-        freq_fitted = c2 * flux_q**2 + c1 * flux_q + c0
-        diff = freq_q - freq_fitted
-        abs_diff = np.abs(diff.values)
+        # Use numpy arrays for consistent calculation
+        freq_fitted = c2 * flux_q_values**2 + c1 * flux_q_values + c0
+        diff = freq_q_values - freq_fitted
+        abs_diff = np.abs(diff)
         n_remove = int(0.1 * len(abs_diff))
         if n_remove > 0:
             keep_indices = np.sort(np.argsort(-abs_diff)[n_remove:])
-            trimmed_diff = diff.values[keep_indices]
+            trimmed_diff = diff[keep_indices]
         else:
-            trimmed_diff = diff.values
+            trimmed_diff = diff
         fit_norm[q] = float(np.linalg.norm(trimmed_diff))
         
         # Store quad_term in GHz/V^2 (same units as c2)

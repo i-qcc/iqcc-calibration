@@ -23,7 +23,7 @@ Next steps before going to the next node:
 
 # %% {Imports}
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
-from iqcc_calibration_tools.quam_config.components import Quam
+from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
 from iqcc_calibration_tools.quam_config.macros import qua_declaration, active_reset_gef
 from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
 from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset
@@ -38,7 +38,7 @@ import numpy as np
 import xarray as xr
 from sklearn.mixture import GaussianMixture
 from scipy.optimize import curve_fit
-from datetime import datetime, timezone, timedelta
+
 
 # %% {Node_parameters}
 class Parameters(NodeParameters):
@@ -52,7 +52,7 @@ class Parameters(NodeParameters):
     timeout: int = 100
 
 
-node = QualibrationNode(name="12e_IQ_Blobs_G_E_F", parameters=Parameters())
+node = QualibrationNode(name="12e_IQ_Blobs_G_E_F_legacy", parameters=Parameters())
 
 
 # %% {Initialize_QuAM_and_QOP}
@@ -116,13 +116,13 @@ with program() as iq_blobs:
 
     if flux_point == "joint":
         # Bring the active qubits to the desired frequency point
-        machine.set_all_fluxes(flux_point=flux_point, target=qubits[0])
+        machine.initialize_qpu(flux_point=flux_point, target=qubits[0])
     
     for i, qubit in enumerate(qubits):
 
         # Bring the active qubits to the minimum frequency point
         if flux_point != "joint":
-            machine.set_all_fluxes(flux_point=flux_point, target=qubit)
+            machine.initialize_qpu(flux_point=flux_point, target=qubit)
 
         qubit.resonator.update_frequency(
             qubit.resonator.intermediate_frequency + qubit.resonator.GEF_frequency_shift
@@ -212,7 +212,7 @@ if node.parameters.simulate:
     node.save()
 
 else:
-    date_time = datetime.now(timezone(timedelta(hours=3))).strftime("%Y-%m-%d %H:%M:%S")
+    
     with qm_session(qmm, config, timeout=node.parameters.timeout) as qm:
         job = qm.execute(iq_blobs)
         results = fetching_tool(job, ["n"], mode="live")

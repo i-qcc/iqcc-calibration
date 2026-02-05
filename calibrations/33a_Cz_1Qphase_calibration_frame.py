@@ -32,9 +32,9 @@ Outcomes:
 """
 
 # %% {Imports}
-from datetime import datetime, timezone, timedelta
+
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
-from iqcc_calibration_tools.quam_config.components import Quam
+from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
 from iqcc_calibration_tools.quam_config.macros import active_reset, readout_state
 from iqcc_calibration_tools.analysis.plot_utils import QubitPairGrid, grid_iter, grid_pair_names
 from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset
@@ -175,7 +175,7 @@ if node.parameters.simulate:
     node.machine = machine
     node.save()
 elif node.parameters.load_data_id is None:
-    date_time = datetime.now(timezone(timedelta(hours=3))).strftime("%Y-%m-%d %H:%M:%S")
+    
     with qm_session(qmm, config, timeout=node.parameters.timeout ) as qm:
         job = qm.execute(CPhase_Oscillations)
 

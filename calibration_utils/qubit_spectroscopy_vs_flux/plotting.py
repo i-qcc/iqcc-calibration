@@ -1,9 +1,14 @@
+import re
 from typing import List, Optional, Tuple
+
+import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
+from matplotlib.lines import Line2D
 from matplotlib.path import Path
+from matplotlib.patches import Patch
 from matplotlib.transforms import Bbox
 
 from qualang_tools.units import unit
@@ -11,6 +16,57 @@ from qualibration_libs.plotting import QubitGrid, grid_iter
 from quam_builder.architecture.superconducting.qubit import AnyTransmon
 
 u = unit(coerce_to_integer=True)
+
+
+def _excluded_qubit_font_sizes(n_subplots: int):
+    """Font sizes for excluded-qubit X and text, scaled by number of subplots."""
+    scale = max(1, n_subplots ** 0.5)
+    return max(12, int(96 / scale)), max(6, int(20 / scale))
+
+
+def _mark_excluded_qubit(ax, qubit_name: str, fs_x: int, fs_text: int):
+    """Mark a subplot as excluded with green X and explanatory text."""
+    ax.text(0.5, 0.5, 'X', transform=ax.transAxes, fontsize=fs_x,
+            color='green', fontweight='bold', ha='center', va='center')
+    ax.text(0.5, 0.15, 'Excluded: qubit set outside sweetspot', transform=ax.transAxes, 
+            fontsize=fs_text, color='black', ha='center', va='center')
+    ax.set_title(qubit_name)
+    ax.set_xticks([])
+    ax.set_yticks([])
+
+
+def _create_grid_with_all_locations(ds: xr.Dataset, grid_locations: List, qubit_names: List[str], size: int = 3):
+    """Create a QubitGrid-like object that includes all specified grid locations."""
+    clean_up = lambda s: re.sub("[^0-9]", "", s)
+    
+    grid_indices = [
+        tuple(map(int, [clean_up(x) for x in (loc.split(",") if isinstance(loc, str) else [str(x) for x in loc])]))
+        for loc in grid_locations
+    ]
+    grid_name_mapping = dict(zip(grid_indices, qubit_names))
+    
+    rows, cols = [idx[1] for idx in grid_indices], [idx[0] for idx in grid_indices]
+    min_row, max_row, min_col = min(rows), max(rows), min(cols)
+    shape = (max_row - min_row + 1, max(cols) - min_col + 1)
+    
+    figure, all_axes = plt.subplots(*shape, figsize=(shape[1] * size, shape[0] * size), squeeze=False)
+    grid_axes, name_dicts = [], []
+    
+    for row, axis_row in enumerate(all_axes):
+        for col, ax in enumerate(axis_row):
+            grid_idx = (col + min_col, max_row - row)
+            if grid_idx in grid_indices:
+                grid_axes.append(ax)
+                if (name := grid_name_mapping.get(grid_idx)) is not None:
+                    name_dicts.append({"qubit": name})
+            else:
+                ax.axis("off")
+    
+    class GridResult:
+        def __init__(self, fig, axes, name_dicts):
+            self.fig, self.axes, self.name_dicts = fig, [axes], [name_dicts]
+    
+    return GridResult(figure, grid_axes, name_dicts)
 
 
 def _get_qubit_data(fit: xr.Dataset, qubit_name: str, data_var: str) -> Optional[xr.DataArray]:
@@ -44,7 +100,8 @@ def _get_qubit_value(fit: xr.Dataset, qubit_name: str, coord_or_var: str) -> Opt
     return None
 
 
-def plot_raw_data_with_fit(ds: xr.Dataset, qubits: List[AnyTransmon], fits: xr.Dataset):
+def plot_raw_data_with_fit(ds: xr.Dataset, qubits: List[AnyTransmon], fits: xr.Dataset,
+                           excluded_qubits: Optional[List[AnyTransmon]] = None):
     """
     Plots the raw data with fitted curves for the given qubits.
 
@@ -56,48 +113,61 @@ def plot_raw_data_with_fit(ds: xr.Dataset, qubits: List[AnyTransmon], fits: xr.D
         A list of qubits to plot.
     fits : xr.Dataset
         The dataset containing the fit parameters.
+    excluded_qubits : list of AnyTransmon, optional
+        Qubits excluded from the experiment (e.g., not at sweep spot).
 
     Returns
     -------
     Figure
         The matplotlib figure object containing the plots.
-
-    Notes
-    -----
-    - The function creates a grid of subplots, one for each qubit.
-    - Each subplot contains the raw data and the fitted curve.
     """
-    grid = QubitGrid(ds, [q.grid_location for q in qubits])
+    # Include all qubits in grid creation so excluded qubits have subplot positions
+    all_qubits = list(qubits) + (excluded_qubits or [])
+    all_grid_locs = [q.grid_location for q in all_qubits]
+    included_names = {q.name for q in qubits}
+    
+    grid = QubitGrid(ds, [q.grid_location for q in qubits]) if not excluded_qubits else \
+           _create_grid_with_all_locations(ds, all_grid_locs, [q.name for q in all_qubits], size=6)
+    
+    n_subplots = len(grid.fig.axes)
+    fs_x, fs_text = _excluded_qubit_font_sizes(n_subplots)
+    
     qubit_dict = {q.name: q for q in qubits}
     primary_axes = []
     
     for ax, qubit in grid_iter(grid):
+        if qubit["qubit"] not in included_names:
+            _mark_excluded_qubit(ax, qubit["qubit"], fs_x, fs_text)
+            continue
         primary_axes.append(ax)
-        qubit_obj = qubit_dict.get(qubit["qubit"])
-        plot_individual_raw_data_with_fit(ax, ds, qubit, fits, qubit_obj)
+        plot_individual_raw_data_with_fit(ax, ds, qubit, fits, qubit_dict.get(qubit["qubit"]))
 
     # Create a single global legend for the entire figure
-    # Collect handles and labels from primary axes only (twin axes share the same handles)
     handles, labels = [], []
     seen_labels = set()
     
-    # Collect from the first primary axis (all should have the same legend elements)
     if primary_axes:
         h, l = primary_axes[0].get_legend_handles_labels()
-        # Filter out empty labels and add unique ones
         for handle, label in zip(h, l):
             if label and label not in seen_labels:
                 handles.append(handle)
                 labels.append(label)
                 seen_labels.add(label)
     
-    # If we have handles, create a figure-level legend at the bottom
-    if handles:
-        grid.fig.legend(handles, labels, loc='lower center', bbox_to_anchor=(0.5, -0.02), ncol=min(len(handles), 5), frameon=True)
+    # Add color scale indicators and excluded qubit marker
+    handles.append(Patch(facecolor='#fde725', edgecolor='#fde725'))
+    labels.append('high')
+    handles.append(Patch(facecolor='#440154', edgecolor='#440154'))
+    labels.append('low')
+    if excluded_qubits:
+        handles.append(Line2D([0], [0], color='green', marker='x', linestyle='', markersize=6, markeredgewidth=2))
+        labels.append('Excluded: qubit set outside sweetspot')
+    
+    grid.fig.legend(handles, labels, loc='lower center', bbox_to_anchor=(0.5, -0.02), 
+                    ncol=min(len(handles), 7), frameon=True, fontsize=12)
 
     grid.fig.suptitle("Qubit spectroscopy vs flux")
-    grid.fig.set_size_inches(15, 18)  # Doubled height from 9 to 18
-    # Adjust layout to make room for the legend at the bottom
+    grid.fig.set_size_inches(15, 18)
     grid.fig.tight_layout(rect=[0, 0.05, 1, 0.98])
     return grid.fig
 
@@ -213,38 +283,42 @@ def plot_individual_raw_data_with_fit(ax: Axes, ds: xr.Dataset, qubit: dict[str,
                     peak_freq_GHz = (peak_freq_filtered + freq_ref) / 1e9
                     peak_freq_GHz.plot(ax=ax, x="flux_bias", ls="", marker=".", color="magenta", ms=16, label="peaks (filtered)")
         
-        # Plot idle offset line and sweet spot
+        # Plot idle offset line and sweet spot (only if within ±0.5 V to avoid messing up scale)
         idle_offset_plotted = False
+        flux_limit = 0.5  # V - don't show vertical lines outside this range
         
         if idle_offset_val is not None and not np.isnan(idle_offset_val):
             flux_shift = float(idle_offset_val)
             
-            # Plot sweet spot marker if freq_shift is available
-            if success:
-                freq_shift_val = _get_qubit_value(fit, qubit_name, "freq_shift")
-                if freq_shift_val is not None and not np.isnan(freq_shift_val):
-                    freq_shift_GHz = (freq_shift_val + freq_ref) / 1e9
-                    ax.plot(flux_shift, freq_shift_GHz, "r*", markersize=10, label="sweet spot")
+            # Only plot if within ±0.5 V
+            if abs(flux_shift) <= flux_limit:
+                # Plot sweet spot marker if freq_shift is available
+                if success:
+                    freq_shift_val = _get_qubit_value(fit, qubit_name, "freq_shift")
+                    if freq_shift_val is not None and not np.isnan(freq_shift_val):
+                        freq_shift_GHz = (freq_shift_val + freq_ref) / 1e9
+                        ax.plot(flux_shift, freq_shift_GHz, "r*", markersize=10, label="sweet spot")
+                
+                # Plot idle offset vertical line
+                ax.axvline(flux_shift, linestyle="-", linewidth=4, color="r", alpha=0.5, label="idle offset")
+                idle_offset_plotted = True
             
-            # Plot idle offset vertical line
-            ax.axvline(flux_shift, linestyle="-", linewidth=4, color="r", alpha=0.5, label="idle offset")
-            idle_offset_plotted = True
-            
-            # Plot target offset line if applicable
+            # Plot target offset line if applicable (only if within ±0.5 V)
             if (qubit_obj is not None and hasattr(qubit_obj, 'xy') and 
                 hasattr(qubit_obj.xy, 'target_detuning_from_sweet_spot')):
                 target_detuning = qubit_obj.xy.target_detuning_from_sweet_spot
                 if abs(target_detuning) > 1e-6 and target_offset_val is not None and not np.isnan(target_offset_val):
-                    ax.axvline(float(target_offset_val), linestyle="-", linewidth=4, 
-                              color="orange", label="target offset", alpha=0.7)
-                    target_offset_plotted = True
+                    if abs(float(target_offset_val)) <= flux_limit:
+                        ax.axvline(float(target_offset_val), linestyle="-", linewidth=4, 
+                                  color="orange", label="target offset", alpha=0.7)
+                        target_offset_plotted = True
         
-        # Extend plot limits if offset lines are outside original range
+        # Extend plot limits if offset lines are outside original range (only for offsets within ±0.5 V)
         xmin, xmax = original_flux_min, original_flux_max
         offset_values = []
-        if idle_offset_val is not None and not np.isnan(idle_offset_val):
+        if idle_offset_val is not None and not np.isnan(idle_offset_val) and abs(float(idle_offset_val)) <= flux_limit:
             offset_values.append(float(idle_offset_val))
-        if target_offset_val is not None and not np.isnan(target_offset_val):
+        if target_offset_val is not None and not np.isnan(target_offset_val) and abs(float(target_offset_val)) <= flux_limit:
             offset_values.append(float(target_offset_val))
         
         if offset_values:
@@ -305,4 +379,13 @@ def plot_individual_raw_data_with_fit(ax: Axes, ds: xr.Dataset, qubit: dict[str,
     ax.set_xlabel("Flux (V)")
     ax.set_ylabel("Freq (GHz)")
     # Don't show individual legends - a global legend will be created at the figure level
+    
+    # Add red X marker in top-right corner if fit failed
+    if fit is not None:
+        qubit_name = qubit["qubit"]
+        success = bool(_get_qubit_value(fit, qubit_name, "success") or False) if "success" in fit.coords else False
+        if not success:
+            ax.text(0.95, 0.95, "✗", transform=ax.transAxes, fontsize=24, 
+                   color='red', fontweight='bold', ha='right', va='top', zorder=10)
+    
     return target_offset_plotted

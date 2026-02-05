@@ -2,6 +2,7 @@ from typing import List
 import xarray as xr
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
+from matplotlib.lines import Line2D
 
 from qualang_tools.units import unit
 from qualibration_libs.plotting import QubitGrid, grid_iter
@@ -43,6 +44,9 @@ def plot_raw_data_with_fit(ds: xr.Dataset, qubits: List[AnyTransmon], fits: xr.D
 
     grid.fig.suptitle("Power Rabi")
     grid.fig.set_size_inches(15, 9)
+    # Add a single legend for the whole figure
+    legend_elements = [Line2D([0], [0], color="r", linestyle="--", label="Optimal amplitude")]
+    grid.fig.legend(handles=legend_elements, loc="upper right")
     grid.fig.tight_layout()
     return grid.fig
 
@@ -88,12 +92,23 @@ def plot_individual_data_with_fit_1D(ax: Axes, ds: xr.Dataset, qubit: dict[str, 
         else:
             raise RuntimeError("The dataset must contain either 'I' or 'state' for the plotting function to work.")
 
-        (ds.assign_coords(amp_mV=ds.full_amp * 1e3).loc[qubit] * 1e3)[data].plot(ax=ax, x="amp_mV")
-        ax.plot(fit.full_amp * 1e3, 1e3 * fitted_data)
+        (ds.assign_coords(amp_mV=ds.full_amp * 1e3).loc[qubit] * 1e3)[data].plot(
+            ax=ax, x="amp_mV", marker="o", linestyle="", markersize=1.5
+        )
+        ax.plot(fit.full_amp * 1e3, 1e3 * fitted_data, zorder=10)
         ax.set_ylabel(label)
         ax.set_xlabel("Pulse amplitude [mV]")
+        if fit.success:
+            ax.axvline(
+                x=fit.opt_amp * 1e3,
+                color="r",
+                linestyle="--",
+                zorder=11,
+            )
         ax2 = ax.twiny()
-        (ds.assign_coords(amp_mV=ds.amp_prefactor).loc[qubit] * 1e3)[data].plot(ax=ax2, x="amp_mV")
+        (ds.assign_coords(amp_mV=ds.amp_prefactor).loc[qubit] * 1e3)[data].plot(
+            ax=ax2, x="amp_mV", zorder=1, marker="o", linestyle="", markersize=1.5, alpha=0
+        )
         ax2.set_xlabel("amplitude prefactor")
 
 
@@ -134,8 +149,8 @@ def plot_individual_data_with_fit_2D(ax: Axes, ds: xr.Dataset, qubit: dict[str, 
     )
     ax2.set_xlabel("amplitude prefactor")
     if fit.success:
-        ax2.axvline(
-            x=fit.opt_amp_prefactor,
-            color="g",
-            linestyle="-",
+        ax.axvline(
+            x=fit.opt_amp * 1e3,
+            color="r",
+            linestyle="--",
         )

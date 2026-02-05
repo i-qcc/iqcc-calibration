@@ -12,7 +12,7 @@ from qualang_tools.results import progress_counter
 from qualang_tools.units import unit
 
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode
-from iqcc_calibration_tools.quam_config.components.quam_root import Quam
+from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
 from calibration_utils.iq_blobs import (
     Parameters,
     process_raw_dataset,

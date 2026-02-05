@@ -34,7 +34,7 @@ Outcomes:
 
 # %% {Imports}
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
-from iqcc_calibration_tools.quam_config.components import Quam
+from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
 from iqcc_calibration_tools.quam_config.macros import active_reset, readout_state, readout_state_gef, active_reset_gef
 from iqcc_calibration_tools.analysis.plot_utils import QubitPairGrid, grid_iter, grid_pair_names
 from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset, save_node
@@ -132,12 +132,12 @@ with program() as CPhase_Oscillations:
     
     if flux_point == "joint":
         # Bring the active qubits to the desired frequency point
-        machine.set_all_fluxes(flux_point=flux_point, target=qubit_triplets[0].qubit_A)
+        machine.initialize_qpu(flux_point=flux_point, target=qubit_triplets[0].qubit_A)
     
     for i, qubit_triplet in enumerate(qubit_triplets):
         # Bring the active qubits to the minimum frequency point
         if flux_point != "joint":
-            machine.set_all_fluxes(flux_point=flux_point, target=qubit_triplet.qubit_A)
+            machine.initialize_qpu(flux_point=flux_point, target=qubit_triplet.qubit_A)
         align()
         
         with for_(n, 0, n < n_shots, n + 1):

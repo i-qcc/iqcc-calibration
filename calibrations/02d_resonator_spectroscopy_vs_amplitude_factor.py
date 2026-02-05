@@ -22,9 +22,9 @@ Before proceeding to the next node:
 
 
 # %% {Imports}
-from datetime import datetime, timezone, timedelta
+
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
-from iqcc_calibration_tools.quam_config.components import Quam
+from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
 from iqcc_calibration_tools.analysis.fit_utils import fit_resonator
 from iqcc_calibration_tools.quam_config.macros import qua_declaration
 from iqcc_calibration_tools.quam_config.lib.qua_datasets import convert_IQ_to_V, subtract_slope, apply_angle
@@ -117,13 +117,13 @@ with program() as multi_res_spec_vs_amp:
 
     if flux_point == "joint":
         # Bring the active qubits to the desired frequency point
-        machine.set_all_fluxes(flux_point=flux_point, target=qubits[0])
+        machine.initialize_qpu(flux_point=flux_point, target=qubits[0])
         
     for i, qubit in enumerate(qubits):
 
         # Bring the active qubits to the desired frequency point
         if flux_point != "joint":
-            machine.set_all_fluxes(flux_point=flux_point, target=qubit)
+            machine.initialize_qpu(flux_point=flux_point, target=qubit)
         
         # resonator of this qubit
         rr = qubit.resonator
@@ -173,7 +173,7 @@ if node.parameters.simulate:
     node.save()
 
 elif node.parameters.load_data_id is None:
-    date_time = datetime.now(timezone(timedelta(hours=3))).strftime("%Y-%m-%d %H:%M:%S")
+    
     with qm_session(qmm, config, timeout=node.parameters.timeout) as qm:
         job = qm.execute(multi_res_spec_vs_amp)
         results = fetching_tool(job, ["n"], mode="live")

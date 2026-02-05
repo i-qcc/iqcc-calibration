@@ -10,7 +10,7 @@ from qualang_tools.units import unit
 from qualang_tools.results import progress_counter
 
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode
-from iqcc_calibration_tools.quam_config.components.quam_root import Quam
+from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
 from qualibration_libs.data import XarrayDataFetcher
 from qualibration_libs.parameters import get_qubits, get_idle_times_in_clock_cycles
 from qualibration_libs.runtime import simulate_and_plot

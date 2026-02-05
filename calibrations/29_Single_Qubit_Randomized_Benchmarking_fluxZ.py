@@ -26,7 +26,7 @@ The gates are chosen based on : https://doi.org/10.1103/PhysRevX.9.021011
 
 # %% {Imports}
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
-from iqcc_calibration_tools.quam_config.components import Quam, Transmon
+from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam, Transmon
 from iqcc_calibration_tools.quam_config.macros import qua_declaration, active_reset, readout_state
 from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
 from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset
@@ -315,7 +315,7 @@ with program() as randomized_benchmarking_sequential:
 
     if flux_point == "joint":
         # Bring the active qubits to the desired frequency point
-        machine.set_all_fluxes(flux_point=flux_point, target=qubits[0])
+        machine.initialize_qpu(flux_point=flux_point, target=qubits[0])
     
     for i, qubit in enumerate(qubits):
 
@@ -323,7 +323,7 @@ with program() as randomized_benchmarking_sequential:
 
         # Bring the active qubits to the desired frequency point
         if flux_point != "joint":
-            machine.set_all_fluxes(flux_point=flux_point, target=qubit)
+            machine.initialize_qpu(flux_point=flux_point, target=qubit)
 
         # QUA for_ loop over the random sequences
         with for_(m, 0, m < num_of_sequences, m + 1):
@@ -390,13 +390,13 @@ with program() as randomized_benchmarking_multiplexed:
 
     if flux_point == "joint":
         # Bring the active qubits to the desired frequency point
-        machine.set_all_fluxes(flux_point=flux_point, target=qubits[0])
+        machine.initialize_qpu(flux_point=flux_point, target=qubits[0])
     
     for i, qubit in enumerate(qubits):
 
         # Bring the active qubits to the desired frequency point
         if flux_point != "joint":
-            machine.set_all_fluxes(flux_point=flux_point, target=qubit)
+            machine.initialize_qpu(flux_point=flux_point, target=qubit)
 
     # QUA for_ loop over the random sequences
     with for_(m, 0, m < num_of_sequences, m + 1):

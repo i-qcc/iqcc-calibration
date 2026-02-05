@@ -19,7 +19,7 @@ Next steps before going to the next node:
 
 # %% {Imports}
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
-from iqcc_calibration_tools.quam_config.components import Quam
+from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
 from iqcc_calibration_tools.quam_config.macros import qua_declaration, active_reset
 from iqcc_calibration_tools.quam_config.lib.instrument_limits import instrument_limits
 from iqcc_calibration_tools.quam_config.lib.qua_datasets import convert_IQ_to_V
@@ -113,12 +113,12 @@ with program() as power_rabi:
 
     if node.parameters.multiplexed:
         for i , qubit in enumerate(qubits):
-            machine.set_all_fluxes(flux_point=flux_point, target=qubit)
+            machine.initialize_qpu(flux_point=flux_point, target=qubit)
 
     for i, qubit in enumerate(qubits):
         if not node.parameters.multiplexed:
             # Bring the active qubits to the desired frequency point
-            machine.set_all_fluxes(flux_point=flux_point, target=qubit)
+            machine.initialize_qpu(flux_point=flux_point, target=qubit)
 
         with for_(shots[i], 0, shots[i] < n_avg, shots[i] + 1):
             save(shots[i], n_st)

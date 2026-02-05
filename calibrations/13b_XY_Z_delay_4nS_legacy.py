@@ -4,7 +4,7 @@
 """
 
 import numpy as np
-from datetime import datetime, timezone, timedelta
+
 from qualang_tools.multi_user import qm_session
 from qualang_tools.results import fetching_tool, progress_counter
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
@@ -12,7 +12,7 @@ from typing import Optional, Literal, List
 from qm.qua import *
 from qm import SimulationConfig
 from qualang_tools.units import unit
-from iqcc_calibration_tools.quam_config.components import Quam
+from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
 from iqcc_calibration_tools.quam_config.macros import qua_declaration, active_reset, readout_state
 import matplotlib.pyplot as plt
 from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
@@ -32,7 +32,7 @@ class Parameters(NodeParameters):
 
 
 node = QualibrationNode(
-    name="14b_XY_Z_delay_4nS",
+    name="14b_XY_Z_delay_4nS_legacy",
     parameters=Parameters()
 )
 
@@ -82,12 +82,12 @@ with program() as xy_z_delay_calibration:
 
     if flux_point == "joint":
         # Bring the active qubits to the desired frequency point
-        machine.set_all_fluxes(flux_point=flux_point, target=qubits[0])
+        machine.initialize_qpu(flux_point=flux_point, target=qubits[0])
     
     for i, qubit in enumerate(qubits):
         # Bring the active qubits to the minimum frequency point
         if flux_point != "joint":
-            machine.set_all_fluxes(flux_point=flux_point, target=qubit)
+            machine.initialize_qpu(flux_point=flux_point, target=qubit)
 
         align()
 
@@ -147,7 +147,7 @@ if simulate:
     node.save()
     quit()
 else:
-    date_time = datetime.now(timezone(timedelta(hours=3))).strftime("%Y-%m-%d %H:%M:%S")
+    
     with qm_session(qmm, config, timeout=node.parameters.timeout) as qm:
         job = qm.execute(xy_z_delay_calibration)
         results = fetching_tool(job, ["n"], mode="live")

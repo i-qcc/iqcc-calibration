@@ -32,9 +32,9 @@ Outcomes:
 """
 
 # %% {Imports}
-from datetime import datetime, timezone, timedelta
+
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
-from iqcc_calibration_tools.quam_config.components import Quam
+from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
 from iqcc_calibration_tools.quam_config.macros import active_reset, readout_state
 from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset
 from qualang_tools.results import progress_counter, fetching_tool
@@ -352,7 +352,7 @@ if node.parameters.simulate:
     node.machine = machine
     node.save()
 elif node.parameters.load_data_id is None:
-    date_time = datetime.now(timezone(timedelta(hours=3))).strftime("%Y-%m-%d %H:%M:%S")
+    
     with qm_session(qmm, config, timeout=node.parameters.timeout ) as qm:
         job = qm.execute(ConfusionMatrixNQ)
 
@@ -454,7 +454,7 @@ if not node.parameters.simulate:
                     ax.text(j, i, f"{100 * conf[i][j]:.1f}%", ha="center", va="center", color="w", fontsize=text_fontsize)
         ax.set_ylabel('prepared')
         ax.set_xlabel('measured')
-        ax.set_title(f"Confusion matrix {qg.name} ({num_qubits}Q) \n {node.date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type}")
+        ax.set_title(f"Confusion matrix {qg.name} ({num_qubits}Q) \n {node.date_time} GMT+{node.time_zone} #{node.node_id} \n reset type = {node.parameters.reset_type}")
     fig_confusion.tight_layout()
     fig_confusion.show()
     node.results["figure_confusion"] = fig_confusion
@@ -473,7 +473,7 @@ if not node.parameters.simulate:
                     ax.text(j, i, f"{100 * conf[i][j]:.1f}%", ha="center", va="center", color="w", fontsize=text_fontsize)
         ax.set_ylabel('prepared')
         ax.set_xlabel('measured')
-        ax.set_title(f"Kronecker Confusion matrix {qg.name} ({num_qubits}Q) \n {node.date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type}")
+        ax.set_title(f"Kronecker Confusion matrix {qg.name} ({num_qubits}Q) \n {node.date_time} GMT+{node.time_zone} #{node.node_id} \n reset type = {node.parameters.reset_type}")
     fig_kron.tight_layout()
     fig_kron.show()
     node.results["figure_kron"] = fig_kron
@@ -492,7 +492,7 @@ if not node.parameters.simulate:
                     ax.text(j, i, f"{100 * val:.1f}%", ha="center", va="center", color="k" if abs(val) < 0.5 * max_abs else "w", fontsize=text_fontsize)
         ax.set_ylabel('prepared')
         ax.set_xlabel('measured')
-        ax.set_title(f"Difference (Direct - Kron) {qg.name} ({num_qubits}Q) \n {node.date_time} GMT+3 #{node.node_id} \n reset type = {node.parameters.reset_type}")
+        ax.set_title(f"Difference (Direct - Kron) {qg.name} ({num_qubits}Q) \n {node.date_time} GMT+{node.time_zone} #{node.node_id} \n reset type = {node.parameters.reset_type}")
     fig_diff.tight_layout()
     fig_diff.show()
     node.results["figure_diff"] = fig_diff

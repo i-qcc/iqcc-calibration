@@ -7,7 +7,7 @@ The cryoscope protocol is used to characterize and analyze the flux distortion a
 (typically less than 100 ns).
 """
 
-from datetime import datetime, timezone, timedelta
+
 from qm import QuantumMachinesManager
 from qm.qua import *
 from qm import SimulationConfig
@@ -17,7 +17,7 @@ from qualang_tools.multi_user import qm_session
 from iqcc_calibration_tools.quam_config.macros import qua_declaration, active_reset, active_reset_simple
 import numpy as np
 from qualang_tools.units import unit
-from iqcc_calibration_tools.quam_config.components.quam_root import Quam
+from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
 from qualang_tools.bakery import baking
 from qualang_tools.loops import from_array
 from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
@@ -140,7 +140,7 @@ with program() as cryoscope:
     i = 0
     
     # Bring the active qubits to the desired frequency point
-    machine.set_all_fluxes(flux_point=flux_point, target=qubit)
+    machine.initialize_qpu(flux_point=flux_point, target=qubit)
 
     # Outer loop for averaging
     with for_(n, 0, n < n_avg, n + 1):
@@ -253,8 +253,7 @@ if node.parameters.simulate:
     plt.show()
 
 elif node.parameters.load_data_id is None:
-    date_time = datetime.now(timezone(timedelta(hours=3))).strftime("%Y-%m-%d %H:%M:%S")
-    with qm_session(qmm, config, timeout=node.parameters.timeout) as qm:
+    with qm_session(qmm, config, timeout=node.parameters.timeout ) as qm:
         job = qm.execute(cryoscope)
         data_list = ["iteration"]
         results = fetching_tool(job, data_list, mode="live")
