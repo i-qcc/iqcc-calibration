@@ -60,10 +60,10 @@ class Parameters(NodeParameters):
     num_averages: int =30
     frequency_span_in_mhz: float = 4
     frequency_step_in_mhz: float = 0.1
-    amp_min: float =  0.2
-    amp_max: float =  0.5
+    amp_min: float =  0.3
+    amp_max: float =  0.7
     points : int = 40    
-    p_frequency_span_in_mhz: float = 60
+    p_frequency_span_in_mhz: float = 130
     p_frequency_step_in_mhz: float =0.5
     simulate: bool = False
     simulation_duration_ns: int = 4000
@@ -269,6 +269,33 @@ maxDSNR_point={'fp':np.round((p_lo+p_if+pumpATmaxDSNR[0][0]),3),
                  'Pp': pumpline_attenuation+opxoutput(full_scale_power_dbm,pumpATmaxDSNR[0][1]),
                  'Pamp': np.round(pumpATmaxDSNR[0][1],3)}
 node.results["maxDSNR point"] = maxDSNR_point
+# %% ############################{Average optimum}##################################
+plt.plot(figzise=(4,3))
+mingain=16
+mindsnr=10
+avg_optimized_pump=optimizer(mingain, mindsnr,  Gain, dsnr,  average_dsnr, dfps, daps, p_lo,p_if)
+avg_qubit_results = {}
+for i in range(len(qubits)):
+    qubit_dsnr = np.round(dsnr[i][avg_optimized_pump[0]][avg_optimized_pump[1]][0], 2)
+    qubit_gain = np.round(Gain[i][avg_optimized_pump[0]][avg_optimized_pump[1]][0], 2)
+    print(f"{qubits[i].id}:dSNR:{qubit_dsnr}dB, gain:{qubit_gain}dB")
+    avg_qubit_results[qubits[i].id] = {
+        "dsnr": float(qubit_dsnr),
+        "gain": float(qubit_gain)
+    }
+plt.scatter(average_gain, average_dsnr, s=4)
+plt.scatter(average_gain[avg_optimized_pump],  average_dsnr[avg_optimized_pump], s=10, color='red', label='Average Optimum')
+plt.title(f'{node.add_node_info_subtitle()},{twpas[0].id}\n Average Gain & dSNR \n @ Average Optimum pumping point', fontsize=20)
+plt.legend(loc='upper left',fontsize=15,framealpha=0.4)#, bbox_to_anchor=(1, 1))
+plt.xlabel('Average Gain', fontsize=20)
+plt.ylabel('Average dSNR', fontsize=20)
+plt.xlim(0,np.max(average_gain)+1)
+plt.ylim(0,np.max(average_dsnr)+1)
+plt.axvline(mingain, color='red', linestyle='--', linewidth=1)
+plt.axhline(mindsnr, color='red', linestyle='--', linewidth=1)
+plt.tight_layout()
+window=plt.gcf()
+plt.show()
 # %% {Plotting}
 time_sec = 1e-9 * 12 * n_avg * len(daps) * len(dfps) * len(dfs) * (
     machine.qubits[twpas[0].qubits[0]].resonator.operations["readout"].length +
@@ -294,6 +321,7 @@ for i, ax in enumerate(axes):
         ax.plot(RF_freq[i]*1e-9, ds.IQ_abs_signal.values[i][0][0], label='pumpoff',color='black') #[0][0] arbitrary n_avg number of averaged S21 data
         ax.plot(RF_freq[i]*1e-9,ds_.IQ_abs_signal.values[i][pumpATmaxG[1][0]][pumpATmaxG[1][1]], label='pump @ max avg G',color='red')
         ax.plot(RF_freq[i]*1e-9, ds_.IQ_abs_signal.values[i][pumpATmaxDSNR[1][0]][pumpATmaxDSNR[1][1]], label='pump @ max avg Dsnr',color='blue')
+        ax.plot(RF_freq[i]*1e-9, ds_.IQ_abs_signal.values[i][avg_optimized_pump[0]][avg_optimized_pump[1]], label='pump @ avg optimized',color='green')
         ax.set_title(f'{qubits[i].name} Signal S21 \n {date_time}', fontsize=14)
         ax.set_xlabel('Res.freq [GHz]', fontsize=12)
         ax.set_ylabel('Trans.amp. [mV]', fontsize=12)
@@ -311,6 +339,7 @@ for i, ax in enumerate(axes):
         ax.plot(RF_freq[i]*1e-9, ds.IQ_abs_noise.values[i][0][0], label='pumpoff',color='black') #[0][0] arbitrary n_avg number of averaged S21 data
         ax.plot(RF_freq[i]*1e-9,ds_.IQ_abs_noise.values[i][pumpATmaxG[1][0]][pumpATmaxG[1][1]], label='pump @ maxG',color='red')
         ax.plot(RF_freq[i]*1e-9, ds_.IQ_abs_noise.values[i][pumpATmaxDSNR[1][0]][pumpATmaxDSNR[1][1]], label='pump @ maxDsnr',color='blue')
+        ax.plot(RF_freq[i]*1e-9, ds_.IQ_abs_noise.values[i][avg_optimized_pump[0]][avg_optimized_pump[1]], label='pump @ avg optimized',color='green')
         ax.set_title(f'{qubits[i].name}, Noise\n {date_time}', fontsize=14)
         ax.set_xlabel('Res.freq [GHz]', fontsize=12)
         ax.set_ylabel('Trans.amp. [mV]', fontsize=12)
@@ -323,7 +352,7 @@ n=plt.gcf()
 plt.show()
 
 ### ------------------------- avggain vs pump ----------------------------------------
-fig, axs = plt.subplots(1, 3, figsize=(12,5))
+fig, axs = plt.subplots(1, 2, figsize=(14,5))
 cmap = plt.cm.viridis.copy()
 cmap.set_under('gray')
 # Percentile-based vmax so a few high values don't flatten the colormap
@@ -336,7 +365,7 @@ axs[0].set_xticks(xtick_pos)
 axs[0].set_xticklabels(selected_powers,rotation=90)
 axs[0].set_yticks(ytick_pos)
 axs[0].set_yticklabels(selected_frequencies)
-axs[0].set_title(f'{twpas[0].id} pump vs Avg Gain \n {date_time}', fontsize=15)
+axs[0].set_title(f'{twpas[0].id} {date_time}\n pump vs Avg Gain', fontsize=15)
 axs[0].set_xlabel('pump power[dBm]', fontsize=20)
 axs[0].set_ylabel('pump frequency[GHz]', fontsize=20)
 cbar0 = fig.colorbar(im0, ax=axs[0])
@@ -350,49 +379,13 @@ axs[1].set_xticks(xtick_pos)
 axs[1].set_xticklabels(selected_powers,rotation=90)
 axs[1].set_yticks(ytick_pos)
 axs[1].set_yticklabels(selected_frequencies)
-axs[1].set_title(f'{twpas[0].id} pump vs Avg dSNR\n {date_time} ', fontsize=15)
+axs[1].set_title(f'{twpas[0].id}{date_time}\n pump vs Avg dSNR', fontsize=15)
 axs[1].set_xlabel('pump amplitude', fontsize=20)
 axs[1].set_ylabel('pump frequency[GHz]', fontsize=20)
 cbar1 = fig.colorbar(im1, ax=axs[1])
 cbar1.set_label('Avg dSNR [dB]', fontsize=14)
-# plot gain, dsnr : TWPA SPEC
-axs[2].scatter(average_gain, average_dsnr, s=4)
-axs[2].set_title('pump vs gain,dsnr', fontsize=20)
-axs[2].set_xlabel('Gain Average', fontsize=20)
-axs[2].set_ylabel('dSNR Average', fontsize=20)
-axs[2].set_xlim(0,np.max(average_gain)+1)
-axs[2].set_ylim(0,np.max(average_dsnr)+1)
-plt.tight_layout()
 map=plt.gcf()
 plt.show()
-# %% ############################{Average optimum}##################################
-plt.plot(figzise=(4,3))
-mingain=1
-mindsnr=0
-avg_optimized_pump=optimizer(mingain, mindsnr,  Gain, dsnr,  average_dsnr, dfps, daps, p_lo,p_if)
-avg_qubit_results = {}
-for i in range(len(qubits)):
-    qubit_dsnr = np.round(dsnr[i][avg_optimized_pump[0]][avg_optimized_pump[1]][0], 2)
-    qubit_gain = np.round(Gain[i][avg_optimized_pump[0]][avg_optimized_pump[1]][0], 2)
-    print(f"{qubits[i].id}:dSNR:{qubit_dsnr}dB, gain:{qubit_gain}dB")
-    avg_qubit_results[qubits[i].id] = {
-        "dsnr": float(qubit_dsnr),
-        "gain": float(qubit_gain)
-    }
-plt.scatter(average_gain, average_dsnr, s=4)
-plt.scatter(average_gain[avg_optimized_pump],  average_dsnr[avg_optimized_pump], s=10, color='red', label='Average Optimum')
-plt.title(f'{node.add_node_info_subtitle()},{twpas[0].id}\n Average Gain & dSNR \n @ Average Optimum pumping point', fontsize=20)
-plt.legend(loc='upper left',fontsize=15,framealpha=0.4)#, bbox_to_anchor=(1, 1))
-plt.xlabel('Average Gain', fontsize=20)
-plt.ylabel('Average dSNR', fontsize=20)
-plt.xlim(0,np.max(average_gain)+1)
-plt.ylim(0,np.max(average_dsnr)+1)
-plt.axvline(mingain, color='red', linestyle='--', linewidth=1)
-plt.axhline(mindsnr, color='red', linestyle='--', linewidth=1)
-plt.tight_layout()
-window=plt.gcf()
-plt.show()
-
 # %% {Update_state}
 # {readout pulse information}
 readout_power=[np.round(opxoutput(qubits[i].resonator.opx_output.full_scale_power_dbm,qubits[i].resonator.operations["readout"].amplitude)+signalline_attenuation,2) for i in range(len(qubits))]
