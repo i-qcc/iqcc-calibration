@@ -46,7 +46,7 @@ from iqcc_calibration_tools.quam_config.lib.qua_datasets import opxoutput
 
 # %% {Node_parameters}
 class Parameters(NodeParameters):
-    twpas: Optional[List[str]] = ['twpa1-3']
+    twpas: Optional[List[str]] = ['twpaA']
     num_averages: int = 100
     frequency_span_in_mhz: float = 600
     frequency_step_in_mhz: float = 1
@@ -57,15 +57,14 @@ class Parameters(NodeParameters):
     simulation_duration_ns: int = 4000
     timeout: int = 300
     load_data_id: Optional[int] = None
-node = QualibrationNode(name="00b_twpa_1_3_saturation", parameters=Parameters())
-date_time = datetime.now(timezone(timedelta(hours=2))).strftime("%Y-%m-%d %H:%M:%S")
-node.results["date"]={"date":date_time}
 # %% {Initialize_QuAM_and_QOP}
 # Class containing tools to help handling units and conversions.
 u = unit(coerce_to_integer=True)
 # Instantiate the QuAM class from the state file
 machine = Quam.load()
-
+node = QualibrationNode(name=f"00a_{Parameters().twpas[0]}_saturation_calibration", parameters=Parameters())
+date_time = datetime.now(timezone(timedelta(hours=2))).strftime("%Y-%m-%d %H:%M:%S")
+node.results["date"]={"date":date_time}
 # Get the relevant QuAM components
 twpas = [machine.twpas[t] for t in node.parameters.twpas]
 twpa_id=node.parameters.twpas[0]
@@ -135,7 +134,7 @@ with program() as twpa_pump_on:
 # TWPA on
     with for_(n, 0, n < n_avg, n + 1):  
         save(n, n_st)
-        update_frequency(twpas[0].pump.name, f_p+twpas[0].pump.intermediate_frequency)
+        update_frequency(twpas[0].pump_.name, f_p+twpas[0].pump_.intermediate_frequency)
         twpas[0].pump_.play('pump_', amplitude_scale=p_p, duration=pump_duration)#+250)
         wait(250) #1000/4 wait 1us for pump to settle before readout
         with for_each_(da, daps): 
@@ -212,7 +211,7 @@ for i in range(1,len(daps),8):
     plt.plot(fs,Gain[i], label=f'Ps={ps[i]}dBm')
 plt.xlabel('fs[GHz]')
 plt.ylabel('Gain[dB]')
-plt.title(f'Pamp={np.round(p_p,3)},fp={np.round((twpas[0].pump.LO_frequency+twpas[0].pump.intermediate_frequency+f_p)*1e-9,3)}GHz, Pp={np.round(pumpline_attenuation+opxoutput(full_scale_power_dbm,p_p),2)}dBm\n {date_time}\n{twpas[0].id}: Gain Compression')
+plt.title(f'Pamp={np.round(p_p,3)},fp={np.round((twpas[0].pump_.LO_frequency+twpas[0].pump_.intermediate_frequency+f_p)*1e-9,3)}GHz, Pp={np.round(pumpline_attenuation+opxoutput(full_scale_power_dbm,p_p),2)}dBm\n {twpas[0].id} {date_time}\n Gain Compression')
 plt.legend(loc='upper right', bbox_to_anchor=(1.55, 1))
 gain_profile=plt.gcf()
 # ps VS Gain / fs
@@ -220,7 +219,7 @@ plt.figure(figsize=(4,3))
 for i in range(0, Gain.shape[1], 88):   # take every 5th column
     plt.plot(ps, Gain[:, i], label=f'{np.round(fs[i]*1e-9,3)}GHz')
 # ps VS AvgGain(of all fs)
-plt.plot(ps, np.mean(linear_gain,axis=1),linewidth=3, color='red',label='Avg Gain')
+plt.plot(ps, 20*np.log10(np.mean(linear_gain,axis=1)),linewidth=3, color='red',label='Avg Gain')
 # get compression point
 avg_gain_of_all_fs=np.mean(linear_gain,axis=1)
 linear_gain_ = np.mean(avg_gain_of_all_fs[:10])
@@ -229,7 +228,7 @@ p1db = np.argmax(avg_gain_of_all_fs < gain_1db_compression)
 plt.scatter(ps[p1db], 20*np.log10(gain_1db_compression), label=f'P1dB={ps[p1db]}dBm', color='black', marker='x',s=35, zorder=10)
 plt.xlabel('Ps[dBm]')
 plt.ylabel('Gain[dB]')
-plt.title(f"Pamp={np.round(p_p,3)},fp={np.round((twpas[0].pump.LO_frequency+twpas[0].pump.intermediate_frequency+f_p)*1e-9,3)}GHz, Pp={np.round(pumpline_attenuation+opxoutput(full_scale_power_dbm,p_p),2)}dBm \n {date_time}\n{twpas[0].id}: Gain Compression")
+plt.title(f"Pamp={np.round(p_p,3)},fp={np.round((twpas[0].pump_.LO_frequency+twpas[0].pump_.intermediate_frequency+f_p)*1e-9,3)}GHz, Pp={np.round(pumpline_attenuation+opxoutput(full_scale_power_dbm,p_p),2)}dBm \n {twpas[0].id} {date_time}\n Gain Compression")
 plt.legend(loc='upper right', bbox_to_anchor=(1.45, 1), fontsize=7)
 gain_compression=plt.gcf()
 # %% {Update state}
@@ -238,7 +237,7 @@ qubits = [machine.qubits[machine.twpas[twpa_id].qubits[i]] for i in range(len(ma
 readout_power=[np.round(opxoutput(qubits[i].resonator.opx_output.full_scale_power_dbm,qubits[i].resonator.operations["readout"].amplitude)+signalline_attenuation,2) for i in range(len(qubits))]
 p1db = ps[p1db]
 node.results = {"p_saturation":p1db,
-                "fp":f_p+twpas[0].pump.intermediate_frequency+twpas[0].pump.LO_frequency,
+                "fp":f_p+twpas[0].pump_.intermediate_frequency+twpas[0].pump_.LO_frequency,
                  "pp":p_p }
 node.results["figures"]={"gain_profile": gain_profile,
                          "gain_compression": gain_compression}
