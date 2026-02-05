@@ -514,7 +514,12 @@ def invert_fir(
         d /= d.sum()  # unit DC gain
 
         # Build Toeplitz conv matrix H for causal conv(h, h_inv) truncated to M
-        H = build_toeplitz_matrix(h, M)[:M, :]
+        # If M > L, pad h with zeros to ensure the Toeplitz matrix has the right shape
+        if M > L:
+            h_padded = np.pad(h, (0, M - L), mode='constant', constant_values=0)
+        else:
+            h_padded = h
+        H = build_toeplitz_matrix(h_padded, M)[:M, :]
 
         # First-difference (Sobolev) smoothing
         D = np.eye(M, k=0) - np.eye(M, k=1)
@@ -531,17 +536,20 @@ def invert_fir(
                 h_inv /= gain
 
     elif method == 'analytical':
-        h_inv = np.zeros(L)
+        h_inv = np.zeros(M)
     
         # First condition
         h_inv[0] = 1 / h[0]
         
         # Recursive computation
-        for m in range(1, L):
+        for m in range(1, min(L, M)):
             s = 0
-            for i in range(1, m+1):
+            for i in range(1, min(m+1, L)):
                 s += h_inv[m-i] * h[i]
             h_inv[m] = -s / h[0]
+        
+        # If M > L, pad with zeros (or could extend recursively, but zeros are safer)
+        # The remaining taps (if M > L) will remain zero
     
     return h_inv
 
@@ -593,6 +601,8 @@ def analyze_and_plot_inverse_fir(
         The best FIR filter coefficients.
     h_inv : ndarray
         The inverse FIR filter coefficients.
+    best_reconstructed : ndarray
+        The reconstructed signal using the best FIR filter.
     fig_fir_fit : matplotlib.figure.Figure
         The figure object containing the FIR filter fit analysis and optimization plots.
     fig : matplotlib.figure.Figure
@@ -774,7 +784,7 @@ def analyze_and_plot_inverse_fir(
         print(f"  Inverse FIR (h_inv): {h_inv[:10]}..." if len(h_inv) > 10 else f"  Inverse FIR (h_inv): {h_inv}")
         print("="*70)
 
-    return best_h, h_inv, fig_fir_fit, fig
+    return best_h, h_inv, best_reconstructed, fig_fir_fit, fig
 
 
 # def estimate_fir_coefficients(convolved_signal, step_response, num_coefficients):

@@ -38,17 +38,17 @@ start = time.time()
 
 # %% {Node_parameters}
 class Parameters(NodeParameters):
-    qubits: Optional[List[str]] = None    
+    qubits: Optional[List[str]] = None  
     num_averages: int = 2500
     frequency_offset_in_mhz: float = 800
     cryoscope_len: int = 64
     only_baked_waveforms: bool = True
     num_frames: int = 17
-    reset_type_active_or_thermal: Literal['active', 'thermal', 'simple'] = 'active'
+    reset_type_active_or_thermal: Literal['active', 'thermal'] = 'active'
     flux_point_joint_or_independent: Literal['joint', 'independent'] = "joint"
     simulate: bool = False
     timeout: int = 100
-    only_FIR: bool = True
+    iir_or_fir: Literal['iir', 'fir'] = 'fir'
     num_forward_firs_values: List[int] = [16, 20, 24, 28, 32, 40, 48]
     lam1_values: List[float] = [1e-5, 1e-4, 1e-3, 1e-2, 1e-1]
     lam2_values: List[float] = [1e-5, 1e-4, 1e-3, 1e-2, 1e-1]
@@ -96,7 +96,7 @@ def baked_waveform(waveform_amp, qubit, cryoscope_baking_len):
     # Create the different baked sequences, each one corresponding to a different truncated duration
     waveform = [waveform_amp] * cryoscope_baking_len
 
-    for i in range(0, cryoscope_baking_len):  # from first item up to pulse_duration (16)
+    for i in range(0, cryoscope_baking_len):  # from first item up to pulse_duration or 16ns
         with baking(config, padding_method="left") as b:
             wf = waveform[:i]
             b.add_op("flux_pulse", qubit.z.name, wf)
@@ -357,16 +357,14 @@ if not node.parameters.simulate:
     plt.title(f'flux vs time \n {node.date_time} GMT+{node.time_zone} #{node.node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
     plt.show()
 
-
+    da = ds.flux.sel(qubit = qubit.name)
 # %% {data analysis - Calculate exponential filter}
 
-da = ds.flux.sel(qubit = qubit.name)
-
-if not node.parameters.simulate and not node.parameters.only_FIR: # exponential fit is only done when only_FIR is False
+if not node.parameters.simulate and node.parameters.iir_or_fir == 'iir': 
     # extract the rising part of the data for analysis
     first_vals = da.sel(time=slice(0, 1)).mean().values
     final_vals = da.isel(time=slice(-20, None)).mean().values
-    exponential_fit_time_interval = [1, node.parameters.cryoscope_len-1]
+    exponential_fit_time_interval = [2, node.parameters.cryoscope_len-1]
     # Get indices corresponding to the exponential_fit_time_interval 
     time_slice = da.time.sel(time=slice(*exponential_fit_time_interval))
     start_index, end_index = time_slice.time.values[0], time_slice.time.values[-1]
@@ -408,7 +406,7 @@ if not node.parameters.simulate and not node.parameters.only_FIR: # exponential 
 
     from qualang_tools.digital_filters import calc_filter_taps
 
-    exponential_filter = list(zip([fit[1]*1.0],[fit[2]]))
+    exponential_filter = list(zip([np.round(fit[1], 6)],[np.round(fit[2], 6)]))
     feedforward_taps_1exp, feedback_tap_1exp = calc_filter_taps(exponential=exponential_filter)
 
     FIR_1exp = feedforward_taps_1exp
@@ -417,57 +415,73 @@ if not node.parameters.simulate and not node.parameters.only_FIR: # exponential 
 
     f,ax = plt.subplots()
     ax.plot(da.time, da, label = 'data')
-    ax.plot(da.time, filtered_response_long_1exp, label = 'filtered long time 1exp')
+    ax.plot(da.time, filtered_response_long_1exp, label = 'expected filtered response')
     ax.legend()
     ax.set_xlabel('time (ns)')
     ax.set_ylabel('flux')
     ax.set_title(f'Filtered Response - {qubit.name} \n {node.date_time} GMT+{node.time_zone} #{node.node_id} \n reset type = {node.parameters.reset_type_active_or_thermal}')
-    plt.show()
     node.results['exponential_fit_figure'] = plt.gcf()
+    plt.show()
 
 # %% {data analysis - Calculate FIR filter}
-if not node.parameters.simulate:
+if not node.parameters.simulate and node.parameters.iir_or_fir == 'fir':
     print('\033[1m\033[32m CALCULATE FILTERED RESPONSE USING FIR FILTER \033[0m')
     
-    if not node.parameters.only_FIR:
-        response_raw = filtered_response_long_1exp
-    else:
-        response_raw = da.values
+    # Check if there's an existing filter to preserve its length
+    existing_filter_length = None
     
-    normalized_response_raw = response_raw / response_raw[-10:].mean()
+    if qubit.z.opx_output.feedforward_filter is not None:
+        existing_filter_length = len(qubit.z.opx_output.feedforward_filter)
+        print(f"Found existing FIR filter with length {existing_filter_length}. Will preserve this length.")
+    
+    normalized_response_raw = da.values / da.values[-10:].mean()
     normalized_response_2gsps = resample_to_target_rate(normalized_response_raw, 1, 0.5)
     time_2gsps = np.arange(len(normalized_response_2gsps)) * 0.5 + 0.5
-    h_fir, inv_fir, fig_fir_fit, fig_inv_fir_fit = analyze_and_plot_inverse_fir(
+    h_fir, inv_fir, best_reconstructed_response, fig_fir_fit, fig_inv_fir_fit = analyze_and_plot_inverse_fir(
         response=normalized_response_2gsps,
         time=time_2gsps,
         Ts=0.5,
         L_values=node.parameters.num_forward_firs_values,
         lam1_values=node.parameters.lam1_values,
         lam2_values=node.parameters.lam2_values,
+        M=existing_filter_length,  # Preserve existing filter length if present
         sigma_ns=node.parameters.sigma_ns,
         lam_smooth=node.parameters.lam_smooth,
         method=node.parameters.method,
         verbose=True
         ) 
-    ideal_response = np.ones(len(response_raw))
+    ideal_response = np.ones(len(da.values))
     predistorted_response = lfilter(inv_fir, 1, ideal_response)
     corrected_response = lfilter(h_fir, 1, predistorted_response)
     node.results['figure5'] = fig_fir_fit
     node.results['figure6'] = fig_inv_fir_fit
-    
-    node.results['fit_results'] = {}
-    for q in qubits:
-        node.results['fit_results'][q.name] = {}
+
+# %% {save fit results}
+node.results['fit_results'] = {}
+for q in qubits:
+    node.results['fit_results'][q.name] = {}
+    if node.parameters.iir_or_fir == 'fir':
         node.results['fit_results'][q.name]['inverse_fir'] = inv_fir.tolist()
         node.results['fit_results'][q.name]['forward_fir'] = h_fir.tolist()
-        node.results['fit_results'][q.name]['corrected_response'] = corrected_response
+        node.results['fit_results'][q.name]['corrected_response'] = corrected_response.tolist()
+        node.results['fit_results'][q.name]['best_reconstructed_response'] = best_reconstructed_response.tolist()
+    elif node.parameters.iir_or_fir == 'iir':
+        node.results['fit_results'][q.name]['filtered_response_1exp'] = filtered_response_long_1exp.tolist()
+        node.results['fit_results'][q.name]['exponential_filter'] = exponential_filter
+    else:
+        raise ValueError(f"Invalid value for iir_or_fir: {node.parameters.iir_or_fir}")
 
 # %% {plot final results}
 if not node.parameters.simulate:
     print('\033[1m\033[32m PLOT FINAL RESULTS \033[0m')
     fig, ax = plt.subplots()
-    ax.plot(ds.time, normalized_response_raw, label = 'data')
-    ax.plot(ds.time, corrected_response / corrected_response[-10:].mean(), '--', label = 'expected corrected response')
+    ax.plot(ds.time, da.values / da.values[-10:].mean(), label = 'data')
+    if node.parameters.iir_or_fir == 'iir':
+        ax.plot(ds.time, filtered_response_long_1exp / filtered_response_long_1exp[-10:].mean(), '--', label = 'predicted corrected response')
+    elif node.parameters.iir_or_fir == 'fir':
+        ax.plot(ds.time, corrected_response / corrected_response[-10:].mean(), '--', label = 'predicted corrected response')
+    else:
+        raise ValueError(f"Invalid value for iir_or_fir: {node.parameters.iir_or_fir}")
     ax.axhline(1.001, color = 'k')
     ax.axhline(0.999, color = 'k')
     ax.set_ylim([0.95, 1.05])
@@ -481,16 +495,21 @@ if not node.parameters.simulate:
 if not node.parameters.simulate:
     with node.record_state_updates():
         for qubit in qubits:
-            #check if the filter is already set
-            if qubit.z.opx_output.feedforward_filter is None:
-                fir_list = inv_fir.tolist()
-            else:
-                inv_fir_old = qubit.z.opx_output.feedforward_filter
-                fir_list = conv_causal(inv_fir, inv_fir_old).tolist()
+            if node.parameters.iir_or_fir == 'fir':
+                #check if the filter is already set
+                if qubit.z.opx_output.feedforward_filter is None:
+                    fir_list = inv_fir.tolist()
+                else:
+                    inv_fir_old = np.array(qubit.z.opx_output.feedforward_filter)
+                    # Preserve the length of the existing filter when convolving
+                    # This ensures we don't lose taps when the optimization finds a shorter filter
+                    fir_list = conv_causal(inv_fir, inv_fir_old, N=len(inv_fir_old)).tolist()
                 
-            qubit.z.opx_output.feedforward_filter = fir_list
-            if not node.parameters.only_FIR:
+                qubit.z.opx_output.feedforward_filter = fir_list
+            elif node.parameters.iir_or_fir == 'iir':
                 qubit.z.opx_output.exponential_filter = [*qubit.z.opx_output.exponential_filter, *exponential_filter]
+            else:
+                raise ValueError(f"Invalid value for iir_or_fir: {node.parameters.iir_or_fir}")
 
 # %% {save node}
 node.results['initial_parameters'] = node.parameters.model_dump()
