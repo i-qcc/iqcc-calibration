@@ -14,7 +14,7 @@ from qm import SimulationConfig
 import matplotlib.pyplot as plt
 from qualang_tools.results import fetching_tool, progress_counter
 from qualang_tools.multi_user import qm_session
-from iqcc_calibration_tools.quam_config.macros import qua_declaration, active_reset, active_reset_simple
+from iqcc_calibration_tools.quam_config.macros import qua_declaration, active_reset
 import numpy as np
 from qualang_tools.units import unit
 from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
@@ -42,7 +42,7 @@ class Parameters(NodeParameters):
     num_averages: int = 2500
     frequency_offset_in_mhz: float = 800
     cryoscope_len: int = 64
-    only_baked_waveforms: bool = True
+    only_baked_waveforms: bool = True # not recommended when cryoscope_len is longer than ~120ns. May cause memory issues.
     num_frames: int = 17
     reset_type_active_or_thermal: Literal['active', 'thermal'] = 'active'
     flux_point_joint_or_independent: Literal['joint', 'independent'] = "joint"
@@ -158,9 +158,6 @@ with program() as cryoscope:
                 if reset_type == "active":
                     for qubit in qubits:
                         active_reset(qubit)
-                elif reset_type == "simple":
-                    for qubit in qubits:
-                        active_reset_simple(qubit)
                 else:
                     wait(qubit.thermalization_time * u.ns)
                 align()
@@ -253,6 +250,7 @@ if node.parameters.simulate:
     plt.show()
 
 elif node.parameters.load_data_id is None:
+    
     with qm_session(qmm, config, timeout=node.parameters.timeout ) as qm:
         job = qm.execute(cryoscope)
         data_list = ["iteration"]
@@ -261,7 +259,7 @@ elif node.parameters.load_data_id is None:
         while results.is_processing():
             fetched_data = results.fetch_all()
             n = fetched_data[0]
-            # progress_counter(n, n_avg, start_time=results.start_time)
+            progress_counter(n, n_avg, start_time=results.start_time)
 
 # %% {Data_fetching_and_dataset_creation}
 if not node.parameters.simulate:

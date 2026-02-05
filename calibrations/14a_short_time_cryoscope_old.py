@@ -33,13 +33,10 @@ from iqcc_calibration_tools.analysis.cryoscope_tools import (
 import time
 start = time.time()
 
-import os
-os.environ['IQCC_DEFAULT_TIMEOUT'] = '300'
-
 # %% {Node_parameters}
 class Parameters(NodeParameters):
-    qubits: Optional[List[str]] = ['Q2']    
-    num_averages: int = 1000
+    qubits: Optional[List[str]] = ['Q3']    
+    num_averages: int = 7500
     frequency_offset_in_mhz: float = 700
     cryoscope_len: int = 64
     num_frames: int = 17
@@ -415,7 +412,7 @@ if not node.parameters.simulate and not node.parameters.only_FIR: # exponential 
     if plot_process:
         f,ax = plt.subplots()
         ax.plot(da.time, da, label = 'data')
-        ax.plot(da.time, filtered_response_long_1exp, label = 'filtered long time 1exp')
+        ax.plot(da.time, filtered_response_long_1exp,label = 'filtered long time 1exp')
         # ax.set_ylim([final_vals*0.9,final_vals*1.05])
         ax.legend()
         ax.set_xlabel('time (ns)')
@@ -434,7 +431,7 @@ if not node.parameters.simulate:
     if node.parameters.only_FIR:
         response_long = da.values #da.isel(time=slice(1, None)).values
     else:
-        response_long = filtered_response_long_1exp
+        response_long = filtered_response_long_1exp.values
         long_FIR = FIR_1exp
         long_IIR = IIR_1exp
     
@@ -490,7 +487,7 @@ print('\033[1m\033[32m PLOT FINAL RESULTS \033[0m')
 if not node.parameters.simulate:
     # plotting the results
     fig,ax = plt.subplots()
-    ax.plot(da.time, da / da[-10:].mean(), label = 'data')
+    ax.plot(da.time,da / da[-10:].mean(), label = 'data')
     if not node.parameters.only_FIR:
         ax.plot(da.time, filtered_response_long_1exp / filtered_response_long_1exp[-10:].mean(),'--', label = 'slow rise correction')
     ax.plot(da.time, corrected_response / corrected_response[-10:].mean(), '--', label = 'expected corrected response')
