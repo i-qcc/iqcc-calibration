@@ -499,7 +499,7 @@ def fit_snr_with_gaussians(
             snr_val = abs(mu_e - mu_g) / (abs(sig_g) + abs(sig_e))
             snr.append(snr_val)
             if plot:
-                ax.set_title(f"{qubit_id} \n SNR: {snr_val:.3f}, Amp={qubits[i].resonator.operations['readout'].amplitude},Tro={qubits[i].resonator.operations['readout'].length}, F={fit_results[qubits[i].name].readout_fidelity:.2f}%", fontsize=18)
+                ax.set_title(f"{qubit_id} \n SNR: {snr_val:.3f}, Amp={qubits[i].resonator.operations['readout'].amplitude :.3f},Tro={qubits[i].resonator.operations['readout'].length}, F={fit_results[qubits[i].name].readout_fidelity:.2f}%", fontsize=18)
         else:
             snr.append(np.nan)
             if plot:

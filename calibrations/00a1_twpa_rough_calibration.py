@@ -56,12 +56,12 @@ from iqcc_calibration_tools.quam_config.lib.qua_datasets import opxoutput
 
 # %% {Node_parameters}
 class Parameters(NodeParameters):
-    twpas: Optional[List[str]] = ['twpa1-3']
+    twpas: Optional[List[str]] = ['twpaA']
     num_averages: int =30
     frequency_span_in_mhz: float = 4
     frequency_step_in_mhz: float = 0.1
-    amp_min: float =  0.1
-    amp_max: float =  0.3
+    amp_min: float =  0.2
+    amp_max: float =  0.5
     points : int = 40    
     p_frequency_span_in_mhz: float = 60
     p_frequency_step_in_mhz: float =0.5
@@ -69,14 +69,14 @@ class Parameters(NodeParameters):
     simulation_duration_ns: int = 4000
     timeout: int = 300
     load_data_id: Optional[int] = None
-node = QualibrationNode(name="00a_twpa1_3_rough_calibration", parameters=Parameters())
-date_time = datetime.now(timezone(timedelta(hours=2))).strftime("%Y-%m-%d %H:%M:%S")
-node.results["date"]={"date":date_time}
 # %% {Initialize_QuAM_and_QOP}
 # Class containing tools to help handling units and conversions.
 u = unit(coerce_to_integer=True)
 # Instantiate the QuAM class from the state file
 machine = Quam.load()
+node = QualibrationNode(name=f"00a_{Parameters().twpas[0]}_rough_calibration", parameters=Parameters())
+date_time = datetime.now(timezone(timedelta(hours=2))).strftime("%Y-%m-%d %H:%M:%S")
+node.results["date"]={"date":date_time}
 # Get the relevant QuAM components
 twpas = [machine.twpas[t] for t in node.parameters.twpas]
 twpa_id=node.parameters.twpas[0]
@@ -275,7 +275,7 @@ time_sec = 1e-9 * 12 * n_avg * len(daps) * len(dfps) * len(dfs) * (
     machine.qubits[twpas[0].qubits[0]].resonator.depletion_time
 )
 print(f"calibration time = {np.round(time_sec, 3)} sec")
-pump_frequency=machine.twpas[twpa_id].pump.LO_frequency+machine.twpas[twpa_id].pump.intermediate_frequency+dfps
+pump_frequency=machine.twpas[twpa_id].pump_.LO_frequency+machine.twpas[twpa_id].pump_.intermediate_frequency+dfps
 pump_power=opxoutput(full_scale_power_dbm,daps)+pumpline_attenuation
 pump_power[np.isneginf(pump_power)]=0
 indices=np.linspace(0, len(pump_frequency)-1,10, dtype=int)
@@ -326,9 +326,12 @@ plt.show()
 fig, axs = plt.subplots(1, 3, figsize=(12,5))
 cmap = plt.cm.viridis.copy()
 cmap.set_under('gray')
+# Percentile-based vmax so a few high values don't flatten the colormap
+gain_vmax = np.nanpercentile(average_gain, 99)
+dsnr_vmax = np.nanpercentile(average_dsnr, 99)
 # plot gain vs pump
 im0 = axs[0].imshow(average_gain, origin='lower', aspect='auto',
-                    extent=[0, len(daps)-1, 0, len(dfps)-1], cmap=cmap, vmin=0)
+                    extent=[0, len(daps)-1, 0, len(dfps)-1], cmap=cmap, vmin=0, vmax=gain_vmax)
 axs[0].set_xticks(xtick_pos)
 axs[0].set_xticklabels(selected_powers,rotation=90)
 axs[0].set_yticks(ytick_pos)
@@ -342,7 +345,7 @@ print(f'max Avg dSNR({np.round(20*np.log10(np.max(np.mean(linear_dsnr,axis=0))),
 
 # plot avgDdSNR vs pump
 im1 = axs[1].imshow(average_dsnr, origin='lower', aspect='auto',
-                    extent=[0, len(daps)-1, 0, len(dfps)-1], cmap=cmap, vmin=0)
+                    extent=[0, len(daps)-1, 0, len(dfps)-1], cmap=cmap, vmin=0, vmax=dsnr_vmax)
 axs[1].set_xticks(xtick_pos)
 axs[1].set_xticklabels(selected_powers,rotation=90)
 axs[1].set_yticks(ytick_pos)
@@ -364,8 +367,8 @@ map=plt.gcf()
 plt.show()
 # %% ############################{Average optimum}##################################
 plt.plot(figzise=(4,3))
-mingain=16
-mindsnr=8
+mingain=1
+mindsnr=0
 avg_optimized_pump=optimizer(mingain, mindsnr,  Gain, dsnr,  average_dsnr, dfps, daps, p_lo,p_if)
 avg_qubit_results = {}
 for i in range(len(qubits)):
@@ -395,7 +398,7 @@ plt.show()
 readout_power=[np.round(opxoutput(qubits[i].resonator.opx_output.full_scale_power_dbm,qubits[i].resonator.operations["readout"].amplitude)+signalline_attenuation,2) for i in range(len(qubits))]
 readout_length=[qubits[i].resonator.operations["readout"].length for i in range(len(qubits))]
 for i in range(len(readout_power)):
-    print(f"{qubits[i].name}: readout power @ resonator={readout_power[i]}dBm, readout length={readout_length[i]}, Aro={qubits[i].resonator.operations['readout'].amplitude} ")
+    print(f"{qubits[i].name}: readout power @ resonator={readout_power[i]}dBm, readout length={readout_length[i]}, Aro={np.round(qubits[i].resonator.operations['readout'].amplitude,3)} ")
 avg_operation_point={'fp':np.round((p_lo+p_if+dfps[avg_optimized_pump[0]]),3), 
                  'Pp': pumpline_attenuation+opxoutput(full_scale_power_dbm,daps[avg_optimized_pump[1]]),
                  'Pamp': np.round(daps[avg_optimized_pump[1]],3)}

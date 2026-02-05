@@ -56,7 +56,7 @@ from iqcc_calibration_tools.quam_config.lib.qua_datasets import opxoutput
 
 # %% {Node_parameters}
 class Parameters(NodeParameters):
-    twpas: Optional[List[str]] = ['twpa1-3']
+    twpas: Optional[List[str]] = ['twpaA']
     num_averages: int =100
     frequency_span_in_mhz: float = 0.001
     frequency_step_in_mhz: float = 0.0005
@@ -69,15 +69,15 @@ class Parameters(NodeParameters):
     simulation_duration_ns: int = 4000
     timeout: int = 300
     load_data_id: Optional[int] = None
-node = QualibrationNode(name="00a_twpa1_3_fine_calibration", parameters=Parameters())
-date_time = datetime.now(timezone(timedelta(hours=2))).strftime("%Y-%m-%d %H:%M:%S")
-node.results["date"]={"date":date_time}
 # %% {Initialize_QuAM_and_QOP}
 # Class containing tools to help handling units and conversions.
 u = unit(coerce_to_integer=True)
 # Instantiate the QuAM class from the state file
 machine = Quam.load()
 # Get the relevant QuAM components
+node = QualibrationNode(name=f"00a_{Parameters().twpas[0]}_fine_calibration", parameters=Parameters())
+date_time = datetime.now(timezone(timedelta(hours=2))).strftime("%Y-%m-%d %H:%M:%S")
+node.results["date"]={"date":date_time}
 twpas = [machine.twpas[t] for t in node.parameters.twpas]
 twpa_id=node.parameters.twpas[0]
 qubits = [machine.qubits[machine.twpas[twpa_id].qubits[i]] for i in range(len(machine.twpas[twpa_id].qubits))]
@@ -326,9 +326,9 @@ plt.show()
 #--------------- multiplexed readout optimal point--------------------------------------------
 # %% {Multiplexed Readout optimum}
 plt.plot(figzise=(4,3))
-mingain=14
-mindsnr=6
-poorqubit=5
+mingain=0
+mindsnr=0
+poorqubit=6
 mtplx_optimized_pump_idx=multiplexed_optimizer(mingain,mindsnr, qubits, Gain, dsnr,poorqubit, dfps, daps, p_lo,p_if)
 optimal_fp=dfps[mtplx_optimized_pump_idx[0]]
 optimal_pp=daps[mtplx_optimized_pump_idx[1]]

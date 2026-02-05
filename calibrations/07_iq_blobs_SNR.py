@@ -70,6 +70,8 @@ def custom_param(node: QualibrationNode[Parameters, Quam]):
     # node.parameters.qubits = ["qB4"]
     node.parameters.multiplexed=True
     node.parameters.reset_type = "thermal"
+    # node.parameters.qubits = ["qA1", "qA2","qA6"]
+    
     pass
 
 
@@ -275,6 +277,8 @@ for j in range(num_qubits, len(axes)):
 
 plt.suptitle(f"{node.add_node_info_subtitle()}")
 plt.show()
+# Store SNR Gaussian fit figure in node.results
+node.results.setdefault("figures", {})["snr_gaussians"] = fig
 #%% {Print fitting errors summary}
 # print("\n" + "="*80)
 # print("FITTING ERRORS SUMMARY")
@@ -317,7 +321,7 @@ plt.show()
 #%%
 def fidelity(ro,t1,snr):
         return   np.exp(-ro/(2*t1))*erf(snr/(np.sqrt(2)))
-readout_power=[np.round(opxoutput(node.namespace["qubits"][i].resonator.opx_output.full_scale_power_dbm,node.namespace["qubits"][i].resonator.operations["readout"].amplitude)-66,2) for i in range(len(node.namespace["qubits"]))]
+readout_power=[np.round(opxoutput(node.namespace["qubits"][i].resonator.opx_output.full_scale_power_dbm,node.namespace["qubits"][i].resonator.operations["readout"].amplitude)-87,2) for i in range(len(node.namespace["qubits"]))]
 readout_length=[node.namespace["qubits"][i].resonator.operations["readout"].length for i in range(len(node.namespace["qubits"]))]
 node.results["ds_fit"], fit_results = fit_raw_data(node.results["ds_raw"], node)
 for i in range(len(readout_power)):
@@ -325,7 +329,7 @@ for i in range(len(readout_power)):
         f"{node.namespace['qubits'][i].name}: "
         f"Ps={readout_power[i]} dBm, "
         f"Tro={readout_length[i]}, "
-        f"Aro={node.namespace['qubits'][i].resonator.operations['readout'].amplitude},",
+        f"Aro={node.namespace['qubits'][i].resonator.operations['readout'].amplitude:.3f},",
         f"F={fit_results[node.namespace['qubits'][i].name].readout_fidelity:.2f}%,",
         f"SNR={snr[i]:.2f}",
         f"F_est={100*fidelity(readout_length[i]*1e-9,node.namespace['qubits'][i].T1,snr[i]):.2f}%",)
