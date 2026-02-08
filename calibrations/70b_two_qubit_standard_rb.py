@@ -405,7 +405,9 @@ with node.record_state_updates():
                 "error_per_2q_layer": rb_result[qp.id].error_per_2q_layer if hasattr(rb_result[qp.id], 'error_per_2q_layer') else None,
                 "error_per_gate": rb_result[qp.id].error_per_gate if hasattr(rb_result[qp.id], 'error_per_gate') else None,
                 "average_gate_fidelity": 1 - rb_result[qp.id].error_per_gate if hasattr(rb_result[qp.id], 'error_per_gate') else None,
-                "alpha": rb_result[qp.id].alpha if hasattr(rb_result[qp.id], 'alpha') else None}
+                "alpha": rb_result[qp.id].alpha if hasattr(rb_result[qp.id], 'alpha') else None,
+                "updated_at": f"{node.date_time} GMT+{node.time_zone}",
+            }
         else:
             print(f"Warning: Skipping state update for {qp.id} because fit failed.")
 # %% {Save_results}

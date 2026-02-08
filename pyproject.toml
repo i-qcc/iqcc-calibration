@@ -26,7 +26,7 @@ dependencies = [
     "lmfit",
     "tqdm",
     "qualibrate>=0.6.0",
-    "qm-qua==1.2.4",
+    "qm-qua==1.2.4.1",
     "ipykernel>=6.29.3,<7.0.0",
     "more-itertools",
     "qiskit==2.0.0",
@@ -34,9 +34,9 @@ dependencies = [
     "iqcc-cloud-client==0.13.8",
     "iqcc-qualibrate2cloud",
     "quam-builder@git+https://github.com/qua-platform/quam-builder.git@IQCC-dev-12/25",
+    "quam-builder",
     "qualibration-libs@git+https://github.com/qua-platform/qualibration-libs.git",
     "betterproto>=2.0.0b7", # becuase qua 1.2.3 requires this pre-release version
-    #  "qualibrate-lab-notebook @ git+https://github.com/i-qcc/qualibrate-lab-notebook.git@main"
 ]
 
 [build-system]

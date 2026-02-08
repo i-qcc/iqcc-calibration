@@ -22,10 +22,10 @@ Prerequisites:
 # %% {Imports}
 
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
-from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam, Transmon
+from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
 from iqcc_calibration_tools.quam_config.macros import qua_declaration, active_reset, readout_state
 from iqcc_calibration_tools.analysis.plot_utils import QubitGrid, grid_iter
-from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset
+from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray
 from iqcc_calibration_tools.quam_config.legacy_tools.fit import fit_decay_exp, decay_exp
 from qualang_tools.results import progress_counter, fetching_tool
 from qualang_tools.bakery.randomized_benchmark_c1 import c1_table
@@ -141,7 +141,7 @@ def generate_sequence():
     return sequence, inv_gate
 
 
-def play_sequence(sequence_list, depth, qubit: Transmon):
+def play_sequence(sequence_list, depth, qubit):
     i = declare(int)
     with for_(i, 0, i <= depth, i + 1):
         with switch_(sequence_list[i], unsafe=True):
@@ -478,6 +478,7 @@ if not node.parameters.simulate:
         with node.record_state_updates():
             for q in qubits:
                 q.gate_fidelity["averaged"] = fidelities_per_qubit[q.name]
+                q.gate_fidelity["averaged_updated_at"] = f"{node.date_time} GMT+{node.time_zone}"
                 print(f"Updated {q.name} fidelity to {q.gate_fidelity['averaged']:.4f}")
 
 

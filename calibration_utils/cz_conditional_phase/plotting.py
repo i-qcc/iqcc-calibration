@@ -28,14 +28,15 @@ def plot_raw_data_with_fit(
         The generated figure
     """
     n_pairs = len(qubit_pairs)
-    cols = min(4, n_pairs)  # Max 4 columns
-    rows = (n_pairs + cols - 1) // cols  # Ceiling division
-
-    fig, axes = plt.subplots(rows, cols, figsize=(3 * cols, 3 * rows), squeeze=False)
-    axes = axes.flatten()
+    # Two subplots per pair: phase (top) and state_control (bottom)
+    rows = 2
+    cols = max(1, n_pairs)
+    fig, axes_grid = plt.subplots(rows, cols, figsize=(3 * cols, 3 * rows), squeeze=False)
+    # Column-major order so axes[2*i] = phase, axes[2*i+1] = state_control for pair i
+    axes = axes_grid.T.flatten()
 
     for i, qp in enumerate(qubit_pairs):
-        ax = axes[i]
+        ax = axes[2 * i]
         qp_name = qp.name
         fit_result = fit_results.sel(qubit_pair=qp_name)
 
@@ -75,28 +76,50 @@ def plot_raw_data_with_fit(
         ax.set_xlabel("Amplitude (V)")
         ax.set_ylabel("Phase difference")
 
-        # Add secondary plot below: state_control for control_axis=1 averaged over frame
+        # Add secondary plot below: state_control for control_axis=1 averaged over frame (if available)
         ax_sub = axes[2 * i + 1]
+        has_state_control = False
+        if "g_state_control" in fit_results.data_vars and "e_state_control" in fit_results.data_vars and "f_state_control" in fit_results.data_vars:
+            data_g = fit_results.g_state_control.sel(qubit_pair=qp_name, control_axis=1).mean(dim="frame")
+            data_e = fit_results.e_state_control.sel(qubit_pair=qp_name, control_axis=1).mean(dim="frame")
+            data_f = fit_results.f_state_control.sel(qubit_pair=qp_name, control_axis=1).mean(dim="frame")
+            has_state_control = True
+        elif "state_control" in fit_results.data_vars:
+            # Derive g/e/f populations from state_control (values 0=g, 1=e, 2=f)
+            sc = fit_results.state_control.sel(qubit_pair=qp_name, control_axis=1)
+            data_g = (sc == 0).mean(dim="frame").astype(float)
+            data_e = (sc == 1).mean(dim="frame").astype(float)
+            data_f = (sc == 2).mean(dim="frame").astype(float)
+            has_state_control = True
+        else:
+            # Per-pair stream names: state_control1, state_control2, ...
+            var_name = f"state_control{i + 1}"
+            if var_name in fit_results.data_vars:
+                sc = fit_results[var_name].sel(control_axis=1)
+                data_g = (sc == 0).mean(dim="frame").astype(float)
+                data_e = (sc == 1).mean(dim="frame").astype(float)
+                data_f = (sc == 2).mean(dim="frame").astype(float)
+                has_state_control = True
+        if has_state_control:
+            amps = fit_result.amp_full.values if "amp_full" in fit_result.coords else fit_result.amp.values
+            ax_sub.plot(amps, data_g, label="g", color="blue")
+            ax_sub.plot(amps, data_e, label="e", color="red")
+            ax_sub.plot(amps, data_f, label="f", color="green")
+            opt_amp = fit_result.optimal_amplitude.item() if fit_result.optimal_amplitude.size == 1 else float(fit_result.optimal_amplitude.values)
+            if not (np.isnan(opt_amp) or np.isinf(opt_amp)):
+                ax_sub.axvline(opt_amp, color="red", linestyle="--", lw=0.5, label="optimal")
+            ax_sub.axhline(0.0, color="red", linestyle="--", lw=0.5)
+            ax_sub.axhline(1.0, color="red", linestyle="--", lw=0.5)
+            ax_sub.set_ylabel("Control qubit population")
+            ax_sub.set_xlabel("Amplitude (V)")
+            secax2 = ax_sub.secondary_xaxis("top", functions=(amp_to_detuning_MHz, detuning_MHz_to_amp))
+            secax2.set_xlabel("Detuning (MHz)")
+            ax_sub.legend()
+        else:
+            ax_sub.axis("off")
 
-        data_g = fit_results.g_state_control.sel(qubit_pair=qp_name, control_axis=1).mean(dim="frame")
-        data_e = fit_results.e_state_control.sel(qubit_pair=qp_name, control_axis=1).mean(dim="frame")
-        data_f = fit_results.f_state_control.sel(qubit_pair=qp_name, control_axis=1).mean(dim="frame")
-        # Try to get axes for mesh
-        amps = fit_result.amp_full.values if "amp_full" in fit_result.coords else fit_result.amp.values
-        ax_sub.plot(amps, data_g, label="g", color="blue")
-        ax_sub.plot(amps, data_e, label="e", color="red")
-        ax_sub.plot(amps, data_f, label="f", color="green")
-        ax_sub.axvline(fit_result.optimal_amplitude.item(), color="red", linestyle="--", lw=0.5, label="optimal")
-        ax_sub.axhline(0.0, color="red", linestyle="--", lw=0.5)
-        ax_sub.axhline(1.0, color="red", linestyle="--", lw=0.5)
-        ax_sub.set_ylabel("Control qubit population")
-        ax_sub.set_xlabel("Amplitude (V)")
-        secax2 = ax_sub.secondary_xaxis("top", functions=(amp_to_detuning_MHz, detuning_MHz_to_amp))
-        secax2.set_xlabel("Detuning (MHz)")
-        ax_sub.legend()
-
-    # Hide unused axes
-    for i in range(n_pairs, len(axes)):
+    # Hide unused axes (we use 2*n_pairs; grid may have more if cols > n_pairs)
+    for i in range(2 * n_pairs, len(axes)):
         axes[i].axis("off")
 
     fig.suptitle("CZ phase calibration (phase difference + fit)")
