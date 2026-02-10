@@ -37,15 +37,14 @@ start = time.time()
 class Parameters(NodeParameters):
     qubits: Optional[List[str]] = ['Q3']    
     num_averages: int = 7500
-    frequency_offset_in_mhz: float = 600
-    ramsey_offset_in_mhz: float = 0
+    frequency_offset_in_mhz: float = 700
     cryoscope_len: int = 64
     num_frames: int = 17
-    reset_type_active_or_thermal: Literal['active', 'thermal'] = 'active'
+    reset_type_active_or_thermal: Literal['active', 'thermal'] = 'thermal'
     flux_point_joint_or_independent: Literal['joint', 'independent'] = "joint"
     simulate: bool = False
     timeout: int = 100
-    only_FIR: bool = True
+    only_FIR: bool = False
     load_data_id: Optional[int] = None
     
 node = QualibrationNode(
