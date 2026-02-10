@@ -5,25 +5,29 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import numpy as np
 import xarray as xr
-from calibration_utils.cz_conditional_phase import (
+from calibration_utils.cz_conditional_phase_legacy import (
+    FitResults,
     Parameters,
     fit_raw_data,
     log_fitted_results,
     plot_raw_data_with_fit,
     process_raw_dataset,
 )
+from qm import SimulationConfig
 from qm.qua import *
-
+from qualang_tools.bakery import baking
 from qualang_tools.loops import from_array
 from qualang_tools.multi_user import qm_session
-from qualang_tools.results import progress_counter
+from qualang_tools.results import fetching_tool, progress_counter
 from qualang_tools.units import unit
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
 from qualibration_libs.core import tracked_updates
 from qualibration_libs.data import XarrayDataFetcher
 from qualibration_libs.parameters import get_qubit_pairs
 from qualibration_libs.runtime import simulate_and_plot
-from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
+from iqcc_calibration_tools.quam_config.components.quam_root import Quam
+
+from quam.core import operation
 
 # %% {Initialisation}
 description = """
@@ -128,9 +132,7 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
         if node.parameters.use_state_discrimination:
             state_c = [declare(int) for _ in range(num_qubit_pairs)]
             state_t = [declare(int) for _ in range(num_qubit_pairs)]
-            state_ce_st = [declare_stream() for _ in range(num_qubit_pairs)]
-            state_cg_st = [declare_stream() for _ in range(num_qubit_pairs)]
-            state_cf_st = [declare_stream() for _ in range(num_qubit_pairs)]
+            state_c_st = [declare_stream() for _ in range(num_qubit_pairs)]
             state_t_st = [declare_stream() for _ in range(num_qubit_pairs)]
 
         for multiplexed_qubit_pairs in qubit_pairs.batch():
@@ -177,25 +179,8 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                                 if node.parameters.use_state_discrimination:
                                     qp.qubit_control.readout_state_gef(state_c[ii])
                                     qp.qubit_target.readout_state(state_t[ii])
-                                    # save each state outcome in its respective stream
-                                    with switch_(state_c[ii]):
-                                        with case_(0):
-                                            wait(4)
-                                            save(1, state_cg_st[ii])
-                                            save(0, state_ce_st[ii])
-                                            save(0, state_cf_st[ii])
-                                        with case_(1):
-                                            wait(4)
-                                            save(0, state_cg_st[ii])
-                                            save(1, state_ce_st[ii])
-                                            save(0, state_cf_st[ii])
-                                        with default_():
-                                            wait(4)
-                                            save(0, state_cg_st[ii])
-                                            save(0, state_ce_st[ii])
-                                            save(1, state_cf_st[ii])
+                                    save(state_c[ii], state_c_st[ii])
                                     save(state_t[ii], state_t_st[ii])
-
                                 else:
                                     qp.qubit_control.resonator.measure("readout", qua_vars=(I_c[ii], Q_c[ii]))
                                     qp.qubit_target.resonator.measure("readout", qua_vars=(I_t[ii], Q_t[ii]))
@@ -212,14 +197,8 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
             n_st.save("n")
             for i in range(num_qubit_pairs):
                 if node.parameters.use_state_discrimination:
-                    state_cg_st[i].buffer(2).buffer(len(frames)).buffer(len(amplitudes)).average().save(
-                        f"g_state_control{i + 1}"
-                    )
-                    state_ce_st[i].buffer(2).buffer(len(frames)).buffer(len(amplitudes)).average().save(
-                        f"e_state_control{i + 1}"
-                    )
-                    state_cf_st[i].buffer(2).buffer(len(frames)).buffer(len(amplitudes)).average().save(
-                        f"f_state_control{i + 1}"
+                    state_c_st[i].buffer(2).buffer(len(frames)).buffer(len(amplitudes)).average().save(
+                        f"state_control{i + 1}"
                     )
                     state_t_st[i].buffer(2).buffer(len(frames)).buffer(len(amplitudes)).average().save(
                         f"state_target{i + 1}"
@@ -319,37 +298,29 @@ def plot_data(node: QualibrationNode[Parameters, Quam]):
             pair_to_batch[qp.name] = batch_idx
             qubit_pairs_sorted_by_batch.append(qp)
 
-    # Plot phase calibration data and control population (using sorted order)
-    fig_phase, fig_control = plot_raw_data_with_fit(
+    # Plot phase calibration data (using sorted order)
+    fig_phase = plot_raw_data_with_fit(
         node.results["ds_fit"],
         qubit_pairs_sorted_by_batch,
     )
-
-    n_pairs = len(qubit_pairs_sorted_by_batch)
-
-    def add_batch_indicators(fig):
-        # Use only the first n_pairs axes (main subplots); fig.get_axes() can include secondary x-axes
-        axes = fig.get_axes()[:n_pairs]
-        for i, qp in enumerate(qubit_pairs_sorted_by_batch):
-            if i < len(axes):
-                ax = axes[i]
-                batch_num = pair_to_batch.get(qp.name, 0)
-                ax.text(0.98, -0.08, str(batch_num), transform=ax.transAxes,
-                       fontsize=8, ha='right', va='top',
-                       bbox=dict(boxstyle='circle', facecolor='plum', edgecolor='magenta', linewidth=1.2))
-        legend_circle = mpatches.Circle((0, 0), 0.5, facecolor='plum', edgecolor='magenta', linewidth=1.2)
-        fig.legend([legend_circle], ['Batch number (pairs run in parallel)'],
-                  loc='upper right', fontsize=8, framealpha=0.9)
-
-    add_batch_indicators(fig_phase)
-    if fig_control is not None:
-        add_batch_indicators(fig_control)
-
+    
+    # Add batch number indicators to the plot
+    axes = fig_phase.get_axes()
+    for i, qp in enumerate(qubit_pairs_sorted_by_batch):
+        if i < len(axes):
+            ax = axes[i]
+            batch_num = pair_to_batch.get(qp.name, 0)
+            ax.text(0.98, -0.08, str(batch_num), transform=ax.transAxes, 
+                   fontsize=8, ha='right', va='top',
+                   bbox=dict(boxstyle='circle', facecolor='plum', edgecolor='magenta', linewidth=1.2))
+    
+    # Add legend explaining the batch number indicator
+    legend_circle = mpatches.Circle((0, 0), 0.5, facecolor='plum', edgecolor='magenta', linewidth=1.2)
+    fig_phase.legend([legend_circle], ['Batch number (pairs run in parallel)'], 
+                   loc='upper right', fontsize=8, framealpha=0.9)
+    
     node.add_node_info_subtitle(fig_phase)
-    if fig_control is not None:
-        node.add_node_info_subtitle(fig_control)
     node.results["phase_figure"] = fig_phase
-    node.results["control_population_figure"] = fig_control
     plt.show()
 
 # %% {Update_state}
