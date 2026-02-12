@@ -25,7 +25,7 @@ dependencies = [
     "xarray",
     "lmfit",
     "tqdm",
-    "qualibrate>=0.6.0",
+    "qualibrate==0.6.0",
     "qm-qua==1.2.4.1",
     "ipykernel>=6.29.3,<7.0.0",
     "more-itertools",
