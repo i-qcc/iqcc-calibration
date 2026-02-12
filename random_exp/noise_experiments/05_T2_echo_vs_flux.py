@@ -32,7 +32,7 @@ class Parameters(NodeParameters):
     flux_step : float = 0.005
     flux_point_joint_or_independent: Literal['joint', 'independent'] = "joint"
     simulate: bool = False
-    reset_type: Literal['active', 'thermal'] = "active"
+    reset_type: Literal['active', 'thermal'] = "thermal"
 
 node = QualibrationNode(
     name="08a_Ramsey_flux_cal",
@@ -186,7 +186,7 @@ if simulate:
     node.results = {"figure": plt.gcf()}
 else:
     # Open the quantum machine
-    qm = qmm.open_qm(config,keep_dc_offsets_when_closing=False)
+    qm = qmm.open_qm(config)
     # Calibrate the active qubits
     # machine.calibrate_octave_ports(qm)
     # Send the QUA program to the OPX, which compiles and executes it

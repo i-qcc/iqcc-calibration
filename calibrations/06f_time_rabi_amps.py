@@ -8,7 +8,6 @@ from qm.qua import *
 
 from qualang_tools.loops import from_array
 from qualang_tools.multi_user import qm_session
-from qualang_tools.results import progress_counter
 from qualang_tools.units import unit
 
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode
@@ -57,11 +56,11 @@ def custom_param(node: QualibrationNode[Parameters, Quam]):
     """Allow the user to locally set the node parameters for debugging purposes, or execution in the Python IDE."""
     # You can get type hinting in your IDE by typing node.parameters.
     node.parameters.min_wait_time_in_ns = 20
-    node.parameters.max_wait_time_in_ns = 160
-    node.parameters.num_time_steps = 100
+    node.parameters.max_wait_time_in_ns = 200
+    node.parameters.num_time_steps = 300
     node.parameters.qubits = ["Q6"]
-    node.parameters.min_amp_factor = 0.05
-    node.parameters.max_amp_factor = 1.90
+    node.parameters.min_amp_factor = 0.01
+    node.parameters.max_amp_factor = 1.0
     node.parameters.amp_factor_step = 0.05
     pass
 
@@ -130,9 +129,9 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                         align()
                         # Qubit manipulation
                         for i, qubit in multiplexed_qubits.items():
-                            qubit.xy_sl.play("x180_BlackmanIntegralPulse_Rise", amplitude_scale=a)
-                            qubit.xy_sl.play("x180_Square", duration=t, amplitude_scale=a)
-                            qubit.xy_sl.play("x180_BlackmanIntegralPulse_Fall", amplitude_scale=a)
+                            qubit.xy.play("x180_BlackmanIntegralPulse_Rise", amplitude_scale=a)
+                            qubit.xy.play("x180_Square", duration=t, amplitude_scale=a)
+                            qubit.xy.play("x180_BlackmanIntegralPulse_Fall", amplitude_scale=a)
                         align()
                         # Qubit readout
                         for i, qubit in multiplexed_qubits.items():
@@ -186,14 +185,10 @@ def execute_qua_program(node: QualibrationNode[Parameters, Quam]):
     with qm_session(qmm, config, timeout=node.parameters.timeout) as qm:
         # The job is stored in the node namespace to be reused in the fetching_data run_action
         node.namespace["job"] = job = qm.execute(node.namespace["qua_program"])
-        # Display the progress bar
+        # Fetch the data
         data_fetcher = XarrayDataFetcher(job, node.namespace["sweep_axes"])
         for dataset in data_fetcher:
-            progress_counter(
-                data_fetcher["n"],
-                node.parameters.num_shots,
-                start_time=data_fetcher.t_start,
-            )
+            pass
         # Display the execution report to expose possible runtime errors
         node.log(job.execution_report())
     # Register the raw dataset

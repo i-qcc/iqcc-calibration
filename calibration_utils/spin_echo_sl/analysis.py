@@ -79,12 +79,15 @@ def fit_raw_data(ds: xr.Dataset, node: QualibrationNode) -> Tuple[xr.Dataset, di
         fit_data = fit_decay_exp(ds_fit.state, "idle_time")
         ds_fit = xr.merge([ds, fit_data.rename("fit_data")])
     else:
-        # Fit both I and Q separately
+        # Fit I (always)
         fit_data_I = fit_decay_exp(ds_fit.I, "idle_time")
-        fit_data_Q = fit_decay_exp(ds_fit.Q, "idle_time")
-        ds_fit = xr.merge([ds, fit_data_I.rename("fit_data_I"), fit_data_Q.rename("fit_data_Q")])
+        ds_fit = xr.merge([ds, fit_data_I.rename("fit_data_I")])
         # For backward compatibility, also add fit_data as fit_data_I
         ds_fit = ds_fit.assign(fit_data=ds_fit.fit_data_I)
+        # Fit Q only if skip_Q_analysis is False
+        if not getattr(node.parameters, 'skip_Q_analysis', False):
+            fit_data_Q = fit_decay_exp(ds_fit.Q, "idle_time")
+            ds_fit = xr.merge([ds_fit, fit_data_Q.rename("fit_data_Q")])
 
     ds_fit, fit_results = _extract_relevant_fit_parameters(ds_fit)
     return ds_fit, fit_results

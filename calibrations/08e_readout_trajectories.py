@@ -42,7 +42,7 @@ def custom_param(node: QualibrationNode[Parameters, Quam]):
     # You can get type hinting in your IDE by typing node.parameters.
     # When this is commented out, the experiment will use machine.active_qubits if qubits is not set in the GUI
     # To specify qubits when running through the GUI, set the 'qubits' parameter in the GUI's parameter panel
-    node.parameters.qubits = ["Q2","Q4","Q6"]
+    node.parameters.qubits = ["Q6"]
     pass
 
 # Instantiate the QUAM class from the state file
@@ -66,33 +66,34 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
     n_runs = node.parameters.num_shots  # Number of runs
     print(f"Number of shots (n_runs): {n_runs}")
     W = node.parameters.segment_length  # Segment length for sliced measurements
-    N_slices = int(node.parameters.readout_length_in_ns/(4*W))
+    N_slices = node.parameters.get_num_slices()
     print(f"Number of slices: {N_slices}")
     readout_name = node.parameters.readout_name
     
     # Determine which readout operation to use
     # If use_custom_integration_weights=True, use readout_zero_custom; otherwise use readout_zero
-    if node.parameters.use_custom_integration_weights:
-        actual_readout_name = f"{readout_name}_custom"
-    else:
-        actual_readout_name = readout_name
-    
     # Store actual_readout_name in namespace for use in QUA program
-    node.namespace["actual_readout_name"] = actual_readout_name
+    node.namespace["actual_readout_name"] = node.parameters.get_actual_readout_name()
     
-    # Register the sweep axes to be added to the dataset when fetching data
-    node.namespace["tracked_resonators"] = []
    
+    # Determine if we're using readout_zero (with zero padding) or regular readout
+    is_readout_zero = readout_name == "readout_zero"
+    
     for q in qubits:
         resonator = q.resonator
         readout_op = resonator.operations[f"{readout_name}"]
         
         # Calculate the desired pulse parameters
         # For Square_zero_ReadoutPulse: total length = square_length + zero_length
-        # Integration weights should cover square_length (the actual readout portion)
-        square_len = node.parameters.square_length if node.parameters.square_length is not None else 1500
-        zero_len = node.parameters.zero_length if node.parameters.zero_length is not None else 0
-        desired_length = square_len + zero_len
+        # For SquareReadoutPulse: total length = square_length (no zero padding)
+        square_len = node.parameters.get_square_length(default=1500)
+        if is_readout_zero:
+            zero_len = node.parameters.get_zero_length(default=0)
+            desired_length = node.parameters.get_full_pulse_length(square_default=1500, zero_default=0)
+        else:
+            # For regular readout, no zero padding
+            zero_len = 0
+            desired_length = square_len
         
         # IMPORTANT: The integration weights must match square_length
         # QUAM should regenerate them automatically when generate_config() is called,
@@ -112,7 +113,7 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
             else:
                 raise
         
-        # Check if readout_zero_custom exists BEFORE entering tracked_updates
+        # Check if readout_custom/readout_zero_custom exists BEFORE entering tracked_updates
         # (tracked objects don't handle 'in' operator well)
         actual_readout_name = node.namespace["actual_readout_name"]
         try:
@@ -120,7 +121,7 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
             _ = q.resonator.operations[actual_readout_name]
             # Operation exists, use it
         except KeyError:
-            # Operation doesn't exist, fall back to readout_zero if it was _custom
+            # Operation doesn't exist, fall back to readout/readout_zero if it was _custom
             if actual_readout_name.endswith("_custom"):
                 print(f"{q.name}: {actual_readout_name} doesn't exist yet, using {readout_name} with defaults")
                 actual_readout_name = readout_name
@@ -129,15 +130,17 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
         # make temporary updates before running the program and revert at the end.
         # Now that reference is broken, we can use dont_assign_to_none=True
         with tracked_updates(resonator, auto_revert=False, dont_assign_to_none=True) as resonator:
-            # Use the appropriate readout operation (readout_zero or readout_zero_custom)
+            # Use the appropriate readout operation (readout/readout_zero or readout_custom/readout_zero_custom)
             readout_op_tracked = resonator.operations[actual_readout_name]
             # For Square_zero_ReadoutPulse, set zero_length first, then length
             # This ensures integration weights are regenerated correctly
-            readout_op_tracked.zero_length = zero_len
+            # Only set zero_length if the pulse type supports it (Square_zero_ReadoutPulse)
+            if hasattr(readout_op_tracked, 'zero_length'):
+                readout_op_tracked.zero_length = zero_len
             readout_op_tracked.length = desired_length
             
-            # Always use default integration weights for readout_zero
-            # readout_zero_custom will have optimized weights set in update_state
+            # Always use default integration weights for readout/readout_zero
+            # readout_custom/readout_zero_custom will have optimized weights set in update_state
             default_weights = [(1.0, desired_length)]
             try:
                 readout_op_tracked.integration_weights = default_weights
@@ -148,9 +151,10 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                 print(f"{q.name} {node.namespace['actual_readout_name']}: Error setting default weights: {type(e).__name__}: {e}")
             
             # Debug: Print the actual values to verify
-            print(f"{q.name} readout_zero: length={readout_op_tracked.length}, zero_length={readout_op_tracked.zero_length}, square_length={readout_op_tracked.length - readout_op_tracked.zero_length}")
-            
-            node.namespace["tracked_resonators"].append(resonator)
+            if hasattr(readout_op_tracked, 'zero_length'):
+                print(f"{q.name} {readout_name}: length={readout_op_tracked.length}, zero_length={readout_op_tracked.zero_length}, square_length={readout_op_tracked.length - readout_op_tracked.zero_length}")
+            else:
+                print(f"{q.name} {readout_name}: length={readout_op_tracked.length}")
 
     # Register the sweep axes to be added to the dataset when fetching data
     node.namespace["sweep_axes"] = {
@@ -320,9 +324,10 @@ def analyse_data(node: QualibrationNode[Parameters, Quam]):
 @node.run_action(skip_if=node.parameters.simulate)
 def plot_data(node: QualibrationNode[Parameters, Quam]):
     """Plot the raw and fitted data in specific figures whose shape is given by qubit.grid_location."""
-    square = node.parameters.square_length
-    zero = node.parameters.zero_length
-    W = node.parameters.segment_length * 4  # Slice width in nanoseconds
+    # Use the same values that were used in create_qua_program
+    square = node.parameters.get_square_length(default=1500)
+    zero = node.parameters.get_zero_length(default=0)
+    W = node.parameters.get_slice_width_ns()  # Slice width in nanoseconds
     
     # Plot all readout trajectory figures
     fig_diff, fig_IQ_raw = plot_readout_trajectories(
@@ -357,7 +362,7 @@ def extract_optimal_integration_windows(node: QualibrationNode[Parameters, Quam]
     """
     from dataclasses import asdict
     
-    W = node.parameters.segment_length * 4  # Slice width in nanoseconds
+    W = node.parameters.get_slice_width_ns()  # Slice width in nanoseconds
     # Get optimal integration windows for all qubits
     optimal_windows = get_optimal_integration_windows_for_all_qubits(
         node.results["ds_raw"],
@@ -397,7 +402,7 @@ def extract_optimal_integration_windows(node: QualibrationNode[Parameters, Quam]
                     qubit,
                     W,
                     threshold_fraction=0.5,
-                    use_time_weighting=False,  # Use uniform windowed weights for simplicity
+                    use_time_weighting=True,  # Use normalized time-weighted weights (matched filter for better SNR)
                 )
                 # Convert to dict for JSON serialization
                 optimized_weights_dict[qubit.name] = {
@@ -420,30 +425,40 @@ def extract_optimal_integration_windows(node: QualibrationNode[Parameters, Quam]
 
 
 # %% {Update_state}
-
 @node.run_action(skip_if=node.parameters.simulate)
 def update_state(node: QualibrationNode[Parameters, Quam]):
     """
-    Create/update readout_zero_custom operation with optimized integration weights.
+    Create/update readout_custom or readout_zero_custom operation with optimized integration weights.
     
-    This creates a new operation called readout_zero_custom (or updates it if it exists)
+    This creates a new operation called readout_custom (or readout_zero_custom) (or updates it if it exists)
     with the optimized integration weights determined from the trajectory difference analysis.
-    The original readout_zero operation remains unchanged with default integration weights.
+    The original readout/readout_zero operation remains unchanged with default integration weights.
+    
+    - If readout_name is "readout", creates readout_custom using SquareReadoutPulse (no zero padding)
+    - If readout_name is "readout_zero", creates readout_zero_custom using Square_zero_ReadoutPulse (with zero padding)
     
     The integration weights are stored as a list of (amplitude, duration) tuples
     representing the cosine component. The rotation is handled via integration_weights_angle.
     
-    Other experiments can use readout_zero_custom to benefit from the optimization.
+    Other experiments can use readout_custom or readout_zero_custom to benefit from the optimization.
     """
     if "optimized_integration_weights" not in node.results:
         node.log("Warning: No optimized integration weights found. Skipping state update.")
         return
     
     optimized_weights = node.results["optimized_integration_weights"]
-    readout_name = node.parameters.readout_name  # This is "readout_zero"
-    custom_readout_name = f"{readout_name}_custom"  # This is "readout_zero_custom"
+    readout_name = node.parameters.readout_name  # This is "readout" or "readout_zero"
+    custom_readout_name = f"{readout_name}_custom"  # This is "readout_custom" or "readout_zero_custom"
     
-    from quam.components.pulses import Square_zero_ReadoutPulse
+    # Determine which pulse class to use based on readout_name
+    is_readout_zero = readout_name == "readout_zero"
+    if is_readout_zero:
+        from quam.components.pulses import Square_zero_ReadoutPulse
+        PulseClass = Square_zero_ReadoutPulse
+    else:
+        from quam.components.pulses import SquareReadoutPulse
+        PulseClass = SquareReadoutPulse
+    
     from copy import deepcopy
     
     with node.record_state_updates():
@@ -454,19 +469,24 @@ def update_state(node: QualibrationNode[Parameters, Quam]):
             try:
                 weights_data = optimized_weights[qubit.name]
                 
-                # Get the original readout_zero operation to copy its properties
-                readout_zero_op = qubit.resonator.operations[readout_name]
+                # Get the original readout operation to copy its properties
+                readout_op = qubit.resonator.operations[readout_name]
                 
-                # IMPORTANT: Set default integration_weights for readout_zero
-                # This ensures readout_zero always uses default uniform weights
+                # IMPORTANT: Set default integration_weights for readout/readout_zero
+                # This ensures readout/readout_zero always uses default uniform weights
                 # Get pulse length for default weights
-                square_len = node.parameters.square_length if node.parameters.square_length is not None else 1400
-                zero_len = node.parameters.zero_length if node.parameters.zero_length is not None else 1000
-                full_pulse_length = square_len + zero_len
+                square_len = node.parameters.get_square_length(default=1400)
+                if is_readout_zero:
+                    zero_len = node.parameters.get_zero_length(default=1000)
+                    full_pulse_length = node.parameters.get_full_pulse_length(square_default=1400, zero_default=1000)
+                else:
+                    # For regular readout, no zero padding
+                    zero_len = 0
+                    full_pulse_length = square_len
                 default_weights = [(1.0, full_pulse_length)]
                 
                 try:
-                    current_iw = readout_zero_op.integration_weights
+                    current_iw = readout_op.integration_weights
                     # Check if it's already default weights
                     if isinstance(current_iw, list) and len(current_iw) == 1:
                         amp, dur = current_iw[0] if isinstance(current_iw[0], (list, tuple)) else (current_iw[0], current_iw[1])
@@ -475,66 +495,83 @@ def update_state(node: QualibrationNode[Parameters, Quam]):
                             node.log(f"{qubit.name}.{readout_name} already has default integration weights")
                         else:
                             # Has custom weights, replace with defaults
-                            readout_zero_op.integration_weights = default_weights
+                            readout_op.integration_weights = default_weights
                             node.log(f"Set default integration_weights for {qubit.name}.{readout_name} (replaced custom weights)")
                     elif isinstance(current_iw, str) and current_iw.startswith("#"):
                         # It's a reference, break it and set defaults
-                        readout_zero_op.integration_weights = default_weights
+                        readout_op.integration_weights = default_weights
                         node.log(f"Set default integration_weights for {qubit.name}.{readout_name} (broke reference)")
                     elif current_iw is None:
                         # Already None, set defaults
-                        readout_zero_op.integration_weights = default_weights
+                        readout_op.integration_weights = default_weights
                         node.log(f"Set default integration_weights for {qubit.name}.{readout_name}")
                     else:
                         # Has custom weights, replace with defaults
-                        readout_zero_op.integration_weights = default_weights
+                        readout_op.integration_weights = default_weights
                         node.log(f"Set default integration_weights for {qubit.name}.{readout_name} (replaced custom weights)")
                 except Exception as e:
                     node.log(f"Warning: Could not set default integration_weights for {qubit.name}.{readout_name}: {e}")
                     # Try to set defaults anyway
                     try:
-                        readout_zero_op.integration_weights = default_weights
+                        readout_op.integration_weights = default_weights
                     except:
                         pass
-                    # Continue anyway - we'll still create readout_zero_custom
+                    # Continue anyway - we'll still create readout_custom/readout_zero_custom
                 
-                # Check if readout_zero_custom already exists
+                # Check if readout_custom/readout_zero_custom already exists
                 if custom_readout_name in qubit.resonator.operations:
-                    # Update existing readout_zero_custom
+                    # Update existing readout_custom/readout_zero_custom
                     readout_custom_op = qubit.resonator.operations[custom_readout_name]
                     node.log(f"Updating existing {qubit.name}.{custom_readout_name} operation")
                 else:
-                    # Create new readout_zero_custom by copying readout_zero
+                    # Create new readout_custom/readout_zero_custom by copying readout/readout_zero
                     node.log(f"Creating new {qubit.name}.{custom_readout_name} operation from {readout_name}")
                     
-                    # Get pulse parameters from experiment (not from readout_zero to ensure consistency)
-                    square_len = node.parameters.square_length if node.parameters.square_length is not None else 1400
-                    zero_len = node.parameters.zero_length if node.parameters.zero_length is not None else 1000
-                    full_pulse_length = square_len + zero_len
+                    # Get pulse parameters from experiment (not from readout to ensure consistency)
+                    square_len = node.parameters.get_square_length(default=1400)
+                    if is_readout_zero:
+                        zero_len = node.parameters.get_zero_length(default=1000)
+                        full_pulse_length = node.parameters.get_full_pulse_length(square_default=1400, zero_default=1000)
+                    else:
+                        # For regular readout, no zero padding
+                        zero_len = 0
+                        full_pulse_length = square_len
                     
-                    # Copy properties from readout_zero, but use experiment parameters for length/zero_length
-                    readout_custom_op = Square_zero_ReadoutPulse(
-                        amplitude=readout_zero_op.amplitude,
-                        length=full_pulse_length,  # Use experiment parameter
-                        zero_length=zero_len,  # Use experiment parameter
-                        integration_weights_angle=readout_zero_op.integration_weights_angle,
-                        digital_marker=deepcopy(readout_zero_op.digital_marker) if hasattr(readout_zero_op, 'digital_marker') else None,
-                    )
+                    # Copy properties from readout/readout_zero, but use experiment parameters for length/zero_length
+                    pulse_kwargs = {
+                        "amplitude": readout_op.amplitude,
+                        "length": full_pulse_length,  # Use experiment parameter
+                        "integration_weights_angle": readout_op.integration_weights_angle,
+                        "digital_marker": deepcopy(readout_op.digital_marker) if hasattr(readout_op, 'digital_marker') else None,
+                    }
+                    
+                    # Only add zero_length for Square_zero_ReadoutPulse
+                    if is_readout_zero:
+                        pulse_kwargs["zero_length"] = zero_len
+                    
+                    readout_custom_op = PulseClass(**pulse_kwargs)
                     
                     # Assign to operations dict
                     qubit.resonator.operations[custom_readout_name] = readout_custom_op
                 
-                # Get the full pulse length (square_length + zero_length) from experiment parameters
-                square_len = node.parameters.square_length if node.parameters.square_length is not None else 1400
-                zero_len = node.parameters.zero_length if node.parameters.zero_length is not None else 1000
-                full_pulse_length = square_len + zero_len
+                # Get the full pulse length from experiment parameters
+                square_len = node.parameters.get_square_length(default=1400)
+                if is_readout_zero:
+                    zero_len = node.parameters.get_zero_length(default=1000)
+                    full_pulse_length = node.parameters.get_full_pulse_length(square_default=1400, zero_default=1000)
+                else:
+                    # For regular readout, no zero padding
+                    zero_len = 0
+                    full_pulse_length = square_len
                 
-                # Ensure readout_zero_custom has the correct length and zero_length
-                # Update them if they don't match the experiment parameters
+                # Ensure readout_custom/readout_zero_custom has the correct length
+                # Update it if it doesn't match the experiment parameters
                 if readout_custom_op.length != full_pulse_length:
                     readout_custom_op.length = full_pulse_length
-                if readout_custom_op.zero_length != zero_len:
-                    readout_custom_op.zero_length = zero_len
+                # Only set zero_length if the pulse type supports it (Square_zero_ReadoutPulse)
+                if hasattr(readout_custom_op, 'zero_length'):
+                    if readout_custom_op.zero_length != zero_len:
+                        readout_custom_op.zero_length = zero_len
                 
                 # Get the optimal window information
                 optimal_window = weights_data["optimal_window"]
@@ -551,24 +588,43 @@ def update_state(node: QualibrationNode[Parameters, Quam]):
                 for amp, dur in cosine_weights:
                     optimized_weights_list.append((float(amp), int(dur)))
                 
+                # Verify weights have reasonable magnitudes (similar to default weight of 1.0)
+                # Check maximum weight magnitude and scale if needed
+                non_zero_weights = [amp for amp, dur in optimized_weights_list if abs(amp) > 1e-10]
+                if non_zero_weights:
+                    max_weight_magnitude = max([abs(w) for w in non_zero_weights])
+                    # If max weight is too small (< 0.1) or too large (> 10), scale them
+                    if max_weight_magnitude < 0.1 or max_weight_magnitude > 10.0:
+                        scale_factor = 1.0 / max_weight_magnitude if max_weight_magnitude > 0 else 1.0
+                        optimized_weights_list = [(float(amp * scale_factor), dur) for amp, dur in optimized_weights_list]
+                        node.log(f"  Scaled weights for {qubit.name}: max_magnitude was {max_weight_magnitude:.6f}, scaled to ~1.0")
+                
                 # Calculate padding needed to match full pulse length
                 optimized_total_duration = sum(dur for _, dur in optimized_weights_list)
                 padding_before = window_start
                 padding_after = full_pulse_length - window_end
                 
                 # Create padded integration weights: zeros before, optimized window, zeros after
+                # Note: Zero padding regions contribute 0 to the integrated weight, so normalization is preserved
                 padded_integration_weights = []
                 
                 # Add zeros before the optimized window
                 if padding_before > 0:
                     padded_integration_weights.append((0.0, int(padding_before)))
                 
-                # Add the optimized weights
+                # Add the optimized weights (normalized to sum(weight * duration) = 1)
                 padded_integration_weights.extend(optimized_weights_list)
                 
                 # Add zeros after the optimized window
                 if padding_after > 0:
                     padded_integration_weights.append((0.0, int(padding_after)))
+                
+                # Verify weights have reasonable magnitudes
+                non_zero_weights_final = [amp for amp, dur in padded_integration_weights if abs(amp) > 1e-10]
+                if non_zero_weights_final:
+                    avg_weight_magnitude_final = np.mean([abs(w) for w in non_zero_weights_final])
+                    max_weight_magnitude = max([abs(w) for w in non_zero_weights_final])
+                    node.log(f"  Weight magnitudes for {qubit.name}: avg={avg_weight_magnitude_final:.6f}, max={max_weight_magnitude:.6f}")
                 
                 # Verify total duration matches pulse length
                 total_duration = sum(dur for _, dur in padded_integration_weights)
@@ -581,7 +637,7 @@ def update_state(node: QualibrationNode[Parameters, Quam]):
                     else:
                         node.log(f"⚠ Warning: Total duration mismatch for {qubit.name}: {total_duration} ns vs {full_pulse_length} ns")
                 
-                # Update readout_zero_custom with optimized integration weights
+                # Update readout_custom/readout_zero_custom with optimized integration weights
                 # Break reference if integration_weights is a reference (like "#./default_integration_weights")
                 # Similar to how we handle length references
                 try:
@@ -614,13 +670,21 @@ def update_state(node: QualibrationNode[Parameters, Quam]):
                     success = (actual_iw == padded_integration_weights)
                 
                 if success:
+                    # Verify normalization: sum(weight * duration) over non-zero segments should = 1
+                    total_integrated_weight_verify = sum(amp * dur for amp, dur in padded_integration_weights)
                     node.log(f"✓ Successfully updated integration weights for {qubit.name}.{custom_readout_name}:")
                     node.log(f"  Full pulse length: {full_pulse_length} ns")
                     node.log(f"  Optimal window: {window_start} - {window_end} ns ({window_duration} ns)")
                     node.log(f"  Padding: {padding_before} ns before, {padding_after} ns after")
                     node.log(f"  Total segments: {len(padded_integration_weights)}")
                     node.log(f"  Optimized segments: {len(optimized_weights_list)}")
-                    node.log(f"  {readout_name} has been cleaned (integration_weights removed, will use defaults)")
+                    # Calculate weight statistics
+                    non_zero_weights_verify = [amp for amp, dur in padded_integration_weights if abs(amp) > 1e-10]
+                    if non_zero_weights_verify:
+                        avg_weight = np.mean([abs(w) for w in non_zero_weights_verify])
+                        max_weight = max([abs(w) for w in non_zero_weights_verify])
+                        node.log(f"  Weight magnitudes: avg={avg_weight:.6f}, max={max_weight:.6f}")
+                    node.log(f"  {readout_name} has been cleaned (integration_weights set to defaults)")
                     node.log(f"  {custom_readout_name} has optimized weights for use in other experiments")
                 else:
                     node.log(f"⚠ Warning: Integration weights assignment verification failed for {qubit.name}")

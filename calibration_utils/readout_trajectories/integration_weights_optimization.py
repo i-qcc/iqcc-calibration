@@ -213,8 +213,9 @@ def create_time_weighted_integration_weights(
     optimal_window : OptimalIntegrationWindow
         Optimal integration window to use.
     integration_weights_angle : float, optional
-        Rotation angle for integration weights in radians (default: 0.0).
+        Rotation angle for integration weights in degrees (default: 0.0).
         This should match the angle determined from IQ BLOBS analysis.
+        Note: QUAM stores this angle in degrees in state.json, but we convert to radians for np.cos/np.sin.
     sample_rate_ns : int, optional
         Sample rate in nanoseconds (default: 4, which is 1 sample per clock cycle).
     
@@ -231,14 +232,18 @@ def create_time_weighted_integration_weights(
     window_diff = diff[start_idx:end_idx]
     window_time = time_ns[start_idx:end_idx]
     
-    # Normalize difference values to create weights (sum to 1 for proper scaling)
+    # Create weights proportional to difference signal (matched filter approach)
     # Add small epsilon to avoid division by zero
     eps = 1e-12
-    normalized_weights = (window_diff + eps) / (np.sum(window_diff) + eps * len(window_diff))
+    # Use proportional weights (will be normalized after rotation to have reasonable magnitudes)
+    normalized_weights = window_diff + eps
     
     # Calculate cosine and sine components with rotation
-    cos_angle = np.cos(integration_weights_angle)
-    sin_angle = np.sin(integration_weights_angle)
+    # IMPORTANT: integration_weights_angle is stored in degrees in QUAM state.json,
+    # but np.cos/np.sin expect radians, so we need to convert
+    angle_rad = np.deg2rad(integration_weights_angle)
+    cos_angle = np.cos(angle_rad)
+    sin_angle = np.sin(angle_rad)
     
     # Create weight segments
     # Group consecutive samples with similar weights to reduce number of segments
@@ -282,6 +287,20 @@ def create_time_weighted_integration_weights(
     
     total_length_ns = int(np.sum([w[1] for w in cosine_weights]))
     
+    # Normalize weights to have reasonable magnitudes (similar to default weight of 1.0)
+    # The weights are proportional to difference signal (matched filter)
+    # Normalize so that the weights preserve the matched filter property but have reasonable magnitudes
+    # We normalize by the maximum weight magnitude to ensure weights are in range [0, 1] (or [-1, 1] after rotation)
+    if cosine_weights:
+        # Find maximum absolute weight magnitude across all segments
+        max_weight_magnitude = max([abs(amp) for amp, _ in cosine_weights])
+        if max_weight_magnitude > 0:
+            # Scale so max weight magnitude is 1.0 (like default uniform weights)
+            # This preserves the relative proportions (matched filter) while ensuring reasonable values
+            scale_factor = 1.0 / max_weight_magnitude
+            cosine_weights = [(float(amp * scale_factor), dur) for amp, dur in cosine_weights]
+            sine_weights = [(float(amp * scale_factor), dur) for amp, dur in sine_weights]
+    
     return OptimizedIntegrationWeights(
         cosine_weights=cosine_weights,
         sine_weights=sine_weights,
@@ -306,7 +325,8 @@ def create_windowed_integration_weights(
     optimal_window : OptimalIntegrationWindow
         Optimal integration window to use.
     integration_weights_angle : float, optional
-        Rotation angle for integration weights in radians (default: 0.0).
+        Rotation angle for integration weights in degrees (default: 0.0).
+        Note: QUAM stores this angle in degrees in state.json, but we convert to radians for np.cos/np.sin.
     sample_rate_ns : int, optional
         Sample rate in nanoseconds (default: 4).
     
@@ -322,8 +342,11 @@ def create_windowed_integration_weights(
     window_length_ns = window_length_samples * sample_rate_ns
     
     # Create uniform weights within window
-    cos_angle = np.cos(integration_weights_angle)
-    sin_angle = np.sin(integration_weights_angle)
+    # IMPORTANT: integration_weights_angle is stored in degrees in QUAM state.json,
+    # but np.cos/np.sin expect radians, so we need to convert
+    angle_rad = np.deg2rad(integration_weights_angle)
+    cos_angle = np.cos(angle_rad)
+    sin_angle = np.sin(angle_rad)
     
     # Normalize so total weight equals window length (for proper scaling)
     weight_amplitude = 1.0

@@ -8,13 +8,13 @@ from qualibration_libs.parameters import QubitsExperimentNodeParameters, CommonN
 class SpinLockingTimeNodeParameters(RunnableParameters):
     """Common parameters for configuring spin locking time sweep in a quantum machine simulation or execution."""
 
-    min_wait_time_in_ns: int = 16
+    min_wait_time_in_ns: int = 20
     """Minimum wait time in nanoseconds. Default is 16."""
     max_wait_time_in_ns: int = 250000
     """Maximum wait time in nanoseconds. Default is 250000."""
     wait_time_num_points: int = 50
     """Number of points for the wait time scan. Default is 50."""
-    log_or_linear_sweep: Literal["log", "linear"] = "log"
+    log_or_linear_sweep: Literal["log", "linear"] = "linear"
     """Type of sweep, either "log" (logarithmic) or "linear". Default is "log"."""
 
 
@@ -75,7 +75,9 @@ def _get_sl_times_log_sweep_in_clock_cycles(node_parameters: SpinLockingTimeNode
 
 
 class NodeSpecificParameters(RunnableParameters):
-    num_shots: int = 1500
+    num_shots: int = 3000
+    skip_Q_analysis: bool = True
+    """If True, skip analysis and plotting of Q quadrature, only I will be analyzed and plotted. Default is False."""
 
 class Parameters(
     NodeParameters,

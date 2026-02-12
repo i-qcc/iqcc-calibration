@@ -41,13 +41,13 @@ import numpy as np
 # %% {Node_parameters}
 class Parameters(NodeParameters):
 
-    qubits: Optional[List[str]] = None
+    qubits: Optional[List[str]] = ["Q6"]
     num_averages: int = 1000
     operation: str = "saturation"
     operation_amplitude_factor: Optional[float] = 7  # Higher power to drive 0->2 transition
     operation_len_in_ns: Optional[int] = None
-    initial_anharmonicity_mhz: float = 200.0  # Default anharmonicity guess
-    frequency_span_in_mhz: float = 50  # Search window around f01 - α/2
+    initial_anharmonicity_mhz: float = 140.0  # Default anharmonicity guess
+    frequency_span_in_mhz: float = 100  # Search window around f01 - α/2
     frequency_step_in_mhz: float = 0.25
     flux_point_joint_or_independent: Literal["joint", "independent"] = "joint"
     target_peak_width: Optional[float] = 2e6
@@ -57,7 +57,7 @@ class Parameters(NodeParameters):
     simulation_duration_ns: int = 2500
     timeout: int = 100
     load_data_id: Optional[int] = None
-    multiplexed: bool = False
+    multiplexed: bool = True
 
 
 node = QualibrationNode(name="03e_Qubit_Spectroscopy_02", parameters=Parameters())

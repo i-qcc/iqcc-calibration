@@ -16,7 +16,7 @@ def plot_rabi_freq_vs_amplitude(
 ) -> plt.Figure:
     """
     Plot rabi frequency vs amplitude for each qubit.
-    X-axis: amplitude factor
+    X-axis: real amplitude (V) - calculated from amplitude factor * x180_Square amplitude
     Y-axis: rabi frequency (MHz)
     """
     # Create a minimal dataset with qubit dimension for QubitGrid
@@ -24,6 +24,9 @@ def plot_rabi_freq_vs_amplitude(
     dummy_ds = xr.Dataset({
         "dummy": (["qubit"], [0] * len(qubit_names))
     }, coords={"qubit": qubit_names})
+    
+    # Create a mapping from qubit name to qubit object for easy access
+    qubit_dict = {q.name: q for q in qubits}
     
     grid = QubitGrid(dummy_ds, [q.grid_location for q in qubits])
     
@@ -33,22 +36,38 @@ def plot_rabi_freq_vs_amplitude(
         if q_name in rabi_freqs:
             ds = rabi_freqs[q_name]
             
-            # Plot successful fits only
-            success_mask = ds.success.values
-            amp_success = ds.amp_prefactor.values[success_mask]
-            freq_success = ds.rabi_frequency.values[success_mask]
+            # Get the base amplitude from x180_Square pulse
+            qubit = qubit_dict[q_name]
+            try:
+                base_amplitude = float(qubit.xy.operations["x180_Square"].amplitude)
+            except (AttributeError, KeyError, TypeError) as e:
+                raise ValueError(
+                    f"Could not access amplitude for {q_name}.x180_Square. "
+                    f"Make sure the pulse exists and has an amplitude attribute. Error: {e}"
+                )
             
-            if len(amp_success) > 0:
-                ax.plot(amp_success, freq_success, 'o-', label="Rabi frequency", markersize=4)
+            # Convert amplitude factors to real amplitudes (in Volts)
+            success_mask = ds.success.values
+            amp_prefactor_success = ds.amp_prefactor.values[success_mask]
+            amp_prefactor_failed = ds.amp_prefactor.values[~success_mask]
+            
+            # Multiply by base amplitude to get real amplitude values
+            amp_real_success = amp_prefactor_success * base_amplitude
+            amp_real_failed = amp_prefactor_failed * base_amplitude
+            
+            freq_success = ds.rabi_frequency.values[success_mask]
+            freq_failed = ds.rabi_frequency.values[~success_mask]
+            
+            # Plot successful fits only
+            if len(amp_real_success) > 0:
+                ax.plot(amp_real_success, freq_success, 'o-', label="Rabi frequency", markersize=4)
             
             # Plot failed fits as red x's
-            failed_mask = ~success_mask
-            if np.any(failed_mask):
-                amp_failed = ds.amp_prefactor.values[failed_mask]
-                freq_failed = ds.rabi_frequency.values[failed_mask]
-                ax.plot(amp_failed, freq_failed, 'rx', label="Failed fit", markersize=6)
+            if len(amp_real_failed) > 0:
+                ax.plot(amp_real_failed, freq_failed, 'rx', label="Failed fit", markersize=6)
             
-            ax.set_xlabel("Amplitude factor")
+            # Set x-axis label to show real amplitude in Volts
+            ax.set_xlabel("Amplitude [V]")
             ax.set_ylabel("Rabi frequency [MHz]")
             ax.set_title(q_name)
             ax.legend()

@@ -31,6 +31,10 @@ class Quam(FluxTunableQuam):
 
     @classmethod
     def load(cls, *args, **kwargs) -> "Quam":
+        # Ensure pulse patches are applied before loading state
+        from iqcc_calibration_tools.quam_config.components import pulses
+        pulses._patch_quam_pulses()
+        
         if not args:
             if "QUAM_STATE_PATH" in os.environ:
                 args = (os.environ["QUAM_STATE_PATH"],)

@@ -95,23 +95,24 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
             align()
             with for_(shot, 0, shot < n_avg, shot + 1):
                 save(shot, n_st)
+                # qubit.xy.update_frequency(qubit.xy.intermediate_frequency +1*u.MHz)
                 with for_each_(t_sl, spin_locking_times):
                     # Qubit initialization
                     for i, qubit in multiplexed_qubits.items():
-                        # reset_frame(qubit.xy.name)
+                        reset_frame(qubit.xy.name) #check reset_phase
                         qubit.reset(node.parameters.reset_type, node.parameters.simulate)
                     align()
-                    qubit.xy.update_frequency(qubit.xy.intermediate_frequency -1*u.MHz)
-                    # Qubit manipulation
+                    #Qubit Manipulation
                     for i, qubit in multiplexed_qubits.items():
                         qubit.xy.play("-y90")
+                        # qubit.xy.update_frequency(qubit.xy.intermediate_frequency +8*u.MHz, keep_phase=True)
                         qubit.xy.play("x180_BlackmanIntegralPulse_Rise")
                         qubit.xy.play("x180_Square",duration = 2*t_sl)
                         qubit.xy.play("x180_BlackmanIntegralPulse_Fall")
+                        # qubit.xy.update_frequency(qubit.xy.intermediate_frequency -8*u.MHz, keep_phase=True)
                         qubit.xy.play("-y90")
                     align()
                     # Qubit readout
-                    qubit.xy.update_frequency(qubit.xy.intermediate_frequency +1*u.MHz)
                     for i, qubit in multiplexed_qubits.items():
                         # Measure the state of the resonators
                         if node.parameters.use_state_discrimination:
@@ -122,6 +123,7 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                             # save data
                             save(I[i], I_st[i])
                             save(Q[i], Q_st[i])
+                align()
         with stream_processing():
             n_st.save("n")
             for i in range(num_qubits):
@@ -224,10 +226,12 @@ def plot_data(node: QualibrationNode[Parameters, Quam]):
         ds_fit_compat = node.results["ds_fit"].rename({"spin_locking_time": "idle_time"})
 
     # Call the plotting utility with compatible datasets
+    skip_Q = getattr(node.parameters, 'skip_Q_analysis', False)
     fig_result = plot_raw_data_with_fit(
         ds_raw_compat, 
         node.namespace["qubits"], 
-        ds_fit_compat
+        ds_fit_compat,
+        skip_Q=skip_Q
     )
     
     # Build subtitle in the correct order: sweep, multiplexed, reset_type, then date/time
@@ -241,7 +245,7 @@ def plot_data(node: QualibrationNode[Parameters, Quam]):
     # Add date/time last
     subtitle_parts.append(f"{node.date_time} GMT+{node.time_zone} #{node.node_id}")
     
-    # Handle both single figure (state discrimination) and tuple of figures (I, Q mode)
+    # Handle both single figure (state discrimination or skip_Q=True) and tuple of figures (I, Q mode)
     if isinstance(fig_result, tuple):
         fig_I, fig_Q = fig_result
         # Get existing titles and append subtitle
@@ -267,9 +271,14 @@ def plot_data(node: QualibrationNode[Parameters, Quam]):
         fig_result.tight_layout(rect=[0, 0, 1, 0.97])
         plt.show()
         # Store the generated figures
-        node.results["figures"] = {
-            "T2_SL": fig_result,
-        }
+        if skip_Q:
+            node.results["figures"] = {
+                "T2_SL_I": fig_result,
+            }
+        else:
+            node.results["figures"] = {
+                "T2_SL": fig_result,
+            }
 
 
 # %% {Update_state}

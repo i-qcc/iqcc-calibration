@@ -7,7 +7,7 @@ import numpy as np
 
 from quam.core import QuamComponent, quam_dataclass
 from quam.utils import string_reference as str_ref
-from quam.components.pulses import Pulse
+from quam.components.pulses import Pulse, ReadoutPulse, SquarePulse, SquareReadoutPulse
 
 from qm.qua import (
     AmpValuesType,
@@ -225,4 +225,76 @@ class CosinePulse(Pulse):
         )
         I, Q = np.array(I), np.array(Q)
 
-        return I    
+        return I
+
+
+@quam_dataclass
+class SquarePulse_zero(Pulse):
+    """Square pulse with zero padding at the end.
+    
+    Args:
+        amplitude (float): The amplitude of the square pulse.
+        length (int): The total length of the pulse (square part + zero part).
+        zero_length (int): The length of the zero padding at the end.
+        axis_angle (float, optional): IQ axis angle of the output pulse in radians.
+    """
+    
+    amplitude: float
+    zero_length: int
+    axis_angle: float = None
+    
+    def waveform_function(self):
+        # Complex amplitude if needed
+        amp = self.amplitude
+        if self.axis_angle is not None:
+            amp = amp * np.exp(1j * self.axis_angle)
+
+        # Square section
+        square_part = np.full(self.length - self.zero_length, amp, dtype=np.complex128)
+        
+        # Zero section
+        zero_part = np.zeros(int(self.zero_length), dtype=np.complex128)
+        
+        # Concatenate
+        waveform = np.concatenate([square_part, zero_part])
+        
+        return waveform
+
+
+@quam_dataclass
+class Square_zero_ReadoutPulse(ReadoutPulse, SquarePulse_zero):
+    """Square readout pulse with zero padding at the end.
+    
+    Extends SquarePulse_zero to include readout-specific functionality.
+    """
+    pass
+
+
+# Patch these classes into quam.components.pulses so they can be referenced
+# in state files as quam.components.pulses.Square_zero_ReadoutPulse
+def _patch_quam_pulses():
+    """Patch the new pulse classes into quam.components.pulses module."""
+    try:
+        import quam.components.pulses as quam_pulses_module
+        
+        # Add the classes to quam.components.pulses
+        # These classes are defined above in this module
+        quam_pulses_module.SquarePulse_zero = SquarePulse_zero
+        quam_pulses_module.Square_zero_ReadoutPulse = Square_zero_ReadoutPulse
+        
+        # Update __all__ if it exists
+        if hasattr(quam_pulses_module, '__all__'):
+            if 'SquarePulse_zero' not in quam_pulses_module.__all__:
+                quam_pulses_module.__all__.append('SquarePulse_zero')
+            if 'Square_zero_ReadoutPulse' not in quam_pulses_module.__all__:
+                quam_pulses_module.__all__.append('Square_zero_ReadoutPulse')
+    except (ImportError, AttributeError, NameError) as e:
+        # If quam.components.pulses is not available yet, we'll try again later
+        # This can happen during module initialization
+        # The patch will be called again from Quam.load() before state loading
+        pass
+
+
+# Automatically patch when this module is imported
+# But also ensure it's called before state loading
+_patch_quam_pulses()    

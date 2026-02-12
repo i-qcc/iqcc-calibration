@@ -5,6 +5,8 @@ from .tunable_coupler import *
 from .transmon_pair import *
 from .quam_root import *
 from .gate_macros import *
+# Import pulses module to ensure patch is applied early
+from . import pulses
 
 __all__ = [
     *transmon.__all__,

@@ -10,7 +10,7 @@ from quam_builder.architecture.superconducting.qubit import AnyTransmon
 u = unit(coerce_to_integer=True)
 
 
-def plot_raw_data_with_fit(ds: xr.Dataset, qubits: List[AnyTransmon], fits: xr.Dataset):
+def plot_raw_data_with_fit(ds: xr.Dataset, qubits: List[AnyTransmon], fits: xr.Dataset, skip_Q: bool = False):
     """
     Plots the resonator spectroscopy amplitude IQ_abs with fitted curves for the given qubits.
 
@@ -22,18 +22,21 @@ def plot_raw_data_with_fit(ds: xr.Dataset, qubits: List[AnyTransmon], fits: xr.D
         A list of qubits to plot.
     fits : xr.Dataset
         The dataset containing the fit parameters.
+    skip_Q : bool, optional
+        If True, skip plotting Q quadrature. Default is False.
 
     Returns
     -------
     Figure or tuple of Figures
         The matplotlib figure object(s) containing the plots.
         Returns a single figure for state discrimination, or a tuple of (fig_I, fig_Q) for I, Q mode.
+        If skip_Q is True, returns only fig_I.
 
     Notes
     -----
     - The function creates a grid of subplots, one for each qubit.
     - Each subplot contains the raw data and the fitted curve.
-    - When using I, Q mode, separate figures are created for I and Q.
+    - When using I, Q mode, separate figures are created for I and Q (unless skip_Q is True).
     """
     # Check if we're using state discrimination or I, Q mode
     if "state" in ds.data_vars:
@@ -57,16 +60,19 @@ def plot_raw_data_with_fit(ds: xr.Dataset, qubits: List[AnyTransmon], fits: xr.D
         grid_I.fig.set_size_inches(15, 9)
         grid_I.fig.tight_layout()
         
-        # Figure for Q
-        grid_Q = QubitGrid(ds, [q.grid_location for q in qubits])
-        for ax, qubit in grid_iter(grid_Q):
-            plot_individual_data_with_fit(ax, ds, qubit, fits.sel(qubit=qubit["qubit"]), quadrature="Q")
+        # Figure for Q (only if skip_Q is False)
+        if skip_Q:
+            return grid_I.fig
+        else:
+            grid_Q = QubitGrid(ds, [q.grid_location for q in qubits])
+            for ax, qubit in grid_iter(grid_Q):
+                plot_individual_data_with_fit(ax, ds, qubit, fits.sel(qubit=qubit["qubit"]), quadrature="Q")
 
-        grid_Q.fig.suptitle("T2 SL - Q")
-        grid_Q.fig.set_size_inches(15, 9)
-        grid_Q.fig.tight_layout()
-        
-        return grid_I.fig, grid_Q.fig
+            grid_Q.fig.suptitle("T2 SL - Q")
+            grid_Q.fig.set_size_inches(15, 9)
+            grid_Q.fig.tight_layout()
+            
+            return grid_I.fig, grid_Q.fig
 
 
 def plot_individual_data_with_fit(ax: Axes, ds: xr.Dataset, qubit: dict[str, str], fit: xr.Dataset = None, quadrature: str = None):
