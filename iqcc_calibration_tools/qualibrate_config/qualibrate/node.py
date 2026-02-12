@@ -3,6 +3,7 @@ import os
 import requests
 from typing import TypeVar, Generic, List, Dict, Set, Tuple, Union
 from datetime import datetime, timezone, timedelta
+from importlib.metadata import version as get_version
 from qualibrate import QualibrationNode as QualibrationNodeBase
 from qualibrate.parameters import NodeParameters
 from qualibrate.utils.type_protocols import MachineProtocol
@@ -87,6 +88,12 @@ class QualibrationNode(QualibrationNodeBase, Generic[ParametersType, MachineType
         self._machine = machine_config
         # logger.info(f"Machine stored successfully. Type: {type(self._machine)}")
     
+    def _record_versions(self):
+        """Record versions of quam_builder, quam, and qua packages to machine.extras['versions']."""
+        packages = {'quam_builder': 'quam-builder', 'quam': 'quam', 'qua': 'qm-qua'}
+        self.machine.extras['versions'] = {key: get_version(pkg) for key, pkg in packages.items()}
+        logger.info(f"Recorded package versions: {self.machine.extras['versions']}")
+
     def save(self):
         """
         Save a QualibrationNode both locally and to cloud if possible.
@@ -103,8 +110,8 @@ class QualibrationNode(QualibrationNodeBase, Generic[ParametersType, MachineType
         """
         logger.info(f"Saving node with snapshot index {self.snapshot_idx}")
         
-        # remove macros from quam object
-        Quam.remove_macros_from_qubits(self.machine)
+        # Record package versions before saving
+        self._record_versions()
         
         # Save locally first (primary operation)
         super().save()

@@ -11,7 +11,7 @@ from qualang_tools.multi_user import qm_session
 from qualang_tools.results import progress_counter
 from qualang_tools.units import unit
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode
-from iqcc_calibration_tools.quam_config.components.quam_root import Quam
+from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
 from calibration_utils.qubit_spectroscopy_vs_flux import (
     Parameters,
     fit_raw_data,
@@ -20,6 +20,7 @@ from calibration_utils.qubit_spectroscopy_vs_flux import (
     process_raw_dataset,
 )
 from qualibration_libs.parameters import get_qubits
+from qualibration_libs.core import BatchableList
 from qualibration_libs.runtime import simulate_and_plot
 from qualibration_libs.data import XarrayDataFetcher
 
@@ -69,7 +70,19 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
     # Class containing tools to help handle units and conversions.
     u = unit(coerce_to_integer=True)
     # Get the active qubits from the node and organize them by batches
-    node.namespace["qubits"] = qubits = get_qubits(node)
+    all_qubits = get_qubits(node)
+    # Filter out qubits that are not at sweep spot
+    excluded_qubits = [q for q in all_qubits if not q.at_sweep_spot]
+    node.namespace["excluded_qubits"] = excluded_qubits
+    if excluded_qubits:
+        node.log(f"Excluding qubits not at sweep spot: {[q.name for q in excluded_qubits]}")
+    filtered_qubits = [q for q in all_qubits if q.at_sweep_spot]
+    # Determine batch groups based on multiplexed parameter
+    if node.parameters.multiplexed:
+        batch_groups = [list(range(len(filtered_qubits)))]
+    else:
+        batch_groups = [[i] for i in range(len(filtered_qubits))]
+    node.namespace["qubits"] = qubits = BatchableList(filtered_qubits, batch_groups)
     num_qubits = len(qubits)
     # Check if the qubits have a z-line attached
     if any([q.z is None for q in qubits]):
@@ -236,13 +249,12 @@ def analyse_data(node: QualibrationNode[Parameters, Quam]):
 @node.run_action(skip_if=node.parameters.simulate)
 def plot_data(node: QualibrationNode[Parameters, Quam]):
     """Plot the raw and fitted data in specific figures whose shape is given by qubit.grid_location."""
-    fig_raw_fit = plot_raw_data_with_fit(node.results["ds_raw"], node.namespace["qubits"], node.results["ds_fit"])
+    excluded_qubits = node.namespace.get("excluded_qubits", [])
+    fig_raw_fit = plot_raw_data_with_fit(node.results["ds_raw"], node.namespace["qubits"], 
+                                         node.results["ds_fit"], excluded_qubits=excluded_qubits)
     node.add_node_info_subtitle(fig_raw_fit)
     plt.show()
-    # Store the generated figures
-    node.results["figures"] = {
-        "amplitude": fig_raw_fit,
-    }
+    node.results["figures"] = {"amplitude": fig_raw_fit}
 
 
 # %% {Update_state}

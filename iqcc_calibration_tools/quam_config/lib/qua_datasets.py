@@ -153,8 +153,7 @@ def integer_histogram(da: xr.DataArray, dim: str, minlength: Optional[int] = Non
     return da2.assign_coords({da.name: np.arange(len(da2[da.name]))})
 
 def opxoutput(full_scale_power_dbm, amp):
-    v=np.sqrt((2*50*10**(full_scale_power_dbm/10))/1000)*amp 
-    p_w=(v**2)/50
-    dbm=10*np.log10(p_w*1000)-10
-    rt_cable=-7#-7 is from 4m rt cable
+    v_peak=np.sqrt((2*50*10**(full_scale_power_dbm/10))/1000)*amp 
+    p_w=((v_peak/np.sqrt(2))**2)/50 #Vrms=Vpeak/sqrt(2), Vrms^2/R=Pw
+    dbm=10*np.log10(p_w*1000)
     return dbm

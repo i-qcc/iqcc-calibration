@@ -12,7 +12,7 @@ from qualang_tools.units import unit
 from qualang_tools.bakery.randomized_benchmark_c1 import c1_table
 
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode
-from iqcc_calibration_tools.quam_config.components.quam_root import Quam
+from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
 from calibration_utils.single_qubit_randomized_benchmarking_interleaved import (
     Parameters,
     get_interleaved_gate_index,

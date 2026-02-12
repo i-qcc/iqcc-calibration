@@ -4,7 +4,7 @@ from qualibrate.orchestration.basic_orchestrator import BasicOrchestrator
 from qualibrate.parameters import GraphParameters
 from qualibrate.qualibration_graph import QualibrationGraph
 from qualibrate.qualibration_library import QualibrationLibrary
-from iqcc_calibration_tools.quam_config.components.quam_root import Quam
+from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
 
 # %%
 library = QualibrationLibrary.get_active_library()
@@ -13,14 +13,17 @@ library = QualibrationLibrary.get_active_library()
 
 class Parameters(GraphParameters):
     qubits: List[str] = None
-  
+
+name = "graph_retune_fine_arbel"
 multiplexed = True
 flux_point = "joint"
 reset_type = "thermal"
+flux_span = 0.06
 
 nodes = {
         "IQ_blobs": library.nodes["07_iq_blobs"],
         "ramsey_flux_calibration": library.nodes["09_ramsey_vs_flux_calibration"],
+        # "ramsey": library.nodes["06a_ramsey"],
         "power_rabi_x180": library.nodes["04b_power_rabi"],
         "single_qubit_randomized_benchmarking": library.nodes["11d_Single_Qubit_Randomized_Benchmarking_legacy"],
     }
@@ -30,12 +33,17 @@ node_params = {
             "reset_type": reset_type},
     "ramsey_flux_calibration" : {"multiplexed": multiplexed,
             "num_shots": 300,
-            "flux_span": 0.02,
+            "flux_span": flux_span,
             "max_wait_time_in_ns": 500,
             "wait_time_step_in_ns": 5,
-            "scale_flux_span" : {"qA1": 3, "qA3":3, "qA6": 3, "qD3": 3, "qB2": 3},
             "flux_num": 11,
             "frequency_detuning_in_mhz": 4},
+#     "ramsey" : {"multiplexed": False,
+#             "reset_type": reset_type,
+#             "num_shots": 50,
+#             "frequency_detuning_in_mhz": 1.0,
+#             "max_wait_time_in_ns": 7000,
+#             "wait_time_num_points": 100},
     "power_rabi_x180" : {"operation": "x180",
             "reset_type": reset_type,
             "min_amp_factor": 0.8,
@@ -56,11 +64,13 @@ node_params = {
 
 
 g = QualibrationGraph(
-    name="graph_retune_fine_arbel",
+    name=name,
     parameters=Parameters(),
     nodes=nodes,
     connectivity=[
         ("IQ_blobs", "ramsey_flux_calibration"),
+        # ("ramsey_flux_calibration", "ramsey"),
+        # ("ramsey", "power_rabi_x180"),
         ("ramsey_flux_calibration", "power_rabi_x180"),
         ("power_rabi_x180", "single_qubit_randomized_benchmarking")
     ],

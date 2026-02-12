@@ -12,7 +12,7 @@ from qualang_tools.results import progress_counter
 from qualang_tools.units import unit
 
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode
-from iqcc_calibration_tools.quam_config.components.quam_root import Quam
+from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
 from calibration_utils.power_rabi import (
     Parameters,
     get_number_of_pulses,
@@ -65,6 +65,7 @@ def custom_param(node: QualibrationNode[Parameters, Quam]):
     # node.parameters.min_amp_factor = 0.8
     # node.parameters.max_amp_factor = 1.2
     # node.parameters.amp_factor_step = 0.01
+    node.parameters.reset_type = "active"
     pass
 
 

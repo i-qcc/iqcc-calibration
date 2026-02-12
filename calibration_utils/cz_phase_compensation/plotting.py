@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import xarray as xr
-from iqcc_calibration_tools.quam_config.components.quam_root import Quam
+from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
 
 
 

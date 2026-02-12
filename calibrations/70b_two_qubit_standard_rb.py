@@ -58,7 +58,7 @@ from calibration_utils.two_qubit_rb.qua_utils import QuaProgramHandler
 from iqcc_calibration_tools.analysis.plot_utils import plot_samples
 from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray
 
-from iqcc_calibration_tools.quam_config.components import Quam
+from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
 from calibration_utils.two_qubit_rb.cloud_utils import write_sync_hook
 from calibration_utils.two_qubit_rb.rb_utils import StandardRB, validate_multiplexed_batches
 from calibration_utils.two_qubit_rb.plot_utils import gate_mapping
@@ -405,7 +405,9 @@ with node.record_state_updates():
                 "error_per_2q_layer": rb_result[qp.id].error_per_2q_layer if hasattr(rb_result[qp.id], 'error_per_2q_layer') else None,
                 "error_per_gate": rb_result[qp.id].error_per_gate if hasattr(rb_result[qp.id], 'error_per_gate') else None,
                 "average_gate_fidelity": 1 - rb_result[qp.id].error_per_gate if hasattr(rb_result[qp.id], 'error_per_gate') else None,
-                "alpha": rb_result[qp.id].alpha if hasattr(rb_result[qp.id], 'alpha') else None}
+                "alpha": rb_result[qp.id].alpha if hasattr(rb_result[qp.id], 'alpha') else None,
+                "updated_at": f"{node.date_time} GMT+{node.time_zone}",
+            }
         else:
             print(f"Warning: Skipping state update for {qp.id} because fit failed.")
 # %% {Save_results}

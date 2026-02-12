@@ -12,7 +12,7 @@ from qualang_tools.units import unit
 from qualang_tools.bakery.randomized_benchmark_c1 import c1_table
 
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode
-from iqcc_calibration_tools.quam_config.components.quam_root import Quam
+from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
 from calibration_utils.single_qubit_randomized_benchmarking import (
     Parameters,
     process_raw_dataset,
@@ -390,6 +390,7 @@ def update_state(node: QualibrationNode[Parameters, Quam]):
             if node.outcomes[q.name] == "failed":
                 continue
             q.gate_fidelity["averaged"] = float(1 - node.results["fit_results"][q.name]["error_per_gate"])
+            q.gate_fidelity["averaged_updated_at"] = f"{node.date_time} GMT+{node.time_zone}"
 
 
 # %% {Save_results}

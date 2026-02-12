@@ -15,12 +15,12 @@ class NodeSpecificParameters(RunnableParameters):
     Attributes:
         num_shots (int): Number of averages to perform. Default is 100.
         num_frames (int): Number of phase frames to sweep. Default is 17.
-        operation (Literal["cz_flattop", "cz_unipolar"]): Type of CZ operation to perform. Default is "cz_unipolar".
+        operation (Literal["cz_flattop", "cz_unipolar", "cz_bipolar", "cz"]): Type of CZ operation to perform. Default is "cz".
     """
 
-    num_shots: int = 1000
-    num_frames: int = 21
-    operation: Literal["cz_flattop", "cz_unipolar", "cz"] = "cz"
+    num_shots: int = 100
+    num_frames: int = 17
+    operation: Literal["cz_flattop", "cz_unipolar", "cz_bipolar", "cz"] = "cz"
     use_state_discrimination: bool = True
 
 

@@ -21,6 +21,8 @@ from iqcc_calibration_tools.quam_config.config_utils import get_clean_config
 __all__ = ["Quam"] # , "FEMQuAM", "OPXPlusQuAM"]
 
 
+# TODO : to be removed using the FluxTunableQuam class directly
+
 @quam_dataclass
 class Quam(FluxTunableQuam):
     """Example Quam root component with enhanced functionality."""

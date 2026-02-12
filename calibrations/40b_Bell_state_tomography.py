@@ -34,8 +34,8 @@ Outcomes:
 
 # %% {Imports}
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode, NodeParameters
-from iqcc_calibration_tools.quam_config.components import Quam
-from iqcc_calibration_tools.quam_config.macros import active_reset, readout_state
+from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
+from iqcc_calibration_tools.quam_config.macros import readout_state
 from iqcc_calibration_tools.storage.save_utils import fetch_results_as_xarray, load_dataset
 from qualang_tools.results import progress_counter, fetching_tool
 from qualang_tools.multi_user import qm_session
@@ -484,7 +484,11 @@ if not node.parameters.simulate:
     if node.parameters.load_data_id is None:
         with node.record_state_updates():
             for qp in qubit_pairs:
-                node.machine.qubit_pairs[qp.id].macros[node.parameters.cz_macro_name].fidelity["Bell_State"] = {"Fidelity":  node.results[f"{qp.name}_fidelity"], "Purity":  node.results[f"{qp.name}_purity"]}
+                node.machine.qubit_pairs[qp.id].macros[node.parameters.cz_macro_name].fidelity["Bell_State"] = {
+                    "Fidelity": node.results[f"{qp.name}_fidelity"],
+                    "Purity": node.results[f"{qp.name}_purity"],
+                    "updated_at": f"{node.date_time} GMT+{node.time_zone}",
+                }
                 
 
 # %% {Save_results}

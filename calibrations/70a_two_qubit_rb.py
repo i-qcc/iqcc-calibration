@@ -2,7 +2,7 @@ from qm.qua import *
 from qualang_tools.bakery.bakery import Baking
 
 from qualang_tools.characterization.two_qubit_rb import TwoQubitRb, TwoQubitRbDebugger
-from iqcc_calibration_tools.quam_config.components import Quam
+from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
 from iqcc_calibration_tools.quam_config.macros import qua_declaration, multiplexed_readout, node_save, readout_state_gef
 from iqcc_calibration_tools.quam_config.macros import qua_declaration, readout_state
 
