@@ -46,9 +46,9 @@ from iqcc_calibration_tools.quam_config.lib.qua_datasets import opxoutput
 
 # %% {Node_parameters}
 class Parameters(NodeParameters):
-    twpas: Optional[List[str]] = ['twpaA']
+    twpas: Optional[List[str]] = ['twpaB']
     num_averages: int = 1000
-    frequency_span_in_mhz: float = 600
+    frequency_span_in_mhz: float = 800
     frequency_step_in_mhz: float = 1
     simulate: bool = False
     simulation_duration_ns: int = 4000
@@ -59,27 +59,37 @@ class Parameters(NodeParameters):
 u = unit(coerce_to_integer=True)
 # Instantiate the QuAM class from the state file
 machine = Quam.load()
-node = QualibrationNode(name=f"00a_{Parameters().twpas[0]}_fine_calibration", parameters=Parameters())
+node = QualibrationNode(name=f"00a_{Parameters().twpas[0]}_gain_profile", parameters=Parameters())
 date_time = datetime.now(timezone(timedelta(hours=2))).strftime("%Y-%m-%d %H:%M:%S")
 node.results["date"]={"date":date_time}
 # Get the relevant QuAM components
 twpas = [machine.twpas[t] for t in node.parameters.twpas]
 twpa_id=node.parameters.twpas[0]
-qubits = [machine.qubits[machine.twpas[twpa_id].qubits[1]]]
-resonators = [machine.qubits[machine.twpas[twpa_id].qubits[1]].resonator]
-spectroscopy = [twpas[0].spectroscopy]
+# Pick the resonator whose readout f_01 is the middle (median) among all TWPA qubits
+twpa_qubit_ids = twpas[0].qubits
+resonators_all = [machine.qubits[qid].resonator for qid in twpa_qubit_ids]
+f01s = np.array([rr.f_01 for rr in resonators_all])
+idx_middle = int(np.argmin(np.abs(f01s - np.median(f01s))))
+spectroscopy = [resonators_all[idx_middle]]
+qubits = [machine.qubits[twpa_qubit_ids[idx_middle]]]
+resonators = spectroscopy
 pumpline_attenuation=twpas[0].pumpline_attenuation
 signalline_attenuation=twpas[0].signalline_attenuation
+# Use amplitude=1 during QUA so that amplitude_scale is the only scaling; restore after program
+original_readout_amplitude = spectroscopy[0].operations["readout"].amplitude
+spectroscopy[0].operations["readout"].amplitude = 1.0
 # Generate the OPX and Octave configurations
 config = machine.generate_config()
+# amp_scale set so that signal power at resonator (ps) is -125 dBm: ps = opxoutput(fsp, amp_scale) + signalline_attenuation
+target_ps_dbm = -125
+fsp_spec = spectroscopy[0].opx_output.full_scale_power_dbm
+amp_scale = 10**((target_ps_dbm - fsp_spec - signalline_attenuation) / 20)
+amp_scale = np.clip(amp_scale, 1e-6, 1.0)  # QUA amplitude_scale in (0, 1]
+ps = np.round(opxoutput(fsp_spec, amp_scale) + signalline_attenuation, 2)
 # Open Communication with the QOP
 if node.parameters.load_data_id is None:
     qmm = machine.connect()
-#%% # readout pulse information
-readout_power=[np.round(opxoutput(qubits[i].resonator.opx_output.full_scale_power_dbm,qubits[i].resonator.operations["readout"].amplitude)+signalline_attenuation,2) for i in range(len(qubits))]
-readout_length=[qubits[i].resonator.operations["readout"].length for i in range(len(qubits))]
-for i in range(len(readout_power)):
-    print(f"{qubits[i].name}: readout power @ resonator={readout_power[i]}dBm, readout length={readout_length[i]}, Aro={qubits[i].resonator.operations['readout'].amplitude} ")
+
 # %% {QUA_program}
 n_avg = node.parameters.num_averages  
 # The frequency sweep around the resonator resonance frequency
@@ -92,7 +102,7 @@ full_scale_power_dbm=twpas[0].pump.opx_output.full_scale_power_dbm
 f_p = twpas[0].pump_frequency
 p_p = twpas[0].pump_amplitude
 # pump duration should be able to cover the resonator spectroscopy which takes #(dfs) (as we are multiplexing qubit number doesnt matter) 
-pump_duration = (10*1*len(dfs)*(machine.qubits[twpas[0].qubits[0]].resonator.operations["readout"].length+machine.qubits[twpas[0].qubits[0]].resonator.depletion_time))/4#(n_avg*len(dfs)*(machine.qubits[twpas[0].qubits[0]].resonator.operations["readout"].length+machine.qubits[twpas[0].qubits[0]].resonator.depletion_time))/4
+pump_duration = (10*1*len(dfs)*(spectroscopy[0].operations["readout"].length+spectroscopy[0].depletion_time))/4
 with program() as twpa_pump_off:    
     I, I_st, Q, Q_st,n,n_st = qua_declaration(num_qubits=len(qubits))
     da = declare(float)# QUA variable for the readout amplitude
@@ -107,7 +117,7 @@ with program() as twpa_pump_off:
                 # Update the resonator frequencies for all resonators
                 update_frequency(spec.name, df+spec.intermediate_frequency)
                 # Measure the resonator
-                spec.measure("readout", amplitude_scale=0.02, qua_vars=(I[i], Q[i]))
+                spec.measure("readout", amplitude_scale=amp_scale, qua_vars=(I[i], Q[i]))
                 # wait for the resonator to relax
                 spec.wait(spec.depletion_time * u.ns)
                 # save data
@@ -137,7 +147,7 @@ with program() as twpa_pump_on:
                 # Update the resonator frequencies for all resonators
                 update_frequency(spec.name, df+spec.intermediate_frequency)
                 # Measure the resonator
-                spec.measure("readout", amplitude_scale=0.02, qua_vars=(I[i], Q[i]))
+                spec.measure("readout", amplitude_scale=amp_scale, qua_vars=(I[i], Q[i]))
                 # wait for the resonator to relax
                 spec.wait(spec.depletion_time * u.ns)
                 # save data
@@ -180,6 +190,8 @@ elif node.parameters.load_data_id is None:
         while results_.is_processing():
             n_ = results_.fetch_all()[0]
 # %% {Data_fetching_and_dataset_creation}
+# Restore original readout amplitude (was set to 1 for QUA program only)
+spectroscopy[0].operations["readout"].amplitude = original_readout_amplitude
 #data for pump off
 ds = fetch_results_as_xarray(job.result_handles, qubits, {"freq": dfs})
 ds_ = fetch_results_as_xarray(job_.result_handles, qubits, {"freq": dfs})
@@ -193,20 +205,18 @@ ds_ = ds_.assign({"IQ_abs": 1e3*np.sqrt(ds_["I"] ** 2 + ds_["Q"] ** 2)})
 # Gain & P 1dB point (saturation power)
 Gain = 20*np.log10((ds_.IQ_abs.values[0])/(ds.IQ_abs.values[0]))
 linear_gain = 10**(Gain/20)
-ps=np.round(opxoutput(twpas[0].spectroscopy.opx_output.full_scale_power_dbm,
-                twpas[0].spectroscopy.operations["readout"].amplitude*0.02) # resonator amp should be 0.1 to make ps from -120~-94
-                +signalline_attenuation,2)
+
 
 # %% {Plotting}
 # fs VS Gain : Gain compression along the bandwidth 
-fs=np.array([dfs+twpas[0].spectroscopy.f_01])[0]
+fs=np.array([dfs+spectroscopy[0].f_01])[0]
 gain_avg = 20*np.log10(np.mean(linear_gain))
 gain_sigma = np.std(Gain)
 plt.figure(figsize=(4,3))
 plt.plot(fs,Gain, label=f'Ps={ps}dBm, avg={gain_avg:.2f}dB, 2σ={2*gain_sigma:.2f}dB')
 plt.xlabel('fs[GHz]')
 plt.ylabel('Gain[dB]')
-plt.title(f'Pamp={np.round(p_p,3)},fp={np.round((twpas[0].pump_.LO_frequency+twpas[0].pump_.intermediate_frequency+f_p)*1e-9,3)}GHz, Pp={np.round(pumpline_attenuation+opxoutput(full_scale_power_dbm,p_p),2)}dBm\n {date_time}\n{twpas[0].id}: Gain Profile')
+plt.title(f'{node.add_node_info_subtitle()},{twpas[0].id}\nPamp={np.round(p_p,3)},fp={np.round((twpas[0].pump_.LO_frequency+twpas[0].pump_.intermediate_frequency+f_p)*1e-9,3)}GHz, Pp={np.round(pumpline_attenuation+opxoutput(full_scale_power_dbm,p_p),2)}dBm\nGain Profile')
 plt.legend(loc='upper right', fontsize=8)
 gain_profile=plt.gcf()
 # %% {Update state}
@@ -219,7 +229,7 @@ node.results = {"fp":f_p+twpas[0].pump_.intermediate_frequency+twpas[0].pump_.LO
 node.results["figures"]={"gain_profile": gain_profile}
 node.results["Ps"]={"Ps":readout_power}
 if not node.parameters.load_data_id:
-    # %% {Save_results}
+    # Save_results
     node.outcomes = {q.name: "successful" for q in qubits}
     node.results["initial_parameters"] = node.parameters.model_dump()
     node.machine = machine

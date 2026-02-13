@@ -56,15 +56,15 @@ from iqcc_calibration_tools.quam_config.lib.qua_datasets import opxoutput
 
 # %% {Node_parameters}
 class Parameters(NodeParameters):
-    twpas: Optional[List[str]] = ['twpaA']
-    num_averages: int =30
-    frequency_span_in_mhz: float = 4
-    frequency_step_in_mhz: float = 0.1
-    amp_min: float =  0.3
-    amp_max: float =  0.7
+    twpas: Optional[List[str]] = ['twpaB']
+    num_averages: int =3
+    frequency_span_in_mhz: float = 3
+    frequency_step_in_mhz: float = 1#0.1
+    amp_min: float =  0.1
+    amp_max: float =  0.9
     points : int = 40    
-    p_frequency_span_in_mhz: float = 130
-    p_frequency_step_in_mhz: float =0.5
+    p_frequency_span_in_mhz: float = 100
+    p_frequency_step_in_mhz: float =1#0.5
     simulate: bool = False
     simulation_duration_ns: int = 4000
     timeout: int = 300
@@ -132,7 +132,6 @@ with program() as twpa_pump_off:
                         # save data
                         save(I[i], I_st[i])
                         save(Q[i], Q_st[i]) 
-                #align() why it doesnt work if i add this 10.12
                 with for_(*from_array(df, dfs)):
                     for i, rr in enumerate(resonators):
                         # Update the resonator frequencies for all resonators
@@ -271,8 +270,8 @@ maxDSNR_point={'fp':np.round((p_lo+p_if+pumpATmaxDSNR[0][0]),3),
 node.results["maxDSNR point"] = maxDSNR_point
 # %% ############################{Average optimum}##################################
 plt.plot(figzise=(4,3))
-mingain=16
-mindsnr=10
+mingain=0
+mindsnr=0
 avg_optimized_pump=optimizer(mingain, mindsnr,  Gain, dsnr,  average_dsnr, dfps, daps, p_lo,p_if)
 avg_qubit_results = {}
 for i in range(len(qubits)):

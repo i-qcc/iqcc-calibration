@@ -68,7 +68,7 @@ def snr(ds, qubits, dfps, daps):
     for i in range(len(qubits)):
         for j in range(len(dfps)):
             for k in range(len(daps)):
-                noise[i,j,k]=(np.std(ds.IQ_abs_noise.values[i][j][k])) #mean vs std
+                noise[i,j,k]=(np.mean(ds.IQ_abs_noise.values[i][j][k])) #mean vs std
                 signal[i,j,k]=(ds.IQ_abs_signal.values[i][j][k][len(ds.IQ_abs_signal.values[i][j][k])//2])
     return 20*np.log10(signal/noise)
 def gain(ds_pumpoff,ds_pumpon, qubits, dfps, daps):
