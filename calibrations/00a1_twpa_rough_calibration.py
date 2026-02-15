@@ -56,15 +56,15 @@ from iqcc_calibration_tools.quam_config.lib.qua_datasets import opxoutput
 
 # %% {Node_parameters}
 class Parameters(NodeParameters):
-    twpas: Optional[List[str]] = ['twpaB']
-    num_averages: int =3
+    twpas: Optional[List[str]] = ['twpaD']
+    num_averages: int =30
     frequency_span_in_mhz: float = 3
-    frequency_step_in_mhz: float = 1#0.1
-    amp_min: float =  0.1
-    amp_max: float =  0.9
+    frequency_step_in_mhz: float = 0.1
+    amp_min: float =  0.3
+    amp_max: float =  0.65
     points : int = 40    
     p_frequency_span_in_mhz: float = 100
-    p_frequency_step_in_mhz: float =1#0.5
+    p_frequency_step_in_mhz: float =0.5
     simulate: bool = False
     simulation_duration_ns: int = 4000
     timeout: int = 300
@@ -270,9 +270,8 @@ maxDSNR_point={'fp':np.round((p_lo+p_if+pumpATmaxDSNR[0][0]),3),
 node.results["maxDSNR point"] = maxDSNR_point
 # %% ############################{Average optimum}##################################
 plt.plot(figzise=(4,3))
-mingain=0
-mindsnr=0
-avg_optimized_pump=optimizer(mingain, mindsnr,  Gain, dsnr,  average_dsnr, dfps, daps, p_lo,p_if)
+mingain=13
+avg_optimized_pump=optimizer2(mingain, Gain, dsnr, dfps, daps, p_lo,p_if)
 avg_qubit_results = {}
 for i in range(len(qubits)):
     qubit_dsnr = np.round(dsnr[i][avg_optimized_pump[0]][avg_optimized_pump[1]][0], 2)
@@ -291,7 +290,6 @@ plt.ylabel('Average dSNR', fontsize=20)
 plt.xlim(0,np.max(average_gain)+1)
 plt.ylim(0,np.max(average_dsnr)+1)
 plt.axvline(mingain, color='red', linestyle='--', linewidth=1)
-plt.axhline(mindsnr, color='red', linestyle='--', linewidth=1)
 plt.tight_layout()
 window=plt.gcf()
 plt.show()

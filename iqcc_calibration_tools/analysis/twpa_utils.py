@@ -70,7 +70,9 @@ def snr(ds, qubits, dfps, daps):
             for k in range(len(daps)):
                 noise[i,j,k]=(np.mean(ds.IQ_abs_noise.values[i][j][k])) #mean vs std
                 signal[i,j,k]=(ds.IQ_abs_signal.values[i][j][k][len(ds.IQ_abs_signal.values[i][j][k])//2])
-    return 20*np.log10(signal/noise)
+    snr_val = 20 * np.log10(signal / noise)
+    snr_val = np.where(snr_val < 0, 0, snr_val)
+    return snr_val
 def gain(ds_pumpoff,ds_pumpon, qubits, dfps, daps):
     signal_pumpoff=np.zeros((len(qubits),len(dfps),len(daps),1))
     signal_pumpon=np.zeros((len(qubits),len(dfps),len(daps),1))
@@ -203,6 +205,34 @@ def optimizer(mingain, mindsnr, Gain, dsnr,  average_dsnr, dfps, daps, p_lo,p_if
         optimal_pp=daps[pump_idx_gain_mask[optimal_pump_idx][1]]
         print(f"Optimized ap={np.round(optimal_pp,5)},fp={np.round((p_lo+p_if+optimal_fp)*1e-9,3)}GHz ")
         return (pump_idx_gain_mask[optimal_pump_idx][0], pump_idx_gain_mask[optimal_pump_idx][1])
+
+
+def optimizer2(mingain, Gain, dsnr, dfps, daps, p_lo, p_if):
+    # Among all pump points where gain > mingain for every qubit,
+    # choose the one that maximizes the minimum dSNR across qubits (max-min dSNR).
+    gain_mask = np.all(Gain > mingain, axis=0)
+    pump_idx_gain_mask = np.argwhere(gain_mask)
+    if len(pump_idx_gain_mask) == 0:
+        print(
+            "Error: There is no pumping point which satisfies "
+            "the minimum gain condition."
+        )
+        return None
+    min_dsnr_per_point = []
+    for j in range(len(pump_idx_gain_mask)):
+        x, y = pump_idx_gain_mask[j][0], pump_idx_gain_mask[j][1]
+        min_dsnr_per_point.append(np.min(dsnr[:, x, y, 0]))
+    optimal_pump_idx = np.argmax(min_dsnr_per_point)
+    x_opt, y_opt = pump_idx_gain_mask[optimal_pump_idx][0], pump_idx_gain_mask[optimal_pump_idx][1]
+    optimal_fp = dfps[x_opt]
+    optimal_pp = daps[y_opt]
+    print(
+        f"Optimized ap={np.round(optimal_pp, 5)}, fp={np.round((p_lo + p_if + optimal_fp) * 1e-9, 3)} GHz "
+    )
+    n_qubits = Gain.shape[0]
+    return (x_opt, y_opt)
+
+
 #---------------------------------MULTIPLXED READOUT OPTIMIZER----------------------------
 # def multiplexed_optimizer(qubit, Gain, dsnr, qubits): #qubit = worst snr qubit 
 #     idx=np.unravel_index(np.argmax(dsnr[qubit-1]),dsnr[qubit-1].shape)
