@@ -332,7 +332,7 @@ def plot_individual_parabolas_with_fit(ax: Axes, ds: xr.Dataset, qubit: dict[str
         # Plot target offset line if non-zero
         if (qubit_obj is not None and hasattr(qubit_obj, 'xy') and 
             "target_detuning_from_sweet_spot" in qubit_obj.xy.extras):
-            target_detuning = qubit_obj.xy.extras["target_detuning_from_sweet_spot"]
+            target_detuning = qubit_obj.xy.extras.get("target_detuning_from_sweet_spot", 0)
             if abs(target_detuning) > 1e-6 and "target_offset" in fit.data_vars:
                 try:
                     target_offset_val = float(fit.target_offset.values)

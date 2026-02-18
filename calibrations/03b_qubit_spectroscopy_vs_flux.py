@@ -273,7 +273,7 @@ def update_state(node: QualibrationNode[Parameters, Quam]):
                     q.z.independent_offset = offset_to_apply
                 elif q.z.flux_point == "joint":
                     q.z.joint_offset += offset_to_apply
-                q.xy.RF_frequency = fit_results["qubit_frequency"] - node.machine.qubits[q.name].xy.extras["target_detuning_from_sweet_spot"]
+                q.xy.RF_frequency = fit_results["qubit_frequency"] - node.machine.qubits[q.name].xy.extras.get("target_detuning_from_sweet_spot", 0)
                 q.f_01 = fit_results["qubit_frequency"]
                 q.freq_vs_flux_01_quad_term = fit_results["quad_term"]
 

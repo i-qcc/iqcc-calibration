@@ -192,7 +192,7 @@ def fit_raw_data(ds: xr.Dataset, node: QualibrationNode) -> Tuple[xr.Dataset, di
             
             # Adjust if target_offset is used (matching update_state logic)
             if not np.isnan(target_offset[q]):
-                target_detuning_hz = qubit.xy.extras["target_detuning_from_sweet_spot"]
+                target_detuning_hz = qubit.xy.extras.get("target_detuning_from_sweet_spot", 0)
                 freq_offset_for_update_hz -= target_detuning_hz
             
             # Calculate new RF frequency

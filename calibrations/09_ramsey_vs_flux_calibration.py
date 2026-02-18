@@ -311,7 +311,7 @@ def update_state(node: QualibrationNode[Parameters, Quam]):
             # Adjust frequency correction if target_offset is used
             # The frequency at target_offset is freq_sweet_spot + target_detuning_from_sweet_spot
             if not np.isnan(target_offset):
-                target_detuning = q.xy.extras["target_detuning_from_sweet_spot"]
+                target_detuning = q.xy.extras.get("target_detuning_from_sweet_spot", 0)
                 freq_offset -= target_detuning
             q.f_01 += freq_offset
             q.xy.RF_frequency += freq_offset

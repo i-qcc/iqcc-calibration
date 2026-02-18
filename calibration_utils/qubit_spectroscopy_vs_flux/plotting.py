@@ -306,7 +306,7 @@ def plot_individual_raw_data_with_fit(ax: Axes, ds: xr.Dataset, qubit: dict[str,
             # Plot target offset line if applicable (only if within ±0.5 V)
             if (qubit_obj is not None and hasattr(qubit_obj, 'xy') and 
                 "target_detuning_from_sweet_spot" in qubit_obj.xy.extras):
-                target_detuning = qubit_obj.xy.extras["target_detuning_from_sweet_spot"]
+                target_detuning = qubit_obj.xy.extras.get("target_detuning_from_sweet_spot", 0)
                 if abs(target_detuning) > 1e-6 and target_offset_val is not None and not np.isnan(target_offset_val):
                     if abs(float(target_offset_val)) <= flux_limit:
                         ax.axvline(float(target_offset_val), linestyle="-", linewidth=4, 
