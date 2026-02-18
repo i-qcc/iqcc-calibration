@@ -1,9 +1,9 @@
 # %%
 from typing import List
-from qualibrate.orchestration.basic_orchestrator import BasicOrchestrator
-from qualibrate.parameters import GraphParameters
-from qualibrate.qualibration_graph import QualibrationGraph
-from qualibrate.qualibration_library import QualibrationLibrary
+from qualibrate.core.orchestration.basic_orchestrator import BasicOrchestrator
+from qualibrate import GraphParameters
+from qualibrate import QualibrationGraph
+from qualibrate import QualibrationLibrary
 from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
 
 # %%

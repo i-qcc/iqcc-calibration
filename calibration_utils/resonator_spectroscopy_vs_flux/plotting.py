@@ -150,7 +150,5 @@ def plot_individual_raw_data_with_fit(ax: Axes, ds: xr.Dataset, qubit: dict[str,
             "r*",
             markersize=10,
         )
-        # Add legend if we have fit
-        ax.legend(loc="best")
     ax.set_title(qubit["qubit"])
     ax.set_xlabel("Flux (V)")

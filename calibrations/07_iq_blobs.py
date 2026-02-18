@@ -20,6 +20,7 @@ from calibration_utils.iq_blobs import (
     log_fitted_results,
     plot_iq_blobs,
     plot_confusion_matrices,
+    fit_snr_with_gaussians,
 )
 from qualibration_libs.parameters import get_qubits
 from qualibration_libs.runtime import simulate_and_plot
@@ -229,19 +230,106 @@ def plot_data(node: QualibrationNode[Parameters, Quam]):
     """
     fig_iq = plot_iq_blobs(node.results["ds_raw"], node.namespace["qubits"], node.results["ds_fit"])
     fig_confusion = plot_confusion_matrices(node.results["ds_raw"], node.namespace["qubits"], node.results["ds_fit"])
-    fig_histogram = plot_historams(node.results["ds_raw"], node.namespace["qubits"], node.results["ds_fit"])
+    # fig_histogram = plot_historams(node.results["ds_raw"], node.namespace["qubits"], node.results["ds_fit"])
     node.add_node_info_subtitle(fig_iq)
     node.add_node_info_subtitle(fig_confusion)
-    node.add_node_info_subtitle(fig_histogram)
+    # node.add_node_info_subtitle(fig_histogram)
     plt.show()
     # Store the generated figures
     node.results["figures"] = {
         "iq_blobs": fig_iq,
         "confusion_matrix": fig_confusion,
-        "histograms": fig_histogram,
+        # "histograms": fig_histogram,
     }
 
+#%% {Plot_SNR}
+from iqcc_calibration_tools.quam_config.lib.qua_datasets import opxoutput
+from scipy.special import erf
 
+qubits = node.namespace["qubits"]
+fits = node.results["ds_fit"] 
+ds = node.results["ds_raw"]
+node.results["ds_fit"], fit_results = fit_raw_data(node.results["ds_raw"], node)
+
+# Define the grid layout (e.g., 2 columns, rows calculated based on qubit count)
+num_qubits = len(qubits)
+cols = 2
+rows = (num_qubits + 1) // cols  # Ceiling division
+fig, axes = plt.subplots(rows, cols, figsize=(6 * cols, 4 * rows), constrained_layout=True)
+axes = axes.flatten()  # Flatten in case of a 2D grid for easy indexing
+
+# Call the function to fit Gaussians and calculate SNR
+snr, all_fit_params, all_fit_errors = fit_snr_with_gaussians(
+    fits=fits,
+    qubits=qubits,
+    node=node,
+    fit_results=fit_results,
+    axes=axes,
+    plot=True
+)
+# Hide unused subplots if num_qubits is odd
+for j in range(num_qubits, len(axes)):
+    axes[j].axis('off')
+
+plt.suptitle(f"{node.add_node_info_subtitle()}")
+plt.show()
+# Store SNR Gaussian fit figure in node.results
+node.results.setdefault("figures", {})["snr_gaussians"] = fig
+#%% {Print fitting errors summary}
+# print("\n" + "="*80)
+# print("FITTING ERRORS SUMMARY")
+# print("="*80)
+# for i in range(num_qubits):
+#     qubit_id = qubits[i].id
+#     fit_params = all_fit_params[i]
+#     fit_errors = all_fit_errors[i]
+    
+#     print(f"\n{qubit_id}:")
+    
+#     # Ground state (single gaussian)
+#     mu_g_err, sig_g_err = fit_errors.get("Ground", (np.nan, np.nan))
+#     if not np.isnan(mu_g_err):
+#         mu_g, sig_g = fit_params.get("Ground", (np.nan, np.nan))
+#         print(f"  Ground State (Single Gaussian):")
+#         print(f"    μg = {mu_g:.2f} ± {mu_g_err:.2f} mV, "
+#               f"σg = {sig_g:.2f} ± {sig_g_err:.2f} mV")
+#     else:
+#         print(f"  Ground State: Fit failed")
+    
+#     # Excited state (double gaussian)
+#     if "Excited_double" in fit_params:
+#         dg_params = fit_params["Excited_double"]
+#         print(f"  Excited State (Double Gaussian):")
+#         print(f"    Gaussian 1: μ1 = {dg_params['mu1']:.2f} ± {dg_params['mu1_err']:.2f} mV, "
+#               f"σ1 = {dg_params['sigma1']:.2f} ± {dg_params['sigma1_err']:.2f} mV, "
+#               f"A1 = {dg_params['A1']:.2f} ± {dg_params['A1_err']:.2f}")
+#         print(f"    Gaussian 2: μ2 = {dg_params['mu2']:.2f} ± {dg_params['mu2_err']:.2f} mV, "
+#               f"σ2 = {dg_params['sigma2']:.2f} ± {dg_params['sigma2_err']:.2f} mV, "
+#               f"A2 = {dg_params['A2']:.2f} ± {dg_params['A2_err']:.2f}")
+#     mu_e_err, sig_e_err = fit_errors.get("Excited", (np.nan, np.nan))
+#     if not np.isnan(mu_e_err):
+#         mu_e, sig_e = fit_params.get("Excited", (np.nan, np.nan))
+#         print(f"    Combined: μe = {mu_e:.2f} ± {mu_e_err:.2f} mV, "
+#               f"σe = {sig_e:.2f} ± {sig_e_err:.2f} mV")
+#     else:
+#         print(f"  Excited State: Fit failed")
+# print("="*80 + "\n")
+#%%
+def fidelity(ro,t1,snr):
+        return   np.exp(-ro/(2*t1))*erf(snr/(np.sqrt(2)))
+readout_power=[np.round(opxoutput(node.namespace["qubits"][i].resonator.opx_output.full_scale_power_dbm,node.namespace["qubits"][i].resonator.operations["readout"].amplitude)-87,2) for i in range(len(node.namespace["qubits"]))]
+readout_length=[node.namespace["qubits"][i].resonator.operations["readout"].length for i in range(len(node.namespace["qubits"]))]
+node.results["ds_fit"], fit_results = fit_raw_data(node.results["ds_raw"], node)
+for i in range(len(readout_power)):
+    print(
+        f"{node.namespace['qubits'][i].name}: "
+        f"Ps={readout_power[i]} dBm, "
+        f"Tro={readout_length[i]}, "
+        f"Aro={node.namespace['qubits'][i].resonator.operations['readout'].amplitude:.3f},",
+        f"F={fit_results[node.namespace['qubits'][i].name].readout_fidelity:.2f}%,",
+        f"SNR={snr[i]:.2f}",
+        f"F_est={100*fidelity(readout_length[i]*1e-9,node.namespace['qubits'][i].T1,snr[i]):.2f}%",)
+# %%
 # %% {Update_state}
 @node.run_action(skip_if=node.parameters.simulate)
 def update_state(node: QualibrationNode[Parameters, Quam]):

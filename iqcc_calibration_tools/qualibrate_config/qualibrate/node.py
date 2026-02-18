@@ -3,13 +3,13 @@ import os
 import requests
 from typing import TypeVar, Generic, List, Dict, Set, Tuple, Union
 from datetime import datetime, timezone, timedelta
-from qualibrate import QualibrationNode as QualibrationNodeBase
-from qualibrate.parameters import NodeParameters
-from qualibrate.utils.type_protocols import MachineProtocol
+from importlib.metadata import version as get_version
+from qualibrate import QualibrationNode as QualibrationNodeBase, NodeParameters
+from qualibrate.core.utils.type_protocols import MachineProtocol
 from qualibrate_config.resolvers import get_qualibrate_config_path, get_qualibrate_config
-from qualibrate.utils.node.path_solver import get_node_dir_path
-from qualibrate.config.resolvers import get_quam_state_path
-from qualibrate.storage.local_storage_manager import LocalStorageManager
+from qualibrate.core.utils.node.path_solver import get_node_dir_path
+from qualibrate.core.config.resolvers import get_quam_state_path
+from qualibrate.core.storage.local_storage_manager import LocalStorageManager
 from iqcc_calibration_tools.quam_config.components.quam_root import Quam
 from qm import generate_qua_script
 from qualibration_libs.core import BatchableList
@@ -87,6 +87,12 @@ class QualibrationNode(QualibrationNodeBase, Generic[ParametersType, MachineType
         self._machine = machine_config
         # logger.info(f"Machine stored successfully. Type: {type(self._machine)}")
     
+    def _record_versions(self):
+        """Record versions of quam_builder, quam, and qua packages to machine.extras['versions']."""
+        packages = {'quam_builder': 'quam-builder', 'quam': 'quam', 'qua': 'qm-qua'}
+        self.machine.extras['versions'] = {key: get_version(pkg) for key, pkg in packages.items()}
+        logger.info(f"Recorded package versions: {self.machine.extras['versions']}")
+
     def save(self):
         """
         Save a QualibrationNode both locally and to cloud if possible.
@@ -103,8 +109,8 @@ class QualibrationNode(QualibrationNodeBase, Generic[ParametersType, MachineType
         """
         logger.info(f"Saving node with snapshot index {self.snapshot_idx}")
         
-        # remove macros from quam object
-        Quam.remove_macros_from_qubits(self.machine)
+        # Record package versions before saving
+        self._record_versions()
         
         # Save locally first (primary operation)
         super().save()
