@@ -21,12 +21,12 @@ classifiers = [
 requires-python = ">=3.11,<=3.12"
 dependencies = [
     "quam==0.5.0a3",
-    "qualang-tools<=0.21.0",
+    "qualang-tools>=0.21.0",
     "xarray",
     "lmfit",
     "tqdm",
-    "qualibrate==0.6.0",
-    "qm-qua==1.2.4.1",
+    "qualibrate>=1.0.0",
+    "qm-qua==1.2.5",
     "ipykernel>=6.29.3,<7.0.0",
     "more-itertools",
     "qiskit==2.0.0",
