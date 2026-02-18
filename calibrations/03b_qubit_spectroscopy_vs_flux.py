@@ -72,11 +72,11 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
     # Get the active qubits from the node and organize them by batches
     all_qubits = get_qubits(node)
     # Filter out qubits that are not at sweep spot
-    excluded_qubits = [q for q in all_qubits if not q.at_sweep_spot]
+    excluded_qubits = [q for q in all_qubits if not q.extras.get("at_sweep_spot", True)]
     node.namespace["excluded_qubits"] = excluded_qubits
     if excluded_qubits:
         node.log(f"Excluding qubits not at sweep spot: {[q.name for q in excluded_qubits]}")
-    filtered_qubits = [q for q in all_qubits if q.at_sweep_spot]
+    filtered_qubits = [q for q in all_qubits if q.extras.get("at_sweep_spot", True)]
     # Determine batch groups based on multiplexed parameter
     if node.parameters.multiplexed:
         batch_groups = [list(range(len(filtered_qubits)))]
@@ -273,7 +273,7 @@ def update_state(node: QualibrationNode[Parameters, Quam]):
                     q.z.independent_offset = offset_to_apply
                 elif q.z.flux_point == "joint":
                     q.z.joint_offset += offset_to_apply
-                q.xy.RF_frequency = fit_results["qubit_frequency"] - node.machine.qubits[q.name].xy.target_detuning_from_sweet_spot
+                q.xy.RF_frequency = fit_results["qubit_frequency"] - node.machine.qubits[q.name].xy.extras["target_detuning_from_sweet_spot"]
                 q.f_01 = fit_results["qubit_frequency"]
                 q.freq_vs_flux_01_quad_term = fit_results["quad_term"]
 

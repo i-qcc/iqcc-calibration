@@ -78,10 +78,10 @@ if node.parameters.qubits is None or node.parameters.qubits == "":
 else:
     all_qubits = [machine.qubits[q] for q in node.parameters.qubits]
 # Filter out qubits that are not at sweep spot
-excluded_qubits = [q for q in all_qubits if not q.at_sweep_spot]
+excluded_qubits = [q for q in all_qubits if not q.extras.get("at_sweep_spot", True)]
 if excluded_qubits:
     print(f"Excluding qubits not at sweep spot: {[q.name for q in excluded_qubits]}")
-qubits = [q for q in all_qubits if q.at_sweep_spot]
+qubits = [q for q in all_qubits if q.extras.get("at_sweep_spot", True)]
 num_qubits = len(qubits)
 
 
