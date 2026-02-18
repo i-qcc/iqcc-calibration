@@ -434,7 +434,7 @@ def _extract_relevant_fit_parameters(fit: xr.Dataset, node: QualibrationNode, ds
     target_offset_values = []
     for i, q in enumerate(fit.qubit.values):
         qubit = node.machine.qubits[q]
-        target_detuning = getattr(qubit.xy, 'target_detuning_from_sweet_spot', 0.0) or 0.0
+        target_detuning = qubit.xy.extras.get("target_detuning_from_sweet_spot", 0.0) or 0.0
         quad_term = quad_term_values[i]
         idle_offset_val = flux_shift_values[i]
         

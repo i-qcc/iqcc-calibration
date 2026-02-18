@@ -79,11 +79,11 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
     # Get the active qubits from the node and organize them by batches
     all_qubits = get_qubits(node)
     # Filter out qubits that are not at sweep spot
-    excluded_qubits = [q for q in all_qubits if not q.at_sweep_spot]
+    excluded_qubits = [q for q in all_qubits if not q.extras.get("at_sweep_spot", True)]
     node.namespace["excluded_qubits"] = excluded_qubits
     if excluded_qubits:
         node.log(f"Excluding qubits not at sweep spot: {[q.name for q in excluded_qubits]}")
-    filtered_qubits = [q for q in all_qubits if q.at_sweep_spot]
+    filtered_qubits = [q for q in all_qubits if q.extras.get("at_sweep_spot", True)]
     # Determine batch groups based on multiplexed parameter
     if node.parameters.multiplexed:
         batch_groups = [list(range(len(filtered_qubits)))]
@@ -311,7 +311,7 @@ def update_state(node: QualibrationNode[Parameters, Quam]):
             # Adjust frequency correction if target_offset is used
             # The frequency at target_offset is freq_sweet_spot + target_detuning_from_sweet_spot
             if not np.isnan(target_offset):
-                target_detuning = q.xy.target_detuning_from_sweet_spot
+                target_detuning = q.xy.extras.get("target_detuning_from_sweet_spot", 0)
                 freq_offset -= target_detuning
             q.f_01 += freq_offset
             q.xy.RF_frequency += freq_offset

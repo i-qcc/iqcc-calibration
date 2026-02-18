@@ -1,5 +1,5 @@
 from typing import List, Optional
-from qualibrate_app.config import get_config_path, get_settings
+from qualibrate.app.config import get_config_path, get_settings
 from iqcc_calibration_tools.quam_config.components import Quam
 import os
 from pathlib import Path

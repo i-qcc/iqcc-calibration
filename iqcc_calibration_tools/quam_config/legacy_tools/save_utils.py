@@ -1,7 +1,7 @@
 from qualibrate.config.resolvers import get_quam_state_path
 from qualibrate.storage.local_storage_manager import LocalStorageManager
 from qualibrate_config.resolvers import get_qualibrate_config_path, get_qualibrate_config
-from qualibrate_app.config import get_config_path, get_settings
+from qualibrate.app.config import get_config_path, get_settings
 from qualibrate import QualibrationNode
 from qualibrate.utils.node.path_solver import get_node_dir_path
 from iqcc_calibration_tools.quam_config.components import Quam

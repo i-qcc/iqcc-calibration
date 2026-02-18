@@ -531,6 +531,31 @@ def plot_qubit_grid(
            fontsize=10, verticalalignment='bottom',
            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
     
+    # Add average fidelities in top right
+    fidelity_stats_lines = []
+    if rb_values:
+        vals_1q = np.array(list(rb_values.values())) * 100
+        avg_1q, std_1q = np.mean(vals_1q), np.std(vals_1q)
+        fidelity_stats_lines.append(f"Avg 1Q RB: {avg_1q:.2f} ± {std_1q:.2f}%")
+    else:
+        fidelity_stats_lines.append("Avg 1Q RB: N/A")
+    if standard_rb_fidelities:
+        vals_2q = np.array(list(standard_rb_fidelities.values())) * 100
+        avg_2q, std_2q = np.mean(vals_2q), np.std(vals_2q)
+        fidelity_stats_lines.append(f"Avg 2Q RB: {avg_2q:.2f} ± {std_2q:.2f}%")
+    else:
+        fidelity_stats_lines.append("Avg 2Q RB: N/A")
+    if fidelities:
+        vals_bell = np.array(list(fidelities.values())) * 100
+        avg_bell, std_bell = np.mean(vals_bell), np.std(vals_bell)
+        fidelity_stats_lines.append(f"Avg Bell State: {avg_bell:.2f} ± {std_bell:.2f}%")
+    else:
+        fidelity_stats_lines.append("Avg Bell State: N/A")
+    fidelity_stats_text = "\n".join(fidelity_stats_lines)
+    ax.text(0.98, 0.98, fidelity_stats_text, transform=ax.transAxes,
+            fontsize=10, verticalalignment='top', horizontalalignment='right',
+            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
+    
     plt.tight_layout()
     
     # Save or show
