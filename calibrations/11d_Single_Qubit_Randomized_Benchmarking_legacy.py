@@ -45,8 +45,8 @@ class Parameters(NodeParameters):
     qubits: Optional[List[str]] = None
     use_state_discrimination: bool = True
     use_strict_timing: bool = False
-    num_random_sequences: int = 500  # Number of random sequences
-    num_averages: int = 10
+    num_random_sequences: int = 300  # Number of random sequences
+    num_averages: int = 1
     max_circuit_depth: int = 1024  # Maximum circuit depth
     delta_clifford: int = 20
     log_scale: bool = True  # If True, use log scale depths: 1,2,4,8,16,32... up to max_circuit_depth
@@ -416,6 +416,15 @@ elif node.parameters.load_data_id is None:
     da_state.m.attrs = {"long_name": "no. of Cliffords"}
     # Fit the exponential decay
     da_fit = fit_decay_exp(da_state, "m")
+
+    # Track which qubits had successful fits (no NaN in fit parameters)
+    fit_succeeded = {}
+    for q in qubits:
+        fit_vals = da_fit.sel(qubit=q.name)
+        fit_succeeded[q.name] = not np.any(np.isnan(fit_vals.values))
+        if not fit_succeeded[q.name]:
+            print(f"WARNING: Fit failed for {q.name}, skipping parameter extraction.")
+
     # Extract the decay rate
     alpha = np.exp(da_fit.sel(fit_vals="decay"))
     # Replace NaN values with 1 to prevent cloud upload issues
@@ -432,8 +441,12 @@ elif node.parameters.load_data_id is None:
         node.results["fit_results"][q.name] = {}
         node.results["fit_results"][q.name]["EPC"] = EPC.sel(qubit=q.name).values
         node.results["fit_results"][q.name]["EPG"] = EPG.sel(qubit=q.name).values
-        print(f"{q.name}: EPC={EPC.sel(qubit=q.name).values}")
-        print(f"{q.name}: EPG={EPG.sel(qubit=q.name).values}")
+        node.results["fit_results"][q.name]["fit_succeeded"] = fit_succeeded[q.name]
+        if fit_succeeded[q.name]:
+            print(f"{q.name}: EPC={EPC.sel(qubit=q.name).values}")
+            print(f"{q.name}: EPG={EPG.sel(qubit=q.name).values}")
+        else:
+            print(f"{q.name}: Fit failed — EPC and EPG are unreliable")
 
 
 # %% {Plotting}
@@ -455,14 +468,24 @@ if not node.parameters.simulate:
         m = da_state.m.values
         ax.set_title(qubit["qubit"], pad=22)
         ax.set_xlabel("Circuit depth")
-        fit_dict = {k: da_fit.sel(**qubit).sel(fit_vals=k).values for k in da_fit.fit_vals.values}
-        ax.plot(m, decay_exp(m, **fit_dict), "r--", label="fit")
-        ax.text(
-            0.0,
-            1.07,
-            f"RB fidelity = {1 - EPG.sel(**qubit).values:.4f}",
-            transform=ax.transAxes,
-        )
+        qubit_name = qubit["qubit"]
+        if fit_succeeded.get(qubit_name, False):
+            fit_dict = {k: da_fit.sel(**qubit).sel(fit_vals=k).values for k in da_fit.fit_vals.values}
+            ax.plot(m, decay_exp(m, **fit_dict), "r--", label="fit")
+            ax.text(
+                0.0,
+                1.07,
+                f"RB fidelity = {1 - EPG.sel(**qubit).values:.4f}",
+                transform=ax.transAxes,
+            )
+        else:
+            ax.text(
+                0.0,
+                1.07,
+                "Fit failed",
+                transform=ax.transAxes,
+                color="red",
+            )
     plt.suptitle(f"{node.date_time} GMT+{node.time_zone} #{node.node_id} \n multiplexed = {node.parameters.multiplexed} reset Type = {node.parameters.reset_type_thermal_or_active}")
     plt.tight_layout()
     plt.show()
@@ -472,11 +495,15 @@ if not node.parameters.simulate:
     if node.parameters.load_data_id is None:
         fidelities_per_qubit = {}
         for q in qubits:
-            fidelities_per_qubit[q.name] = 1 - EPG.sel(qubit=q.name).values
-            if "averaged" not in q.gate_fidelity: # need to set dummy value otherwise qualibrate will fail
+            if fit_succeeded.get(q.name, False):
+                fidelities_per_qubit[q.name] = 1 - EPG.sel(qubit=q.name).values
+            if "averaged" not in q.gate_fidelity:
                 q.gate_fidelity["averaged"] = 0
         with node.record_state_updates():
             for q in qubits:
+                if q.name not in fidelities_per_qubit:
+                    print(f"Skipping {q.name} state update — fit failed")
+                    continue
                 q.gate_fidelity["averaged"] = fidelities_per_qubit[q.name]
                 q.gate_fidelity["averaged_updated_at"] = f"{node.date_time} GMT+{node.time_zone}"
                 print(f"Updated {q.name} fidelity to {q.gate_fidelity['averaged']:.4f}")
