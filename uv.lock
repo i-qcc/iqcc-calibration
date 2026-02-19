@@ -953,7 +953,7 @@ requires-dist = [
     { name = "qm-qua", specifier = "==1.2.5" },
     { name = "qualang-tools", specifier = "==0.21.0" },
     { name = "qualibrate", specifier = ">=1.0.0" },
-    { name = "qualibration-libs", git = "https://github.com/qua-platform/qualibration-libs.git" },
+    { name = "qualibration-libs", git = "https://github.com/qua-platform/qualibration-libs.git?rev=qualibrate-%253E%3D1-support" },
     { name = "quam", specifier = "==0.5.0a3" },
     { name = "quam-builder", git = "https://github.com/qua-platform/quam-builder.git?rev=IQCC-dev-12%2F25" },
     { name = "tqdm" },
@@ -2217,8 +2217,8 @@ wheels = [
 
 [[package]]
 name = "qualibration-libs"
-version = "0.2.1"
-source = { git = "https://github.com/qua-platform/qualibration-libs.git#f6cb526d58f6a82d1c43fcabbce3351ad0ab3fdf" }
+version = "0.2.2"
+source = { git = "https://github.com/qua-platform/qualibration-libs.git?rev=qualibrate-%253E%3D1-support#51bcb8a38c1917383ac35496e7ebce1dc49dd488" }
 dependencies = [
     { name = "colorama" },
     { name = "lmfit" },

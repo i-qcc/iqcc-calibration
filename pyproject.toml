@@ -34,9 +34,19 @@ dependencies = [
     "iqcc-cloud-client==0.16.0",
     "iqcc-qualibrate2cloud",
     "quam-builder@git+https://github.com/qua-platform/quam-builder.git@IQCC-dev-12/25",
-    "qualibration-libs@git+https://github.com/qua-platform/qualibration-libs.git",
+    "qualibration-libs@git+https://github.com/qua-platform/qualibration-libs.git@qualibrate->=1-support",
     "betterproto>=2.0.0b7", # becuase qua 1.2.3 requires this pre-release version
 ]
+
+# uv settings: https://docs.astral.sh/uv/reference/settings/
+[tool.uv]
+# link-mode controls how packages are placed in the venv.
+# Options: "symlink" (default) | "hardlink" | "copy" | "clone"
+# "symlink" — links .venv site-packages back to uv's global cache; fast and
+#   space-efficient, but breaks on file-systems without symlink support.
+# "copy" — duplicates files into the venv; uses more disk but works reliably
+#   on Windows / WSL2 mounted drives and produces a self-contained .venv.
+link-mode = "copy"
 
 [build-system]
 requires = ["hatchling"]
@@ -49,7 +59,9 @@ allow-direct-references = true
 packages = ["iqcc_calibration_tools"]
 
 # [tool.uv.sources]
+# Use a local editable checkout instead of the remote git source
 # quam-builder = { path = "../quam-builder", editable = true }
 
 # [tool.uv]
+# Allow pre-release versions (e.g. betterproto beta wheels)
 # prerelease = "allow"
