@@ -21,7 +21,7 @@ classifiers = [
 requires-python = ">=3.11,<3.13"
 dependencies = [
     "quam==0.5.0a3",
-    "qualang-tools>=0.21.0",
+    "qualang-tools==0.21.0",
     "xarray",
     "lmfit",
     "tqdm",
@@ -31,10 +31,9 @@ dependencies = [
     "more-itertools",
     "qiskit==2.0.0",
     "pylatexenc",
-    "iqcc-cloud-client==0.13.8",
+    "iqcc-cloud-client==0.16.0",
     "iqcc-qualibrate2cloud",
     "quam-builder@git+https://github.com/qua-platform/quam-builder.git@IQCC-dev-12/25",
-    "quam-builder",
     "qualibration-libs@git+https://github.com/qua-platform/qualibration-libs.git",
     "betterproto>=2.0.0b7", # becuase qua 1.2.3 requires this pre-release version
 ]

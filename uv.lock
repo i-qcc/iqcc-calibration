@@ -944,18 +944,17 @@ dependencies = [
 requires-dist = [
     { name = "betterproto", specifier = ">=2.0.0b7" },
     { name = "ipykernel", specifier = ">=6.29.3,<7.0.0" },
-    { name = "iqcc-cloud-client", specifier = "==0.13.8" },
+    { name = "iqcc-cloud-client", specifier = "==0.16.0" },
     { name = "iqcc-qualibrate2cloud" },
     { name = "lmfit" },
     { name = "more-itertools" },
     { name = "pylatexenc" },
     { name = "qiskit", specifier = "==2.0.0" },
     { name = "qm-qua", specifier = "==1.2.5" },
-    { name = "qualang-tools", specifier = ">=0.21.0" },
+    { name = "qualang-tools", specifier = "==0.21.0" },
     { name = "qualibrate", specifier = ">=1.0.0" },
     { name = "qualibration-libs", git = "https://github.com/qua-platform/qualibration-libs.git" },
     { name = "quam", specifier = "==0.5.0a3" },
-    { name = "quam-builder" },
     { name = "quam-builder", git = "https://github.com/qua-platform/quam-builder.git?rev=IQCC-dev-12%2F25" },
     { name = "tqdm" },
     { name = "xarray" },
@@ -963,7 +962,7 @@ requires-dist = [
 
 [[package]]
 name = "iqcc-cloud-client"
-version = "0.13.8"
+version = "0.16.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "arrow" },
@@ -971,9 +970,10 @@ dependencies = [
     { name = "deepdiff" },
     { name = "h11" },
     { name = "h2" },
-    { name = "httpx" },
+    { name = "httpx", extra = ["http2"] },
     { name = "ipywidgets" },
     { name = "jsonschema" },
+    { name = "numpy" },
     { name = "plotext" },
     { name = "protobuf" },
     { name = "pydantic" },
@@ -986,9 +986,9 @@ dependencies = [
     { name = "typer" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/6a/dc/6b56c05b56fa0894eff7a19ca4daddd119cabb96132cd2999636c23d12b4/iqcc_cloud_client-0.13.8.tar.gz", hash = "sha256:73251652563ade726a96a150846b7488a63d863086d854f9b9362f31fcba7a84", size = 15915, upload-time = "2025-12-30T17:11:51.73Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/60/67/c6222d10ba1fdc9c91319b7f3a66d7616ae7d7cd0b98f71bb7d08f98c820/iqcc_cloud_client-0.16.0.tar.gz", hash = "sha256:4424e734182bb4f159ea8b4f9d99d597fcaab75bb7111bde5ac01dd0c5b61016", size = 17316 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/34/95/9a3a1a271b6473ae1e64a362d0c13a4f8ef99ac92e33172ad68ff56c5ff9/iqcc_cloud_client-0.13.8-py3-none-any.whl", hash = "sha256:3d28d4c05ce5a1a97f67e2f7cf1fb9dba215337ccb4366f1a596bca796f97aa9", size = 18466, upload-time = "2025-12-30T17:11:50.573Z" },
+    { url = "https://files.pythonhosted.org/packages/b1/5b/15f9dc9329cf757f95865f172c6e84064bfb15c2e771df59be5687100bf8/iqcc_cloud_client-0.16.0-py3-none-any.whl", hash = "sha256:468adf55b751ea3215593766d624a9a6a356169010787ecb86f99206dccbe25e", size = 20513 },
 ]
 
 [[package]]
@@ -2149,7 +2149,7 @@ wheels = [
 [[package]]
 name = "qualang-tools"
 version = "0.21.0"
-source = { git = "https://github.com/qua-platform/py-qua-tools.git?rev=feat%2Fquantum-dots#c9ddaffb6bc3393a8819b4bbf77b4eae58e87cd9" }
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "grpclib" },
     { name = "matplotlib" },
@@ -2157,6 +2157,10 @@ dependencies = [
     { name = "qm-qua" },
     { name = "scikit-learn" },
     { name = "scipy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b2/6d/ff037886ebad70b929b5595549229ff53e6936406262a65b143b8ea26237/qualang_tools-0.21.0.tar.gz", hash = "sha256:e3ae09631c5bea9ca87c9246fba2d13a5a118da790a8bf4c6590007ea842bba0", size = 4412281 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/cf/c5/f96de5854d81ead29932e5c3ce3e1ac75f88351b4fb8b5976aeefe328585/qualang_tools-0.21.0-py3-none-any.whl", hash = "sha256:a2d3f3c90524728f41f4e69d6d866271b6a65ca7492163800c696967f250b5e9", size = 4463666 },
 ]
 
 [[package]]
@@ -2238,8 +2242,8 @@ wheels = [
 
 [[package]]
 name = "quam-builder"
-version = "0.2.3.2"
-source = { git = "https://github.com/qua-platform/quam-builder.git?rev=IQCC-dev-12%2F25#2cefc778afc650a4356ee27bd1a8854c23bf96df" }
+version = "0.2.3.3"
+source = { git = "https://github.com/qua-platform/quam-builder.git?rev=IQCC-dev-12%2F25#ea53b522d533c640d72d5d2c652d8e2c5fcb60e0" }
 dependencies = [
     { name = "qcodes-contrib-drivers" },
     { name = "qm-qua" },
