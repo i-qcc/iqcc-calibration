@@ -65,7 +65,7 @@ def custom_param(node: QualibrationNode[Parameters, Quam]):
     # node.parameters.min_amp_factor = 0.8
     # node.parameters.max_amp_factor = 1.2
     # node.parameters.amp_factor_step = 0.01
-    node.parameters.reset_type = "active"
+    # node.parameters.reset_type = "active"
     pass
 
 
