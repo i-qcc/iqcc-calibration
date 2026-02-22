@@ -365,6 +365,12 @@ node.results["figure_IRB_decay"] = fig
 # %% {Update_state}
 with node.record_state_updates():
     for qp in qubit_pairs:
-        node.machine.qubit_pairs[qp.id].macros["cz"].fidelity['Interleaved_RB'] = rb_result[qp.id].fidelity
+        if hasattr(rb_result[qp.id], "fidelity"):
+            node.machine.qubit_pairs[qp.id].macros["cz"].fidelity["Interleaved_RB"] = {
+                "value": rb_result[qp.id].fidelity,
+                "updated_at": f"{node.date_time} GMT+{node.time_zone}",
+            }
+        else:
+            print(f"Warning: Skipping state update for {qp.id} because fit failed.")
 # %% {Save_results}
 node.save()

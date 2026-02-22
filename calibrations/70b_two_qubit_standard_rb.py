@@ -73,8 +73,8 @@ average_gates_per_2q_layer = 0.6757
 # %% {Node_parameters}
 
 class Parameters(NodeParameters):
-    qubit_pairs: Optional[List[str]] = ['qD3-qC4', 'qB1-qB2', 'qB5-qC1']
-    circuit_lengths: list[int] = [0,2,4,8] # in number of cliffords
+    qubit_pairs: Optional[List[str]] = None
+    circuit_lengths: list[int] = [0,2,4,8, 16, 32] # in number of cliffords
     num_circuits_per_length: int = 10
     num_averages: int = 15
     basis_gates: list[str] = ['rz', 'sx', 'x', 'cz'] 
@@ -401,7 +401,7 @@ with node.record_state_updates():
     for qp in qubit_pairs:
         if hasattr(rb_result[qp.id], 'fidelity'):
             node.machine.qubit_pairs[qp.id].macros["cz"].fidelity["StandardRB"] = {
-                "error_per_clifford": 1 - rb_result[qp.id].fidelity, 
+                "error_per_clifford": 1 - rb_result[qp.id].fidelity,
                 "error_per_2q_layer": rb_result[qp.id].error_per_2q_layer if hasattr(rb_result[qp.id], 'error_per_2q_layer') else None,
                 "error_per_gate": rb_result[qp.id].error_per_gate if hasattr(rb_result[qp.id], 'error_per_gate') else None,
                 "average_gate_fidelity": 1 - rb_result[qp.id].error_per_gate if hasattr(rb_result[qp.id], 'error_per_gate') else None,

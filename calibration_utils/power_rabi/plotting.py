@@ -143,14 +143,14 @@ def plot_individual_data_with_fit_2D(ax: Axes, ds: xr.Dataset, qubit: dict[str, 
     )
     ax.set_ylabel(f"Number of pulses")
     ax.set_xlabel("Pulse amplitude [mV]")
-    ax2 = ax.twiny()
-    (ds.assign_coords(amp_mV=ds.amp_prefactor).loc[qubit])[data].plot(
-        ax=ax2, add_colorbar=False, x="amp_mV", y="nb_of_pulses", robust=True
-    )
-    ax2.set_xlabel("amplitude prefactor")
     if fit.success:
         ax.axvline(
             x=fit.opt_amp * 1e3,
             color="r",
             linestyle="--",
         )
+    ax2 = ax.twiny()
+    (ds.assign_coords(amp_mV=ds.amp_prefactor).loc[qubit])[data].plot(
+        ax=ax2, add_colorbar=False, x="amp_mV", y="nb_of_pulses", robust=True, alpha=0
+    )
+    ax2.set_xlabel("amplitude prefactor")

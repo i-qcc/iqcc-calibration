@@ -43,17 +43,12 @@ def fit_decay_exp(da, dim):
 
     def apply_fit(x, y, a, offset, decay):
         try:
-            # fit = curve_fit(decay_exp, x, y, p0=[a, offset, decay], bounds=(0, [1, 1., -1]))[0]
             fit, residuals = curve_fit(decay_exp, x, y, p0=[a, offset, decay])
             return np.array(fit.tolist() + np.array(residuals).flatten().tolist())
-            # return np.array([fit.values[k] for k in ["a", "offset", "decay"]])
-        except RuntimeError as e:
-            print("Fit failed:")
+        except Exception as e:
+            print(f"Fit failed: {e}")
             print(f"{a=}, {offset=}, {decay=}")
-            plt.plot(x, decay_exp(x, a, offset, decay))
-            plt.plot(x, y)
-            plt.show()
-            # raise e
+            return np.full(12, np.nan)
 
     fit_res = xr.apply_ufunc(
         apply_fit,
