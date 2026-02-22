@@ -34,7 +34,7 @@ dependencies = [
     "iqcc-cloud-client==0.16.0",
     "iqcc-qualibrate2cloud",
     "quam-builder@git+https://github.com/qua-platform/quam-builder.git@IQCC-dev-12/25",
-    "qualibration-libs@git+https://github.com/qua-platform/qualibration-libs.git@qualibrate->=1-support",
+    "qualibration-libs@git+https://github.com/qua-platform/qualibration-libs.git@qualibrate-gte1-support",
     "betterproto>=2.0.0b7", # becuase qua 1.2.3 requires this pre-release version
 ]
 
@@ -58,9 +58,9 @@ allow-direct-references = true
 [tool.hatch.build.targets.wheel]
 packages = ["iqcc_calibration_tools"]
 
-# [tool.uv.sources]
+#[tool.uv.sources]
 # Use a local editable checkout instead of the remote git source
-# quam-builder = { path = "../quam-builder", editable = true }
+#quam-builder = { path = "../quam-builder", editable = true }
 
 # [tool.uv]
 # Allow pre-release versions (e.g. betterproto beta wheels)
