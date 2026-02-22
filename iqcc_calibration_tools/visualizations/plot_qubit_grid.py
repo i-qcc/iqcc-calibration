@@ -539,33 +539,33 @@ def plot_qubit_grid(
         if fresh_1q:
             vals_1q = np.array(fresh_1q) * 100
             avg_1q, std_1q = np.mean(vals_1q), np.std(vals_1q)
-            fidelity_stats_lines.append(f"Avg 1Q RB: {avg_1q:.2f} ± {std_1q:.2f}%")
+            fidelity_stats_lines.append(f"<1Q RB>: {avg_1q:.2f} ± {std_1q:.2f}%")
         else:
-            fidelity_stats_lines.append("Avg 1Q RB: N/A")
+            fidelity_stats_lines.append("<1Q RB>: N/A")
     else:
-        fidelity_stats_lines.append("Avg 1Q RB: N/A")
+        fidelity_stats_lines.append("<1Q RB>: N/A")
     if standard_rb_fidelities:
         fresh_2q = [v for pair, v in standard_rb_fidelities.items()
                      if is_within_last_hour((standard_rb_updated_at or {}).get(pair), threshold_hours=outdated_threshold_hours)]
         if fresh_2q:
             vals_2q = np.array(fresh_2q) * 100
             avg_2q, std_2q = np.mean(vals_2q), np.std(vals_2q)
-            fidelity_stats_lines.append(f"Avg 2Q RB: {avg_2q:.2f} ± {std_2q:.2f}%")
+            fidelity_stats_lines.append(f"<2Q RB>: {avg_2q:.2f} ± {std_2q:.2f}%")
         else:
-            fidelity_stats_lines.append("Avg 2Q RB: N/A")
+            fidelity_stats_lines.append("<2Q RB>: N/A")
     else:
-        fidelity_stats_lines.append("Avg 2Q RB: N/A")
+        fidelity_stats_lines.append("<2Q RB>: N/A")
     if fidelities:
         fresh_bell = [v for pair, v in fidelities.items()
                        if is_within_last_hour((bell_updated_at or {}).get(pair), threshold_hours=outdated_threshold_hours)]
         if fresh_bell:
             vals_bell = np.array(fresh_bell) * 100
             avg_bell, std_bell = np.mean(vals_bell), np.std(vals_bell)
-            fidelity_stats_lines.append(f"Avg Bell State: {avg_bell:.2f} ± {std_bell:.2f}%")
+            fidelity_stats_lines.append(f"<Bell State>: {avg_bell:.2f} ± {std_bell:.2f}%")
         else:
-            fidelity_stats_lines.append("Avg Bell State: N/A")
+            fidelity_stats_lines.append("<Bell State>: N/A")
     else:
-        fidelity_stats_lines.append("Avg Bell State: N/A")
+        fidelity_stats_lines.append("<Bell State>: N/A")
     fidelity_stats_text = "\n".join(fidelity_stats_lines)
     ax.text(0.98, 0.98, fidelity_stats_text, transform=ax.transAxes,
             fontsize=10, verticalalignment='top', horizontalalignment='right',
