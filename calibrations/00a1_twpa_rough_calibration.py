@@ -56,14 +56,14 @@ from iqcc_calibration_tools.quam_config.lib.qua_datasets import opxoutput
 
 # %% {Node_parameters}
 class Parameters(NodeParameters):
-    twpas: Optional[List[str]] = ['twpaD']
+    twpas: Optional[List[str]] = ['twpaA']
     num_averages: int =30
     frequency_span_in_mhz: float = 3
     frequency_step_in_mhz: float = 0.1
-    amp_min: float =  0.3
-    amp_max: float =  0.65
+    amp_min: float =  0.17
+    amp_max: float =  0.6
     points : int = 40    
-    p_frequency_span_in_mhz: float = 100
+    p_frequency_span_in_mhz: float = 130
     p_frequency_step_in_mhz: float =0.5
     simulate: bool = False
     simulation_duration_ns: int = 4000
@@ -270,7 +270,7 @@ maxDSNR_point={'fp':np.round((p_lo+p_if+pumpATmaxDSNR[0][0]),3),
 node.results["maxDSNR point"] = maxDSNR_point
 # %% ############################{Average optimum}##################################
 plt.plot(figzise=(4,3))
-mingain=13
+mingain=12
 avg_optimized_pump=optimizer2(mingain, Gain, dsnr, dfps, daps, p_lo,p_if)
 avg_qubit_results = {}
 for i in range(len(qubits)):
@@ -308,6 +308,16 @@ ytick_pos = np.linspace(0, len(dfps)-1, len(selected_frequencies))
 indices_=np.linspace(0, len(pump_power)-1,10, dtype=int)
 selected_powers=np.round(pump_power[indices_],2)
 xtick_pos = np.linspace(0, len(daps)-1, len(selected_powers))
+# Shared y limits for signal and noise plots (from signal data so both use same scale)
+signal_ylim_max = [
+    max(
+        np.max(ds.IQ_abs_signal.values[i][0][0]),
+        np.max(ds_.IQ_abs_signal.values[i][pumpATmaxG[1][0]][pumpATmaxG[1][1]]),
+        np.max(ds_.IQ_abs_signal.values[i][pumpATmaxDSNR[1][0]][pumpATmaxDSNR[1][1]]),
+        np.max(ds_.IQ_abs_signal.values[i][avg_optimized_pump[0]][avg_optimized_pump[1]]),
+    )
+    for i in range(len(qubits))
+]
 ##---------------------------- SIGNAL S21 PLOT -----------------------------------------------
 ncols = 2
 nrows = math.ceil(len(qubits) / ncols)
@@ -322,6 +332,7 @@ for i, ax in enumerate(axes):
         ax.set_title(f'{qubits[i].name} Signal S21 \n {date_time}', fontsize=14)
         ax.set_xlabel('Res.freq [GHz]', fontsize=12)
         ax.set_ylabel('Trans.amp. [mV]', fontsize=12)
+        ax.set_ylim(0, signal_ylim_max[i])
         ax.legend(fontsize=4, loc='upper right')
     else:
         ax.axis("off")  
@@ -340,7 +351,7 @@ for i, ax in enumerate(axes):
         ax.set_title(f'{qubits[i].name}, Noise\n {date_time}', fontsize=14)
         ax.set_xlabel('Res.freq [GHz]', fontsize=12)
         ax.set_ylabel('Trans.amp. [mV]', fontsize=12)
-        ax.set_ylim(0, max(ds_.IQ_abs_signal.values[i][pumpATmaxG[1][0]][pumpATmaxG[1][1]]))
+        ax.set_ylim(0, signal_ylim_max[i])
         ax.legend(fontsize=4, loc='upper right')
     else:
         ax.axis("off")  
