@@ -67,6 +67,8 @@ def log_fitted_results(fit_results: Dict[str, FitResults], log_callable=None):
 def process_raw_dataset(ds: xr.Dataset, node: QualibrationNode):
     """
     Process the raw dataset by adding amplitude and detuning coordinates.
+    When raw per-shot state data is present (from offline state discrimination),
+    converts it to g/e/f population probabilities by averaging over shots.
 
     Parameters:
     -----------
@@ -83,6 +85,16 @@ def process_raw_dataset(ds: xr.Dataset, node: QualibrationNode):
     qubit_pairs = node.namespace["qubit_pairs"]
 
     operation = node.parameters.operation
+
+    # Offline state discrimination: convert raw per-shot state values to populations
+    if "state_control" in ds.data_vars:
+        ds["g_state_control"] = (ds["state_control"] == 0).mean(dim="avg")
+        ds["e_state_control"] = (ds["state_control"] == 1).mean(dim="avg")
+        ds["f_state_control"] = (ds["state_control"] == 2).mean(dim="avg")
+        ds["state_target"] = ds["state_target"].astype(float).mean(dim="avg")
+        ds = ds.drop_vars(["state_control"])
+        if "avg" in ds.coords:
+            ds = ds.drop_vars("avg")
 
     def abs_amp(qp, amp):
         return amp * qp.macros[operation].flux_pulse_control.amplitude
