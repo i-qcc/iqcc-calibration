@@ -63,7 +63,13 @@ node = QualibrationNode[Parameters, Quam](
 def custom_param(node: QualibrationNode[Parameters, Quam]):
     """Allow the user to locally set the node parameters for debugging purposes, or execution in the Python IDE."""
     # You can get type hinting in your IDE by typing node.parameters.
-    # node.parameters.qubits = ["q1", "q2", "q3"]
+    node.parameters.qubits = None
+    node.parameters.max_power_dbm = -5
+    node.parameters.min_power_dbm = -40
+    node.parameters.frequency_span_in_mhz = 7
+    node.parameters.num_power_points = 30
+    node.parameters.frequency_step_in_mhz = 0.025
+    node.parameters.max_amp = 1.0
     pass
 
 
@@ -129,20 +135,20 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
             with for_(n, 0, n < n_avg, n + 1):  # QUA for_ loop for averaging
                 save(n, n_st)
                 with for_(*from_array(df, dfs)):  # QUA for_ loop for sweeping the frequency
-                    for i, qubit in multiplexed_qubits.items():
-                        rr = qubit.resonator
-                        # Update the resonator frequencies for all resonators
-                        update_frequency(rr.name, df + rr.intermediate_frequency)
                         # QUA for_ loop for sweeping the readout amplitude
                         # with for_(*from_array(a, amps)):
                         with for_each_(a, amps):
-                            # readout the resonator
-                            rr.measure("readout", qua_vars=(I[i], Q[i]), amplitude_scale=a)
-                            # wait for the resonator to deplete
-                            rr.wait(rr.depletion_time * u.ns)
-                            # save data
-                            save(I[i], I_st[i])
-                            save(Q[i], Q_st[i])
+                            for i, qubit in multiplexed_qubits.items():
+                                rr = qubit.resonator
+                                # Update the resonator frequencies for all resonators
+                                update_frequency(rr.name, df + rr.intermediate_frequency)
+                                # readout the resonator
+                                rr.measure("readout", qua_vars=(I[i], Q[i]), amplitude_scale=a)
+                                # wait for the resonator to deplete
+                                rr.wait(rr.depletion_time * u.ns)
+                                # save data
+                                save(I[i], I_st[i])
+                                save(Q[i], Q_st[i])
 
         with stream_processing():
             n_st.save("n")
@@ -224,7 +230,12 @@ def analyse_data(node: QualibrationNode[Parameters, Quam]):
 @node.run_action(skip_if=node.parameters.simulate)
 def plot_data(node: QualibrationNode[Parameters, Quam]):
     """Plot the raw and fitted data in specific figures whose shape is given by qubit.grid_location."""
-    fig_raw_fit = plot_raw_data_with_fit(node.results["ds_raw"], node.namespace["qubits"], node.results["ds_fit"])
+    fig_raw_fit = plot_raw_data_with_fit(
+        node.results["ds_raw"],
+        node.namespace["qubits"],
+        node.results["ds_fit"],
+        clip_left_mhz=node.parameters.outlier_clip_left_mhz,
+    )
     node.add_node_info_subtitle(fig_raw_fit)
     plt.show()
     # Store the generated figures
