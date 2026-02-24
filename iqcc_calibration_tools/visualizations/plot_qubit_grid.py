@@ -531,47 +531,47 @@ def plot_qubit_grid(
            fontsize=10, verticalalignment='bottom',
            bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
     
-    # Add average fidelities in top right (only non-outdated values)
+    # Add median fidelities in top right (only non-outdated values)
     fidelity_stats_lines = []
     if rb_values:
         fresh_1q = [v for q, v in rb_values.items()
                      if is_within_last_hour((rb_updated_at or {}).get(q), threshold_hours=outdated_threshold_hours)]
         if fresh_1q:
             vals_1q = np.array(fresh_1q) * 100
-            avg_1q, std_1q = np.mean(vals_1q), np.std(vals_1q)
-            fidelity_stats_lines.append(f"<1Q RB>: {avg_1q:.2f} ± {std_1q:.2f}%")
+            med_1q, std_1q = np.median(vals_1q), np.std(vals_1q)
+            fidelity_stats_lines.append(f"med(1Q RB): {med_1q:.2f} ± {std_1q:.2f}%")
         else:
-            fidelity_stats_lines.append("<1Q RB>: N/A")
+            fidelity_stats_lines.append("med(1Q RB): N/A")
     else:
-        fidelity_stats_lines.append("<1Q RB>: N/A")
+        fidelity_stats_lines.append("med(1Q RB): N/A")
     if standard_rb_fidelities:
         fresh_2q = [v for pair, v in standard_rb_fidelities.items()
                      if is_within_last_hour((standard_rb_updated_at or {}).get(pair), threshold_hours=outdated_threshold_hours)]
         if fresh_2q:
             vals_2q = np.array(fresh_2q) * 100
-            avg_2q, std_2q = np.mean(vals_2q), np.std(vals_2q)
-            fidelity_stats_lines.append(f"<2Q RB>: {avg_2q:.2f} ± {std_2q:.2f}%")
+            med_2q, std_2q = np.median(vals_2q), np.std(vals_2q)
+            fidelity_stats_lines.append(f"med(2Q RB): {med_2q:.2f} ± {std_2q:.2f}%")
         else:
-            fidelity_stats_lines.append("<2Q RB>: N/A")
+            fidelity_stats_lines.append("med(2Q RB): N/A")
     else:
-        fidelity_stats_lines.append("<2Q RB>: N/A")
+        fidelity_stats_lines.append("med(2Q RB): N/A")
     if fidelities:
         fresh_bell = [v for pair, v in fidelities.items()
                        if is_within_last_hour((bell_updated_at or {}).get(pair), threshold_hours=outdated_threshold_hours)]
         if fresh_bell:
             vals_bell = np.array(fresh_bell) * 100
-            avg_bell, std_bell = np.mean(vals_bell), np.std(vals_bell)
-            fidelity_stats_lines.append(f"<Bell State>: {avg_bell:.2f} ± {std_bell:.2f}%")
+            med_bell, std_bell = np.median(vals_bell), np.std(vals_bell)
+            fidelity_stats_lines.append(f"med(Bell State): {med_bell:.2f} ± {std_bell:.2f}%")
         else:
-            fidelity_stats_lines.append("<Bell State>: N/A")
+            fidelity_stats_lines.append("med(Bell State): N/A")
     else:
-        fidelity_stats_lines.append("<Bell State>: N/A")
+        fidelity_stats_lines.append("med(Bell State): N/A")
     fidelity_stats_text = "\n".join(fidelity_stats_lines)
     ax.text(0.98, 0.98, fidelity_stats_text, transform=ax.transAxes,
             fontsize=10, verticalalignment='top', horizontalalignment='right',
             bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
     
-    # Add per-line <1Q RB> averages in bottom right (only active qubits with fresh data)
+    # Add per-line med(1Q RB) in bottom right (only active qubits with fresh data)
     line_rb_values: Dict[str, List[float]] = {}
     for q in active_qubits:
         match = re.match(r"q([A-Z])", q)
@@ -590,11 +590,11 @@ def plot_qubit_grid(
         for letter in sorted(line_rb_values):
             vals = line_rb_values[letter]
             if vals:
-                avg = np.mean(vals)
+                med = np.median(vals)
                 std = np.std(vals)
-                per_line_lines.append(f"<1Q RB {letter}>: {avg:.2f} ± {std:.2f}%")
+                per_line_lines.append(f"med(1Q RB {letter}): {med:.2f} ± {std:.2f}%")
             else:
-                per_line_lines.append(f"<1Q RB {letter}>: N/A")
+                per_line_lines.append(f"med(1Q RB {letter}): N/A")
         per_line_text = "\n".join(per_line_lines)
         ax.text(0.98, 0.02, per_line_text, transform=ax.transAxes,
                 fontsize=10, verticalalignment='bottom', horizontalalignment='right',
