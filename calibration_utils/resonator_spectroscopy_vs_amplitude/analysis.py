@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import Tuple, Dict
 import numpy as np
 import xarray as xr
+from scipy.optimize import curve_fit
 
 from qualibrate import QualibrationNode
 from qualibration_libs.data import add_amplitude_and_phase, convert_IQ_to_V
@@ -63,59 +64,83 @@ def process_raw_dataset(ds: xr.Dataset, node: QualibrationNode):
 
 def fit_raw_data(ds: xr.Dataset, node: QualibrationNode) -> Tuple[xr.Dataset, dict[str, FitParameters]]:
     """
-    Fit the T1 relaxation time for each qubit according to ``a * np.exp(t * decay) + offset``.
+    Track the resonator dip vs readout power, fit an arctan to the trajectory,
+    and determine the optimal readout power and corresponding frequency shift.
 
     Parameters:
     -----------
     ds : xr.Dataset
         Dataset containing the raw data.
-    node_parameters : Parameters
-        Parameters related to the node, including whether state discrimination is used.
+    node : QualibrationNode
+        Node containing parameters and qubit metadata.
 
     Returns:
     --------
-    xr.Dataset
-        Dataset containing the fit results.
+    Tuple[xr.Dataset, dict[str, FitParameters]]
+        Fit dataset with analysis coordinates and per-qubit fit results.
     """
 
     ds_fit = ds
-    # Generate 1D dataset tracking the minimum IQ value, as a proxy for resonator frequency
+    # Track the minimum IQ value per power as a proxy for resonator frequency
     ds_fit["rr_min_response"] = ds.IQ_abs_norm.idxmin(dim="detuning")
-    # Calculate the derivative along the power axis
-    ds_fit["rr_min_response_diff"] = ds_fit.rr_min_response.differentiate(coord="power").dropna("power")
-    ds_fit["rr_min_response_filtered"] = ds_fit.rr_min_response.where(np.abs(ds_fit["rr_min_response_diff"]) < 1e6)
-    # Calculate the moving average of the derivative
-    ds_fit["rr_min_response_avg"] = (
-        ds_fit.rr_min_response_filtered.rolling(
-            power=node.parameters.derivative_smoothing_window_num_points,
-            center=True,  # window size in points
-        )
-        .mean()
-        .dropna("power")
+
+    # --- Outlier filtering ---
+    freq_step_hz = node.parameters.frequency_step_in_mhz * 1e6
+    clip_left_hz = node.parameters.outlier_clip_left_mhz * 1e6
+    clip_right_hz = 1e6
+    outlier_threshold_hz = node.parameters.outlier_threshold_n_steps * freq_step_hz
+
+    ds_fit["rr_min_response"] = ds_fit["rr_min_response"].where(
+        (ds_fit["rr_min_response"] >= -clip_left_hz)
+        & (ds_fit["rr_min_response"] <= clip_right_hz)
     )
-    # ensure rr_min_response_avg buffer is writeable
-    ds_fit["rr_min_response_avg"].data = ds_fit["rr_min_response_avg"].data.copy()
-    # Apply a filter to scale down the initial noisy values in the moving average if needed
-    for j in range(node.parameters.moving_average_filter_window_num_points):
-        ds_fit.rr_min_response_avg.isel(power=j).data /= node.parameters.moving_average_filter_window_num_points - j
-    # Find the first position where the moving average crosses below the threshold
+    rolling_med = ds_fit["rr_min_response"].rolling(power=5, center=True, min_periods=1).median()
+    ds_fit["rr_min_response"] = ds_fit["rr_min_response"].where(
+        np.abs(ds_fit["rr_min_response"] - rolling_med) <= outlier_threshold_hz
+    )
+
+    # --- Arctan fit ---
+    qubit_names = ds_fit.qubit.values
+    power_vals = ds_fit.power.values
+    arctan_fit_vals = np.full((len(qubit_names), len(power_vals)), np.nan)
+    arctan_deriv_vals = np.full((len(qubit_names), len(power_vals)), np.nan)
+
+    for i, q in enumerate(qubit_names):
+        rr = ds_fit["rr_min_response"].sel(qubit=q).values
+        valid = ~np.isnan(rr)
+        if np.sum(valid) > 4:
+            try:
+                popt, _ = _fit_arctan(power_vals[valid], rr[valid])
+                arctan_fit_vals[i] = _arctan_model(power_vals, *popt)
+                arctan_deriv_vals[i] = _arctan_derivative(power_vals, *popt)
+            except RuntimeError:
+                pass
+
+    ds_fit["rr_min_response_arctan_fit"] = xr.DataArray(
+        arctan_fit_vals, dims=["qubit", "power"],
+        coords={"qubit": qubit_names, "power": power_vals},
+    )
+    ds_fit["rr_min_response_avg"] = xr.DataArray(
+        arctan_deriv_vals, dims=["qubit", "power"],
+        coords={"qubit": qubit_names, "power": power_vals},
+    )
+
+    # Find where the derivative crosses below the threshold
     ds_fit["below_threshold"] = ds_fit.rr_min_response_avg < node.parameters.derivative_crossing_threshold_in_hz_per_dbm
-    # Get the first occurrence below the derivative threshold
     optimal_power = ds_fit.below_threshold.idxmax(dim="power")
     optimal_power -= node.parameters.buffer_from_crossing_threshold_in_dbm
     ds_fit = ds_fit.assign_coords({"optimal_power": (["qubit"], optimal_power.data)})
 
-    # Define a function to fit the resonator line at the optimal power for each qubit
-    def _select_optimal_power(ds, qubit):
-        return peaks_dips(
-            ds.sel(power=ds["optimal_power"].sel(qubit=qubit).data, method="nearest").sel(qubit=qubit).IQ_abs,
-            "detuning",
-        )
-
     # Get the resonance frequency shift at the optimal power
     freq_shift = []
     for q in node.namespace["qubits"]:
-        freq_shift.append(float(_select_optimal_power(ds_fit, q.name).position.data))
+        freq_shift.append(float(
+            peaks_dips(
+                ds_fit.sel(power=ds_fit["optimal_power"].sel(qubit=q.name).data, method="nearest")
+                .sel(qubit=q.name).IQ_abs,
+                "detuning",
+            ).position.data
+        ))
     ds_fit = ds_fit.assign_coords({"freq_shift": (["qubit"], freq_shift)})
 
     # Extract the relevant fitted parameters
@@ -126,12 +151,11 @@ def fit_raw_data(ds: xr.Dataset, node: QualibrationNode) -> Tuple[xr.Dataset, di
 def _extract_relevant_fit_parameters(fit: xr.Dataset, node: QualibrationNode):
     """Add metadata to the fit dataset and fit result dictionary."""
 
-    # Get the fitted resonator frequency
     full_freq = np.array([q.resonator.RF_frequency for q in node.namespace["qubits"]])
     res_freq = fit.freq_shift + full_freq
     fit = fit.assign_coords(res_freq=("qubit", res_freq.data))
     fit.res_freq.attrs = {"long_name": "resonator frequency", "units": "Hz"}
-    # Assess whether the fit was successful or not
+
     freq_success = np.abs(fit.freq_shift.data) < node.parameters.frequency_span_in_mhz * 1e6
     nan_success = np.isnan(fit.freq_shift.data) | np.isnan(fit.optimal_power.data)
     success_criteria = freq_success & ~nan_success
@@ -148,3 +172,33 @@ def _extract_relevant_fit_parameters(fit: xr.Dataset, node: QualibrationNode):
     }
 
     return fit, fit_results
+
+
+def _arctan_model(x, a, b, x0, c):
+    """Arctan model: a * arctan(b * (x - x0)) + c"""
+    return a * np.arctan(b * (x - x0)) + c
+
+
+def _arctan_derivative(x, a, b, x0, _c):
+    """Analytical derivative of the arctan model."""
+    return a * b / (1 + (b * (x - x0)) ** 2)
+
+
+def _fit_arctan(x, y):
+    """Fit the arctan model to data with automatic initial guesses.
+
+    The fit is constrained so that a < 0 and b > 0, enforcing a monotonically
+    decreasing curve (higher frequency at low power, lower at high power).
+    """
+    a_guess = (y[-1] - y[0]) / np.pi
+    p0 = [
+        -abs(a_guess) if a_guess != 0 else -1.0,
+        abs(2.0 / (x[-1] - x[0])),
+        np.median(x),
+        np.mean(y),
+    ]
+    bounds = (
+        [-np.inf, 0, -np.inf, -np.inf],
+        [0, np.inf, np.inf, np.inf],
+    )
+    return curve_fit(_arctan_model, x, y, p0=p0, bounds=bounds, maxfev=10_000)

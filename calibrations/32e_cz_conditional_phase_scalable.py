@@ -27,7 +27,10 @@ from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Qua
 
 # %% {Initialisation}
 description = """
-CALIBRATION OF THE CONTROLLED-PHASE (CPHASE) OF THE CZ GATE
+CALIBRATION OF THE CONTROLLED-PHASE (CPHASE) OF THE CZ GATE (SCALABLE VERSION)
+
+Scalable version that avoids the slow-compiling switch_ block by saving raw per-shot
+state discrimination data and processing g/e/f populations offline in analysis.
 
 This sequence calibrates the CPhase of the CZ gate by scanning the pulse amplitude and measuring the
 resulting phase of the target qubit. The calibration compares two scenarios:
@@ -60,7 +63,7 @@ State update:
 
 # Be sure to include [Parameters, Quam] so the node has proper type hinting
 node = QualibrationNode[Parameters, Quam](
-    name="32c_cz_conditional_phase",  # Name should be unique
+    name="32e_cz_conditional_phase_scalable",  # Name should be unique
     description=description,  # Describe what the node is doing, which is also reflected in the QUAlibrate GUI
     parameters=Parameters(),  # Node parameters defined under calibration_utils/cz_conditional_phase/parameters.py
 )
@@ -72,9 +75,10 @@ node = QualibrationNode[Parameters, Quam](
 def custom_param(node: QualibrationNode[Parameters, Quam]):
     # You can get type hinting in your IDE by typing node.parameters.
     # node.parameters.multiplexed = True
-    # node.parameters.reset_type = "active"
-    # node.parameters.amp_range = 0.015
-    # node.parameters.num_averages = 50
+    # node.parameters.reset_type = "active_simple"
+    # node.parameters.amp_range = 0.03
+    # node.parameters.amp_step = 0.003
+    # node.parameters.num_averages = 100
     pass
 
 # Instantiate the QUAM class from the state file
@@ -105,6 +109,7 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
     # Register the sweep axes to be added to the dataset when fetching data
     node.namespace["sweep_axes"] = {
         "qubit_pair": xr.DataArray(qubit_pairs.get_names()),
+        "avg": xr.DataArray(np.arange(n_avg)),
         "amp": xr.DataArray(amplitudes, attrs={"long_name": "amplitude scale", "units": "a.u."}),
         "frame": xr.DataArray(frames, attrs={"long_name": "frame rotation", "units": "2π"}),
         "control_axis": xr.DataArray([0, 1], attrs={"long_name": "control qubit state"}),
@@ -120,18 +125,15 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
     node.namespace["tracked_qubit_pairs"] = tracked_qp_list
     # The QUA program stored in the node namespace to be transfer to the simulation and execution run_actions
     with program() as node.namespace["qua_program"]:
-        I_c, I_c_st, Q_c, Q_c_st, n, n_st = node.machine.declare_qua_variables(num_IQ_pairs=num_qubit_pairs)
-        I_t, I_t_st, Q_t, Q_t_st, _, _ = node.machine.declare_qua_variables(num_IQ_pairs=num_qubit_pairs)
+        n = declare(int)
+        n_st = declare_stream()
         amp = declare(fixed)
         frame = declare(fixed)
         control_initial = declare(int)
-        if node.parameters.use_state_discrimination:
-            state_c = [declare(int) for _ in range(num_qubit_pairs)]
-            state_t = [declare(int) for _ in range(num_qubit_pairs)]
-            state_ce_st = [declare_stream() for _ in range(num_qubit_pairs)]
-            state_cg_st = [declare_stream() for _ in range(num_qubit_pairs)]
-            state_cf_st = [declare_stream() for _ in range(num_qubit_pairs)]
-            state_t_st = [declare_stream() for _ in range(num_qubit_pairs)]
+        state_c = [declare(int) for _ in range(num_qubit_pairs)]
+        state_t = [declare(int) for _ in range(num_qubit_pairs)]
+        state_c_st = [declare_stream() for _ in range(num_qubit_pairs)]
+        state_t_st = [declare_stream() for _ in range(num_qubit_pairs)]
 
         for multiplexed_qubit_pairs in qubit_pairs.batch():
             # Initialize the qubits
@@ -174,35 +176,10 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                             
                             # measure the qubits
                             for ii, qp in multiplexed_qubit_pairs.items():
-                                if node.parameters.use_state_discrimination:
-                                    qp.qubit_control.readout_state_gef(state_c[ii])
-                                    qp.qubit_target.readout_state(state_t[ii])
-                                    # save each state outcome in its respective stream
-                                    with switch_(state_c[ii]):
-                                        with case_(0):
-                                            wait(4)
-                                            save(1, state_cg_st[ii])
-                                            save(0, state_ce_st[ii])
-                                            save(0, state_cf_st[ii])
-                                        with case_(1):
-                                            wait(4)
-                                            save(0, state_cg_st[ii])
-                                            save(1, state_ce_st[ii])
-                                            save(0, state_cf_st[ii])
-                                        with default_():
-                                            wait(4)
-                                            save(0, state_cg_st[ii])
-                                            save(0, state_ce_st[ii])
-                                            save(1, state_cf_st[ii])
-                                    save(state_t[ii], state_t_st[ii])
-
-                                else:
-                                    qp.qubit_control.resonator.measure("readout", qua_vars=(I_c[ii], Q_c[ii]))
-                                    qp.qubit_target.resonator.measure("readout", qua_vars=(I_t[ii], Q_t[ii]))
-                                    save(I_c[ii], I_c_st[ii])
-                                    save(Q_c[ii], Q_c_st[ii])
-                                    save(I_t[ii], I_t_st[ii])
-                                    save(Q_t[ii], Q_t_st[ii])
+                                qp.qubit_control.readout_state_gef(state_c[ii])
+                                qp.qubit_target.readout_state(state_t[ii])
+                                save(state_c[ii], state_c_st[ii])
+                                save(state_t[ii], state_t_st[ii])
                             
                             align()
 
@@ -211,24 +188,12 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
         with stream_processing():
             n_st.save("n")
             for i in range(num_qubit_pairs):
-                if node.parameters.use_state_discrimination:
-                    state_cg_st[i].buffer(2).buffer(len(frames)).buffer(len(amplitudes)).average().save(
-                        f"g_state_control{i + 1}"
-                    )
-                    state_ce_st[i].buffer(2).buffer(len(frames)).buffer(len(amplitudes)).average().save(
-                        f"e_state_control{i + 1}"
-                    )
-                    state_cf_st[i].buffer(2).buffer(len(frames)).buffer(len(amplitudes)).average().save(
-                        f"f_state_control{i + 1}"
-                    )
-                    state_t_st[i].buffer(2).buffer(len(frames)).buffer(len(amplitudes)).average().save(
-                        f"state_target{i + 1}"
-                    )
-                else:
-                    I_c_st[i].buffer(2).buffer(len(frames)).buffer(len(amplitudes)).average().save(f"I_control{i + 1}")
-                    Q_c_st[i].buffer(2).buffer(len(frames)).buffer(len(amplitudes)).average().save(f"Q_control{i + 1}")
-                    I_t_st[i].buffer(2).buffer(len(frames)).buffer(len(amplitudes)).average().save(f"I_target{i + 1}")
-                    Q_t_st[i].buffer(2).buffer(len(frames)).buffer(len(amplitudes)).average().save(f"Q_target{i + 1}")
+                state_c_st[i].buffer(2).buffer(len(frames)).buffer(len(amplitudes)).buffer(n_avg).save(
+                    f"state_control{i + 1}"
+                )
+                state_t_st[i].buffer(2).buffer(len(frames)).buffer(len(amplitudes)).buffer(n_avg).save(
+                    f"state_target{i + 1}"
+                )
 
 
 # %% {Simulate}

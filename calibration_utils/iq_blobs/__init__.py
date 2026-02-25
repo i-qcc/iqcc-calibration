@@ -1,6 +1,6 @@
 from .parameters import Parameters
 from .analysis import process_raw_dataset, fit_raw_data, log_fitted_results, fit_snr_with_gaussians
-from .plotting import plot_iq_blobs, plot_confusion_matrices
+from .plotting import plot_iq_blobs, plot_confusion_matrices, plot_snr_gaussians
 
 __all__ = [
     "Parameters",
@@ -10,4 +10,5 @@ __all__ = [
     "fit_snr_with_gaussians",
     "plot_iq_blobs",
     "plot_confusion_matrices",
+    "plot_snr_gaussians",
 ]

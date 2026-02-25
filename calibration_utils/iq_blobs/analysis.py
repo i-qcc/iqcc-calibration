@@ -499,7 +499,11 @@ def fit_snr_with_gaussians(
             snr_val = abs(mu_e - mu_g) / (abs(sig_g) + abs(sig_e))
             snr.append(snr_val)
             if plot:
-                ax.set_title(f"{qubit_id} \n SNR: {snr_val:.3f}, Amp={qubits[i].resonator.operations['readout'].amplitude :.3f},Tro={qubits[i].resonator.operations['readout'].length}, F={fit_results[qubits[i].name].readout_fidelity:.2f}%", fontsize=18)
+                ax.set_title(
+                    f"{qubit_id}\n"
+                    f"SNR: {snr_val:.3f}, F={fit_results[qubits[i].name].readout_fidelity:.2f}%",
+                    fontsize=13.5,
+                )
         else:
             snr.append(np.nan)
             if plot:
@@ -508,14 +512,8 @@ def fit_snr_with_gaussians(
         if plot:
             ax.set_xlabel("I [mV]", fontsize=15)
             ax.set_ylabel("Counts", fontsize=15)
-            ax.legend(fontsize=12, loc="upper right")
         
         all_fit_params.append(fit_params)
         all_fit_errors.append(fit_errors)
-    
-    if plot:
-        # Hide unused subplots if num_qubits is odd
-        for j in range(num_qubits, len(axes)):
-            axes[j].axis('off')
-    
+
     return snr, all_fit_params, all_fit_errors

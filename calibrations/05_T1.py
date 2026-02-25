@@ -92,6 +92,8 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
             for qubit in multiplexed_qubits.values():
                 node.machine.initialize_qpu(target=qubit)
 
+            align()
+            
             with for_(n, 0, n < n_avg, n + 1):
                 save(n, n_st)
                 with for_each_(t, idle_times):
@@ -102,13 +104,17 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                             node.parameters.simulate,
                             log_callable=node.log,
                         )
-
+                        
+                    align()
+                    
                     # The qubit manipulation sequence
                     for i, qubit in multiplexed_qubits.items():
                         qubit.align()
                         qubit.xy.play("x180")
                         qubit.align()
                         qubit.resonator.wait(t)
+                    
+                    align()
 
                     # Measure the state of the resonators
                     for i, qubit in multiplexed_qubits.items():
@@ -120,6 +126,8 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                             # save data
                             save(I[i], I_st[i])
                             save(Q[i], Q_st[i])
+                    
+                    align()
 
         with stream_processing():
             n_st.save("n")

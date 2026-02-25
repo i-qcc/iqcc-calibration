@@ -6,27 +6,29 @@ from qualibration_libs.parameters import QubitsExperimentNodeParameters, CommonN
 class NodeSpecificParameters(RunnableParameters):
     num_shots: int = 100
     """Number of averages to perform. Default is 100."""
-    frequency_span_in_mhz: float = 15
-    """Span of frequencies to sweep in MHz. Default is 15 MHz."""
-    frequency_step_in_mhz: float = 0.1
-    """Step size for frequency sweep in MHz. Default is 0.1 MHz."""
-    max_power_dbm: int = -25
-    """Maximum power level in dBm. Default is -25 dBm."""
-    min_power_dbm: int = -50
-    """Minimum power level in dBm. Default is -50 dBm."""
-    num_power_points: int = 100
-    """Number of points of the readout power axis. Default is 100."""
-    max_amp: float = 0.1
-    """Maximum readout amplitude for the experiment. Default is 0.1."""
+    frequency_span_in_mhz: float = 7
+    """Span of frequencies to sweep in MHz. Default is 7 MHz."""
+    frequency_step_in_mhz: float = 0.025
+    """Step size for frequency sweep in MHz. Default is 0.025 MHz."""
+    max_power_dbm: int = -5
+    """Maximum power level in dBm. Default is -5 dBm."""
+    min_power_dbm: int = -40
+    """Minimum power level in dBm. Default is -40 dBm."""
+    num_power_points: int = 30
+    """Number of points of the readout power axis. Default is 30."""
+    max_amp: float = 1.0
+    """Maximum readout amplitude for the experiment. Default is 1.0."""
     derivative_crossing_threshold_in_hz_per_dbm: int = -50_000
     """Threshold for derivative crossing in Hz/dBm. Default is -50000 Hz/dBm."""
-    derivative_smoothing_window_num_points: int = 10
-    """Size of the window in number of points corresponding to the rolling average (number of points). Default is 10."""
-    moving_average_filter_window_num_points: int = 10
-    """Size of the moving average filter window (number of points). Default is 5."""
     buffer_from_crossing_threshold_in_dbm: int = 1
-    """Buffer from the crossing threshold in dBm - the optimal readout power will be set to be this number in Db below
+    """Buffer from the crossing threshold in dBm - the optimal readout power will be set to be this number in dB below
     the threshold. Default is 1 dBm."""
+    outlier_clip_left_mhz: float = 1.5
+    """Allowed range below the resonator frequency (negative detuning) in MHz. Points with detuning < -this value
+    are excluded as outliers. Default is 1.5 MHz."""
+    outlier_threshold_n_steps: int = 5
+    """Outlier threshold expressed as a number of frequency steps. Points deviating more than this many steps from
+    the local rolling median are excluded. Default is 5."""
 
 
 class Parameters(
