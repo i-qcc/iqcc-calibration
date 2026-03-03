@@ -5,20 +5,11 @@ import xarray as xr
 from qm.qua import *
 
 from qualang_tools.multi_user import qm_session
-from qualang_tools.results import progress_counter
 from qualang_tools.units import unit
 
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode
 from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
-from calibration_utils.iq_blobs_raw_adc import (
-    Parameters,
-    plot_raw_adc_traces,
-    plot_iq_trajectories,
-    process_raw_dataset,
-    fit_raw_data,
-    fit_snr_with_gaussians,
-    plot_iq_blobs,
-)
+from calibration_utils.iq_blobs_raw_adc import Parameters, plot_raw_adc_traces
 from qualibration_libs.parameters import get_qubits
 from qualibration_libs.runtime import simulate_and_plot
 from qualibration_libs.data import XarrayDataFetcher
@@ -26,14 +17,9 @@ from qualibration_libs.data import XarrayDataFetcher
 
 # %% {Description}
 description = """
-        IQ BLOBS (RAW ADC)
-Uses raw ADC traces instead of on-board measure and demodulation. No demodulation
-in post-processing. Measures the resonator 'N' times in |g> state (thermalization)
-and |e> state (after x180). Displays Igraw, Qgraw, Ieraw, Qeraw vs readout time.
-
-Prerequisites:
-    - Having calibrated the readout parameters (nodes 02a, 02b and/or 02c).
-    - Having calibrated the qubit x180 pulse parameters (nodes 03a_qubit_spectroscopy.py and 04b_power_rabi.py).
+RAW ADC
+Collects raw ADC traces (Igraw, Qgraw, Ieraw, Qeraw) from input1 real and image.
+Measures |g> and |e> states N times. No demodulation or post-processing.
 """
 
 # Be sure to include [Parameters, Quam] so the node has proper type hinting
@@ -127,13 +113,8 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
         with stream_processing():
             n_st.save("n")
             for i in range(num_qubits):
-                qubit = node.namespace["qubits"][i]
-                if qubit.resonator.opx_input.port_id == 1:
-                    stream_g = adc_g_st[i].input1()
-                    stream_e = adc_e_st[i].input1()
-                else:
-                    stream_g = adc_g_st[i].input2()
-                    stream_e = adc_e_st[i].input2()
+                stream_g = adc_g_st[i].input1()
+                stream_e = adc_e_st[i].input1()
                 stream_g.real().buffer(n_runs).save(f"Igraw{i + 1}")
                 stream_g.image().buffer(n_runs).save(f"Qgraw{i + 1}")
                 stream_e.real().buffer(n_runs).save(f"Ieraw{i + 1}")
@@ -168,14 +149,9 @@ def execute_qua_program(node: QualibrationNode[Parameters, Quam]):
     with qm_session(qmm, config, timeout=node.parameters.timeout) as qm:
         # The job is stored in the node namespace to be reused in the fetching_data run_action
         node.namespace["job"] = job = qm.execute(node.namespace["qua_program"])
-        # Display the progress bar
         data_fetcher = XarrayDataFetcher(job, node.namespace["sweep_axes"])
         for dataset in data_fetcher:
-            progress_counter(
-                data_fetcher["n"],
-                node.parameters.num_shots,
-                start_time=data_fetcher.t_start,
-            )
+            pass
         # Display the execution report to expose possible runtime errors
         node.log(job.execution_report())
     # Register the raw dataset (no demodulation)
@@ -202,57 +178,6 @@ def plot_data(node: QualibrationNode[Parameters, Quam]):
     node.add_node_info_subtitle(fig)
     plt.show()
     node.results["figures"] = {"raw_adc_traces": fig}
-
-
-# %% {Plot_post}
-@node.run_action(skip_if=node.parameters.simulate)
-def plot_post(node: QualibrationNode[Parameters, Quam]):
-    """
-    Post-processing: demodulate raw ADC, compute IQ blobs and SNR, then plot.
-    """
-    qubits = node.namespace["qubits"]
-    num_qubits = len(qubits)
-
-    # Demodulate raw ADC to get Ig, Qg, Ie, Qe per shot
-    ds_demod = process_raw_dataset(node.results["ds_raw"].copy(), node)
-    node.results["ds_demod"] = ds_demod
-
-    # Fit IQ blobs (rotation, thresholds, etc.)
-    ds_fit, fit_results = fit_raw_data(ds_demod, node)
-    node.results["ds_fit"] = ds_fit
-    node.results["fit_results"] = fit_results
-
-    # Plot IQ blobs
-    fig_iq = plot_iq_blobs(ds_demod, qubits, ds_fit)
-    node.add_node_info_subtitle(fig_iq)
-    plt.show()
-    node.results.setdefault("figures", {})["iq_blobs"] = fig_iq
-
-    # Plot IQ trajectories (I(t), Q(t)) averaged over shots on IQ plane
-    fig_traj = plot_iq_trajectories(node.results["ds_raw"], qubits)
-    node.add_node_info_subtitle(fig_traj)
-    plt.show()
-    node.results.setdefault("figures", {})["iq_trajectories"] = fig_traj
-
-    # Plot SNR (Gaussian fits)
-    cols = 2
-    rows = (num_qubits + 1) // cols
-    fig_snr, axes = plt.subplots(rows, cols, figsize=(6 * cols, 4 * rows), constrained_layout=True)
-    axes = np.atleast_1d(axes).flatten()
-    snr, _, _ = fit_snr_with_gaussians(
-        fits=ds_fit,
-        qubits=qubits,
-        node=node,
-        fit_results=fit_results,
-        axes=axes,
-        plot=True,
-    )
-    for j in range(num_qubits, len(axes)):
-        axes[j].axis("off")
-    fig_snr.suptitle(node.add_node_info_subtitle())
-    plt.show()
-    node.results.setdefault("figures", {})["snr_gaussians"] = fig_snr
-    node.results["snr"] = snr
 
 
 # %% {Save_results}
