@@ -24,7 +24,7 @@ nodes = {
 
 node_params = {
     "T1": {
-        "multiplexed": multiplexed,
+        "multiplexed": False,
         "reset_type": reset_type,
         "num_shots": 1000,
         "wait_time_num_points": 50,
@@ -33,11 +33,11 @@ node_params = {
         "use_state_discrimination": True
     },
     "ramsey": {
-        "multiplexed": multiplexed,
+        "multiplexed": False,
         "reset_type": reset_type,
         "num_shots": 100,
         "frequency_detuning_in_mhz": 1.0,
-        "max_wait_time_in_ns": 7000,
+        "max_wait_time_in_ns": 20000,
     },
 }
 

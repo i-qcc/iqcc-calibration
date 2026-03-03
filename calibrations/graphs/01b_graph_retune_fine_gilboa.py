@@ -34,7 +34,7 @@ node_params = {
     "ramsey_flux_calibration" : {"multiplexed": multiplexed,
             "num_shots": 200,
             "flux_span": flux_span,
-            "scale_flux_span": {"qD2": 0.5, "qD3": 0.5},
+            "scale_flux_span": {"qD2": 0.5, "qD3": 0.5, "qD4": 0.5, "qD5": 0.5},
             "max_wait_time_in_ns": 500,
             "wait_time_step_in_ns": 5,
             "flux_num": 11,
