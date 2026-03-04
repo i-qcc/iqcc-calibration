@@ -92,4 +92,14 @@ def upload_compiler_data_to_cloud(
 
 
 if __name__ == "__main__":
-    upload_compiler_data_to_cloud(as_new_parent=True)
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Upload compiler data to IQCC Cloud")
+    parser.add_argument(
+        "--as-new-parent",
+        action="store_true",
+        default=False,
+        help="Push physical_qubits as a new root parent entry",
+    )
+    args = parser.parse_args()
+    upload_compiler_data_to_cloud(as_new_parent=args.as_new_parent)
