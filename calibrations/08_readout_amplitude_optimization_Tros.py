@@ -1,3 +1,4 @@
+"""Kim"""
 # %% {Imports}
 import matplotlib.pyplot as plt
 import numpy as np
@@ -15,20 +16,13 @@ from qualang_tools.units import unit
 from iqcc_calibration_tools.qualibrate_config.qualibrate.node import QualibrationNode
 from quam_builder.architecture.superconducting.qpu import FluxTunableQuam as Quam
 from calibration_utils.readout_power_optimization import (
-    Parameters as ReadoutPowerParameters,
+    Parameters,
     process_raw_dataset,
     fit_raw_data,
     log_fitted_results,
     plot_raw_data_with_fit,
 )
 from calibration_utils.readout_power_optimization.analysis import FitParameters as ReadoutFitParameters
-
-
-class Parameters(ReadoutPowerParameters):
-    """Add readout length sweep: 1000 to 3000 ns in 500 ns steps."""
-    readout_length_start_ns: int = 500
-    readout_length_end_ns: int = 4000
-    readout_length_step_ns: int = 200
 from calibration_utils.iq_blobs import fit_raw_data as fit_iq_blobs
 from calibration_utils.iq_blobs.plotting import plot_iq_blobs, plot_confusion_matrices
 from calibration_utils.iq_blobs.analysis import fit_snr_with_gaussians
@@ -40,11 +34,13 @@ from iqcc_calibration_tools.quam_config.lib.qua_datasets import opxoutput
 
 # %% {Description}
 description = """
-        READOUT POWER AND LENGTH OPTIMIZATION
-The sequence sweeps readout length (default 1000 to 3000 ns in 500 ns steps) and at each length sweeps
-readout amplitude. For each (length, amplitude) SNR is computed via fit_snr_with_gaussians. The plot
-SNR vs readout amplitude shows one curve per readout length; optimal (amplitude, length) is chosen to
-maximize SNR. Readout length is also updated in state.
+        READOUT POWER OPTIMIZATION
+The sequence consists in measuring the state of the resonator after thermalization (qubit in |g>) and after
+playing a pi pulse to the qubit (qubit in |e>) successively while sweeping the readout amplitude.
+The 'I' & 'Q' quadratures when the qubit is in |g> and |e> are extracted. SNR is computed at each amplitude
+using fit_snr_with_gaussians (Gaussian fits to ground and excited blobs). The optimal readout amplitude is chosen as the first readout power at which SNR starts to decrease
+(first local maximum), to avoid the regime where SNR fluctuates (decrease then increase again).
+A plot of SNR vs readout power is produced.
 
 Prerequisites:
     - Having calibrated the readout parameters (nodes 02a, 02b and/or 02c).
@@ -52,10 +48,9 @@ Prerequisites:
 
 State update:
     - The readout amplitude: qubit.resonator.operations["readout"].amplitude
-    - The readout length: qubit.resonator.operations["readout"].length (when length is swept)
     - The integration weight angle: qubit.resonator.operations["readout"].integration_weights_angle
-    - The ge discrimination threshold: qubit.resonator.operations["readout"].threshold
-    - The Repeat Until Success threshold: qubit.resonator.operations["readout"].rus_exit_threshold
+    - the ge discrimination threshold: qubit.resonator.operations["readout"].threshold
+    - the Repeat Until Success threshold: qubit.resonator.operations["readout"].rus_exit_threshold
     - The confusion matrix: qubit.resonator.operations["readout"].confusion_matrix
 """
 
@@ -73,10 +68,11 @@ node = QualibrationNode[Parameters, Quam](
 def custom_param(node: QualibrationNode[Parameters, Quam]):
     # You can get type hinting in your IDE by typing node.parameters.
     # node.parameters.qubits = ["q1", "q2"]
-    node.parameters.num_amps = 25
-    node.parameters.start_amp=0.2   
-    node.parameters.end_amp=1.99
+    node.parameters.num_amps = 45
+    node.parameters.start_amp=0.2  
+    node.parameters.end_amp=3.3
     node.parameters.multiplexed=True
+    # node.parameters.qubits = ["qB2"]
     pass
 
 
@@ -167,38 +163,27 @@ def simulate_qua_program(node: QualibrationNode[Parameters, Quam]):
 # %% {Execute}
 @node.run_action(skip_if=node.parameters.load_data_id is not None or node.parameters.simulate)
 def execute_qua_program(node: QualibrationNode[Parameters, Quam]):
-    """Run the QUA program for each readout length, then concatenate into ds_raw with dim readout_length."""
-    readout_lengths = np.arange(
-        node.parameters.readout_length_start_ns,
-        node.parameters.readout_length_end_ns + 1,
-        node.parameters.readout_length_step_ns,
-    ).tolist()
-    qubits = node.namespace["qubits"]
-    initial_lengths = [q.resonator.operations["readout"].length for q in qubits]
-    datasets = []
+    """Connect to the QOP, execute the QUA program and fetch the raw data and store it in a xarray dataset called "ds_raw"."""
+    # Connect to the QOP
     qmm = node.machine.connect()
-    for ro_len in readout_lengths:
-        for q in qubits:
-            q.resonator.operations["readout"].length = int(ro_len)
-        config = node.machine.generate_config()
-        with qm_session(qmm, config, timeout=node.parameters.timeout) as qm:
-            node.namespace["job"] = job = qm.execute(node.namespace["qua_program"])
-            data_fetcher = XarrayDataFetcher(job, node.namespace["sweep_axes"])
-            for dataset in data_fetcher:
-                progress_counter(
-                    data_fetcher["n"],
-                    node.parameters.num_shots,
-                    start_time=data_fetcher.t_start,
-                )
-            node.log(job.execution_report())
-        ds_at_len = dataset.expand_dims("readout_length").assign_coords(
-            readout_length=[ro_len]
-        )
-        datasets.append(ds_at_len)
-    for i, q in enumerate(qubits):
-        q.resonator.operations["readout"].length = initial_lengths[i]
-    node.results["ds_raw"] = xr.concat(datasets, dim="readout_length")
-    node.namespace["readout_lengths"] = readout_lengths
+    # Get the config from the machine
+    config = node.machine.generate_config()
+    # Execute the QUA program only if the quantum machine is available (this is to avoid interrupting running jobs).
+    with qm_session(qmm, config, timeout=node.parameters.timeout) as qm:
+        # The job is stored in the node namespace to be reused in the fetching_data run_action
+        node.namespace["job"] = job = qm.execute(node.namespace["qua_program"])
+        # Display the progress bar
+        data_fetcher = XarrayDataFetcher(job, node.namespace["sweep_axes"])
+        for dataset in data_fetcher:
+            progress_counter(
+                data_fetcher["n"],
+                node.parameters.num_shots,
+                start_time=data_fetcher.t_start,
+            )
+        # Display the execution report to expose possible runtime errors
+        node.log(job.execution_report())
+    # Register the raw dataset
+    node.results["ds_raw"] = dataset
 
 
 # %% {Load_historical_data}
@@ -216,117 +201,82 @@ def load_data(node: QualibrationNode[Parameters, Quam]):
 # %% {Analyse_data}
 @node.run_action(skip_if=node.parameters.simulate)
 def analyse_data(node: QualibrationNode[Parameters, Quam]):
-    """Analyse per readout length; SNR per (amplitude, readout_length); optimal (amp, length) = argmax SNR.
-    If ds_raw has no readout_length, behaviour falls back to single length (amp sweep only)."""
-    ds_raw = node.results["ds_raw"]
-    has_readout_length = "readout_length" in ds_raw.dims or "readout_length" in ds_raw.coords
-    if has_readout_length:
-        readout_lengths = list(ds_raw.readout_length.values)
-    else:
-        readout_lengths = [None]
-    if np.all([v in ds_raw.data_vars for v in ["Ig", "Qg", "Ie", "Qe"]]):
-        node.results["ds_raw_counts"] = ds_raw.copy()
-    # Process full ds_raw for single-length case; for multi-length we process per length below
-    if not has_readout_length:
-        node.results["ds_raw"] = process_raw_dataset(ds_raw, node)
-        node.results["ds_fit"], node.results["ds_iq_blobs"], fit_results = fit_raw_data(
-            node.results["ds_raw"], node
-        )
+    """Analyse the raw data and store the fitted data in another xarray dataset "ds_fit" and the fitted results in the "fit_results" dictionary.
+    SNR is computed per readout amplitude via fit_snr_with_gaussians; optimal readout power is the first power at which SNR decreases."""
+    # Keep raw (counts) snapshot for per-amplitude SNR before process overwrites it
+    if np.all([v in node.results["ds_raw"].data_vars for v in ["Ig", "Qg", "Ie", "Qe"]]):
+        node.results["ds_raw_counts"] = node.results["ds_raw"].copy()
+    node.results["ds_raw"] = process_raw_dataset(node.results["ds_raw"], node)
+    node.results["ds_fit"], node.results["ds_iq_blobs"], fit_results = fit_raw_data(node.results["ds_raw"], node)
+
+    # Compute SNR per amplitude using fit_snr_with_gaussians and choose optimal by max SNR
     qubits = node.namespace["qubits"]
-    # Get amps from first processed slice
-    if has_readout_length:
-        ds_first = process_raw_dataset(
-            ds_raw.isel(readout_length=0).drop_vars("readout_length", errors="ignore").copy(), node
-        )
-        amps = ds_first.amp_prefactor.values
-    else:
-        amps = node.results["ds_fit"].amp_prefactor.values
+    ds_fit = node.results["ds_fit"]
+    amps = ds_fit.amp_prefactor.values
     num_amps = len(amps)
     num_qubits = len(qubits)
-    num_lengths = len(readout_lengths)
-    snr_array = np.full((num_amps, num_qubits, num_lengths), np.nan)
-    # fit_results_per_amp_per_len[il][ia] = (ds_iq, fit_res) for length il, amp ia
-    fit_results_per_amp_per_len = []
-    ds_raw_counts = node.results.get("ds_raw_counts")
+    snr_array = np.full((num_amps, num_qubits), np.nan)
+    fit_results_per_amp = []
+    ds_iq_per_amp = []
 
-    if ds_raw_counts is not None:
-        for il, ro_len in enumerate(readout_lengths):
-            if ro_len is not None:
-                for q in qubits:
-                    q.resonator.operations["readout"].length = int(ro_len)
-            if has_readout_length:
-                ds_at_len = ds_raw_counts.sel(readout_length=ro_len).drop_vars(
-                    "readout_length", errors="ignore"
-                )
-            else:
-                ds_at_len = ds_raw_counts
-            fit_results_this_len = []
-            ds_iq_this_len = []
-            for ia, amp in enumerate(amps):
-                ds_amp = xr.Dataset(
-                    {
-                        "Ig": ds_at_len.Ig.sel(amp_prefactor=amp).drop_vars("amp_prefactor", errors="ignore"),
-                        "Qg": ds_at_len.Qg.sel(amp_prefactor=amp).drop_vars("amp_prefactor", errors="ignore"),
-                        "Ie": ds_at_len.Ie.sel(amp_prefactor=amp).drop_vars("amp_prefactor", errors="ignore"),
-                        "Qe": ds_at_len.Qe.sel(amp_prefactor=amp).drop_vars("amp_prefactor", errors="ignore"),
-                    }
-                )
-                ds_iq_amp, fit_res_amp = fit_iq_blobs(ds_amp, node)
-                ds_iq_this_len.append(ds_iq_amp)
-                fit_results_this_len.append(fit_res_amp)
-                snr_list, _, _ = fit_snr_with_gaussians(
-                    ds_iq_amp, qubits, node, fit_res_amp, axes=None, plot=False
-                )
-                snr_array[ia, :, il] = snr_list
-            fit_results_per_amp_per_len.append((fit_results_this_len, ds_iq_this_len))
+    if "ds_raw_counts" in node.results:
+        ds_raw_counts = node.results["ds_raw_counts"]
+        for ia, amp in enumerate(amps):
+            ds_amp = xr.Dataset(
+                {
+                    "Ig": ds_raw_counts.Ig.sel(amp_prefactor=amp).drop_vars("amp_prefactor", errors="ignore"),
+                    "Qg": ds_raw_counts.Qg.sel(amp_prefactor=amp).drop_vars("amp_prefactor", errors="ignore"),
+                    "Ie": ds_raw_counts.Ie.sel(amp_prefactor=amp).drop_vars("amp_prefactor", errors="ignore"),
+                    "Qe": ds_raw_counts.Qe.sel(amp_prefactor=amp).drop_vars("amp_prefactor", errors="ignore"),
+                }
+            )
+            ds_iq_amp, fit_res_amp = fit_iq_blobs(ds_amp, node)
+            ds_iq_per_amp.append(ds_iq_amp)
+            fit_results_per_amp.append(fit_res_amp)
+            snr_list, _, _ = fit_snr_with_gaussians(
+                ds_iq_amp, qubits, node, fit_res_amp, axes=None, plot=False
+            )
+            snr_array[ia, :] = snr_list
 
-        # Optimal (amp_idx, len_idx) per qubit = argmax over (amp, length)
-        best_amp_idx = np.zeros(num_qubits, dtype=int)
-        best_len_idx = np.zeros(num_qubits, dtype=int)
-        for i in range(num_qubits):
-            flat = np.nanargmax(snr_array[:, i, :])
-            best_amp_idx[i], best_len_idx[i] = np.unravel_index(flat, (num_amps, num_lengths))
-        # Build fit_results and ds_iq_blobs from best (amp, length) per qubit
+        # Optimal amplitude per qubit = first power where SNR starts to decrease (first local max),
+        # so we avoid the regime where SNR fluctuates (decrease then increase again).
+        def first_snr_decrease_idx(snr_col):
+            """Index of last point before first decrease; if SNR never decreases, return last index."""
+            n = len(snr_col)
+            if n <= 1:
+                return 0
+            for j in range(n - 1):
+                if np.isfinite(snr_col[j]) and np.isfinite(snr_col[j + 1]) and snr_col[j + 1] < snr_col[j]:
+                    return j
+            return n - 1
+
+        best_amp_idx = np.array(
+            [first_snr_decrease_idx(snr_array[:, i]) for i in range(num_qubits)], dtype=int
+        )
+        # Build fit_results and ds_iq_blobs from the best-SNR amplitude per qubit
         fit_results = {}
         for i, q in enumerate(qubits):
-            ia, il = int(best_amp_idx[i]), int(best_len_idx[i])
-            fit_res_this = fit_results_per_amp_per_len[il][0][ia][q.name]
-            ds_fit_at_len = process_raw_dataset(
-                ds_raw_counts.sel(readout_length=readout_lengths[il])
-                .drop_vars("readout_length", errors="ignore")
-                .copy(),
-                node,
-            )
-            params_dict = {**asdict(fit_res_this)}
-            params_dict["optimal_amplitude"] = float(
-                ds_fit_at_len.readout_amplitude.isel(qubit=i, amp_prefactor=ia)
-            )
+            ia = int(best_amp_idx[i])
+            params_dict = {**asdict(fit_results_per_amp[ia][q.name])}
+            params_dict["optimal_amplitude"] = float(ds_fit.readout_amplitude.isel(qubit=i, amp_prefactor=ia))
             fit_results[q.name] = ReadoutFitParameters(**params_dict)
+        # Combined ds_iq_blobs: for each qubit take the blob at its best amplitude
         ds_iq_parts = [
-            fit_results_per_amp_per_len[int(best_len_idx[i])][1][int(best_amp_idx[i])].sel(
-                qubit=qubits[i].name
-            )
+            ds_iq_per_amp[int(best_amp_idx[i])].sel(qubit=qubits[i].name)
             for i in range(num_qubits)
         ]
         node.results["ds_iq_blobs"] = xr.concat(ds_iq_parts, dim="qubit").assign_coords(
             qubit=[q.name for q in qubits]
         )
-        node.results["snr_array"] = snr_array
-        node.results["amp_prefactor"] = amps
-        node.results["readout_lengths"] = readout_lengths
+        node.results["snr_array"] = snr_array.tolist()
+        node.results["amp_prefactor"] = amps.tolist()
+        node.results["readout_amplitude_sweep"] = ds_fit.readout_amplitude.values.tolist()
         node.results["best_amp_idx"] = best_amp_idx
-        node.results["best_len_idx"] = best_len_idx
-        # readout_amplitude for plotting: (qubit, amp_prefactor)
-        if has_readout_length:
-            ds_fit_ref = process_raw_dataset(
-                ds_raw_counts.isel(readout_length=0).drop_vars("readout_length", errors="ignore").copy(),
-                node,
-            )
-            node.results["readout_amplitude_sweep"] = ds_fit_ref.readout_amplitude
-        else:
-            node.results["readout_amplitude_sweep"] = node.results["ds_fit"].readout_amplitude
-    else:
-        fit_results = node.results.get("fit_results_from_fit_raw", fit_results)
+        # Save optimal amplitude per qubit for persistence and state update
+        node.results["optimal_amplitude"] = {
+            q.name: float(ds_fit.readout_amplitude.isel(qubit=i, amp_prefactor=int(best_amp_idx[i])))
+            for i, q in enumerate(qubits)
+        }
 
     node.results["fit_results"] = {k: asdict(v) for k, v in fit_results.items()}
 
@@ -341,20 +291,18 @@ def analyse_data(node: QualibrationNode[Parameters, Quam]):
 # %% {Plot_data}
 @node.run_action(skip_if=node.parameters.simulate)
 def plot_data(node: QualibrationNode[Parameters, Quam]):
-    """Plot SNR vs readout amplitude first; then IQ blobs and confusion matrix only at the optimal amplitude (max SNR)."""
+    """Plot SNR vs readout amplitude first; then IQ blobs and confusion matrix at the optimal amplitude (first SNR decrease)."""
     qubits = node.namespace["qubits"]
     # Dataset at optimal amplitude only (used for grid + fits): ds_iq_blobs has (qubit, n_runs) at best amplitude per qubit
     ds_optimal = node.results["ds_iq_blobs"]
 
     figures = {}
 
-    # 1) SNR vs readout amplitude (one curve per readout length)
+    # 1) SNR vs readout amplitude (first)
     if "snr_array" in node.results and "readout_amplitude_sweep" in node.results:
-        snr_array = node.results["snr_array"]  # (num_amps, num_qubits) or (num_amps, num_qubits, num_lengths)
-        readout_amp = node.results["readout_amplitude_sweep"]  # (qubit, amp_prefactor)
+        snr_array = np.array(node.results["snr_array"])
+        readout_amp = np.array(node.results["readout_amplitude_sweep"])  # (qubit, amp_prefactor)
         best_amp_idx = node.results["best_amp_idx"]
-        readout_lengths = node.results.get("readout_lengths", [None])
-        best_len_idx = node.results.get("best_len_idx", np.zeros(len(qubits), dtype=int))
         num_qubits = len(qubits)
         cols = 2
         rows = (num_qubits + 1) // cols
@@ -364,64 +312,38 @@ def plot_data(node: QualibrationNode[Parameters, Quam]):
             ax = axes_snr[i]
             # X-axis in dBm: opxoutput(full_scale_power_dbm of readout port, readout amplitude × amplitude scale)
             fsp_dbm = q.resonator.opx_output.full_scale_power_dbm
-            amp_eff = readout_amp.values[i, :]  # effective amplitude (amp_prefactor * base amplitude)
-            x = opxoutput(fsp_dbm, amp_eff)
-            if snr_array.ndim == 3:
-                num_lengths = len(readout_lengths)
-                for il, ro_len in enumerate(readout_lengths):
-                    # One color, darker shade for longer readout length
-                    norm = il / max(num_lengths - 1, 1)
-                    color = plt.cm.Blues(0.35 + 0.65 * norm)
-                    label = f"Tro={ro_len} ns" if ro_len is not None else "SNR"
-                    ax.plot(x, snr_array[:, i, il], "o-", color=color, label=label)
-                    # Black marker at optimal amplitude for this readout length (max SNR at this Tro)
-                    i_opt_this_len = int(np.nanargmax(snr_array[:, i, il]))
-                    ax.plot(
-                        x[i_opt_this_len],
-                        snr_array[i_opt_this_len, i, il],
-                        "ko",
-                        markersize=5,
-                        markeredgewidth=1.5,
-                        zorder=5,
-                    )
-                i_opt = int(best_amp_idx[i])
-                il_opt = int(best_len_idx[i])
-                
-            else:
-                ax.plot(x, snr_array[:, i], "o-", label="SNR")
-                i_opt = int(best_amp_idx[i])
-                ax.axvline(x[i_opt], color="k", linestyle="--", label="Optimal")
-            ax.set_xlabel("OPX output (dBm)", fontsize=16)
+            amp_eff = readout_amp[i, :]  # effective amplitude (amp_prefactor * base amplitude)
+            x = opxoutput(fsp_dbm, amp_eff)-100
+            ax.plot(x, snr_array[:, i], "o-", label="SNR")
+            i_opt = int(best_amp_idx[i])
+            p_ro_opt_dbm = float(x[i_opt])
+            ax.axvline(
+                p_ro_opt_dbm,
+                color="k",
+                linestyle="--",
+                label=rf"$P_{{\mathrm{{RO}}}}^{{\mathrm{{opt}}}}$ = {p_ro_opt_dbm:.2f} dBm",
+            )
+            ax.set_xlabel("Readout power (dBm)", fontsize=16)
             ax.set_ylabel("SNR", fontsize=16)
             ax.set_title(f"{q.name}")
-        # Single shared legend below subplots so it doesn't block them
+            ax.legend(loc="upper left", fontsize=12)
         for j in range(num_qubits, len(axes_snr)):
             axes_snr[j].axis("off")
-        fig_snr.tight_layout(rect=[0, 0.18, 1, 0.97])  # reserve bottom 18% for legend
-        handles, labels = axes_snr[0].get_legend_handles_labels()
-        fig_snr.legend(
-            handles,
-            labels,
-            loc="lower center",
-            bbox_to_anchor=(0.5, -0.1),
-            ncol=min(len(handles), 5),
-            frameon=True,
-        )
-        fig_snr.suptitle("SNR vs readout power (dBm) per readout length")
-        node.add_node_info_subtitle(fig_snr)
+        fig_snr.suptitle("SNR vs readout power (dBm)")
+        node.add_node_info_subtitle(fig_snr)  # appends node info (date, id, etc.) to suptitle
         plt.show()
         figures["snr_vs_readout_amplitude"] = fig_snr
 
     # 2) IQ blobs at optimal amplitude only
     fig_iq = plot_iq_blobs(ds_optimal, qubits, ds_optimal)
-    fig_iq.suptitle("IQ blobs at optimal readout amplitude (max SNR)")
+    fig_iq.suptitle("IQ blobs at optimal readout amplitude (first SNR decrease)")
     node.add_node_info_subtitle(fig_iq)
     plt.show()
     figures["iq_blobs"] = fig_iq
 
     # 3) Confusion matrix at optimal amplitude only
     fig_confusion = plot_confusion_matrices(ds_optimal, qubits, ds_optimal)
-    fig_confusion.suptitle("Confusion matrix at optimal readout amplitude (max SNR)")
+    fig_confusion.suptitle("Confusion matrix at optimal readout amplitude (first SNR decrease)")
     node.add_node_info_subtitle(fig_confusion)
     plt.show()
     figures["confusion_matrix"] = fig_confusion
@@ -446,7 +368,7 @@ def plot_data(node: QualibrationNode[Parameters, Quam]):
     )
     for j in range(num_qubits, len(axes_gauss)):
         axes_gauss[j].axis("off")
-    fig_gauss.suptitle("Gaussian fits at optimal readout amplitude (max SNR)")
+    fig_gauss.suptitle("Gaussian fits at optimal readout amplitude (first SNR decrease)")
     node.add_node_info_subtitle(fig_gauss)
     plt.show()
     figures["snr_gaussians"] = fig_gauss
@@ -457,12 +379,9 @@ def plot_data(node: QualibrationNode[Parameters, Quam]):
 # %% {Update_state}
 @node.run_action(skip_if=node.parameters.simulate)
 def update_state(node: QualibrationNode[Parameters, Quam]):
-    """Update the relevant parameters if the qubit data analysis was successful.
-    When readout length was swept, also set the optimal readout length."""
+    """Update the state file with optimal readout amplitude (and related params) from first-SNR-decrease analysis."""
     with node.record_state_updates():
-        readout_lengths = node.results.get("readout_lengths")
-        best_len_idx = node.results.get("best_len_idx")
-        for i, q in enumerate(node.namespace["qubits"]):
+        for q in node.namespace["qubits"]:
             if node.outcomes[q.name] == "failed":
                 continue
 
@@ -471,18 +390,13 @@ def update_state(node: QualibrationNode[Parameters, Quam]):
             operation.integration_weights_angle -= float(fit_results["iw_angle"])
             operation.threshold = float(fit_results["ge_threshold"]) * operation.length / 2**12
             operation.rus_exit_threshold = float(fit_results["rus_threshold"]) * operation.length / 2**12
-            operation.amplitude = float(fit_results["optimal_amplitude"])
+            # Set readout amplitude to the optimal value (first SNR decrease)
+            optimal_amp = float(fit_results["optimal_amplitude"])
+            operation.amplitude = optimal_amp
             q.resonator.confusion_matrix = fit_results["confusion_matrix"]
-            ro_len_opt = (
-                readout_lengths[int(best_len_idx[i])]
-                if readout_lengths is not None and best_len_idx is not None
-                else None
-            )
-            if ro_len_opt is not None:
-                operation.length = int(ro_len_opt)
-
 
 # %% {Save_results}
 @node.run_action()
 def save_results(node: QualibrationNode[Parameters, Quam]):
     node.save()
+# %%

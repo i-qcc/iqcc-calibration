@@ -1,3 +1,4 @@
+"""Kim"""
 # %% {Imports}
 import matplotlib.pyplot as plt
 import numpy as np
@@ -66,11 +67,12 @@ node = QualibrationNode[Parameters, Quam](
 def custom_param(node: QualibrationNode[Parameters, Quam]):
     # You can get type hinting in your IDE by typing node.parameters.
     # node.parameters.qubits = ["q1", "q2"]
-    node.parameters.num_amps = 35
+    node.parameters.num_amps = 50
     node.parameters.start_amp=0.2  
-    node.parameters.end_amp=1.99
+    node.parameters.end_amp=2.7
     node.parameters.multiplexed=True
-    node.parameters.qubits = ["qB2"]
+    node.parameters.num_shots=5000
+    # node.parameters.qubits = ["qB2"]
     pass
 
 
@@ -298,7 +300,7 @@ def plot_data(node: QualibrationNode[Parameters, Quam]):
             # X-axis in dBm: opxoutput(full_scale_power_dbm of readout port, readout amplitude × amplitude scale)
             fsp_dbm = q.resonator.opx_output.full_scale_power_dbm
             amp_eff = readout_amp[i, :]  # effective amplitude (amp_prefactor * base amplitude)
-            x = opxoutput(fsp_dbm, amp_eff)
+            x = opxoutput(fsp_dbm, amp_eff)-100
             ax.plot(x, snr_array[:, i], "o-", label="SNR")
             i_opt = int(best_amp_idx[i])
             p_ro_max_dbm = float(x[i_opt])
