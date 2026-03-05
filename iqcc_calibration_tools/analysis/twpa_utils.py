@@ -71,7 +71,7 @@ def snr(ds, qubits, dfps, daps):
                 noise[i,j,k]=(np.mean(ds.IQ_abs_noise.values[i][j][k])) #mean vs std
                 signal[i,j,k]=(ds.IQ_abs_signal.values[i][j][k][len(ds.IQ_abs_signal.values[i][j][k])//2])
     snr_val = 20 * np.log10(signal / noise)
-    snr_val = np.where(snr_val < 0, 0, snr_val)
+    snr_val = np.where(snr_val < 0, 0, snr_val) # remove negative SNR values which cause overestimation when calculating DSNR
     return snr_val
 def gain(ds_pumpoff,ds_pumpon, qubits, dfps, daps):
     signal_pumpoff=np.zeros((len(qubits),len(dfps),len(daps),1))
@@ -151,36 +151,8 @@ def min_gain(qubits,  twpas):
         minimum_gain=minimum_gain
     return minimum_gain
 
-# def optimizer(mingain, mindsnr, gain_avg, dsnr_avg, daps, dfps, p_lo,p_if):
-#     mask = gain_avg > mingain
-#     masked_dsnr = np.where(mask, dsnr_avg, -np.inf)
-#     flat_index = np.argmax(masked_dsnr)
-#     idx = np.unravel_index(flat_index, dsnr_avg.shape)
-#     print(f"Optimized ap={np.round(daps[idx[1]],5)},fp={np.round((p_lo+p_if+dfps[idx[0]])*1e-9,3)}GHz ")
-#     print(f"gain_avg :{np.round(gain_avg[idx],2)}dB")
-#     print(f"dsnr_avg :{np.round(dsnr_avg[idx],2)}dB")
-#     return idx
-################# new optimizer 2512121
-# def optimizer(mingain, mindsnr, Gain, dsnr,  average_dsnr, dfps, daps, p_lo,p_if):
-#     # this optimizer finds the pump setting which gives the highest average dSNR
-#     # while satisfying the min gain and dSNR for individual qubits
-#     gain_mask=np.all(Gain>mingain,axis=0)
-#     pump_idx_gain_mask=np.argwhere(gain_mask)
-#     idx_pump_candidate=[]
-#     for j in range(len(pump_idx_gain_mask)):
-#         x,y= pump_idx_gain_mask[j][0], pump_idx_gain_mask[j][1]
-#         if np.all(dsnr[:, x,y,0]>mindsnr):
-#             idx_pump_candidate.append(j)
-#     average_dsnr_=[]
-#     for i in range(len(idx_pump_candidate)):
-#         average_dsnr_.append(average_dsnr[pump_idx_gain_mask[idx_pump_candidate[i]][0]][pump_idx_gain_mask[idx_pump_candidate[i]][1]])
-#     optimal_pump_idx=idx_pump_candidate[np.argmax(average_dsnr_)]
-#     optimal_fp=dfps[pump_idx_gain_mask[optimal_pump_idx][0]]
-#     optimal_pp=daps[pump_idx_gain_mask[optimal_pump_idx][1]]
-#     print(f"Optimized ap={np.round(optimal_pp,5)},fp={np.round((p_lo+p_if+optimal_fp)*1e-9,3)}GHz ")
-#     return (pump_idx_gain_mask[optimal_pump_idx][0], pump_idx_gain_mask[optimal_pump_idx][1])
-#################optimizer 260111
-def optimizer(mingain, mindsnr, Gain, dsnr,  average_dsnr, dfps, daps, p_lo,p_if):
+#################optimizer 260111 - max average dSNR
+def optimizer1(mingain, mindsnr, Gain, dsnr,  average_dsnr, dfps, daps, p_lo,p_if):
     # this optimizer finds the pump setting which satisfies the min gain and dSNR for individual qubits
     # and among them choose the pumping point which gives the highest average dSNR
     gain_mask=np.all(Gain>mingain,axis=0) # Gain condition 
@@ -206,7 +178,7 @@ def optimizer(mingain, mindsnr, Gain, dsnr,  average_dsnr, dfps, daps, p_lo,p_if
         print(f"Optimized ap={np.round(optimal_pp,5)},fp={np.round((p_lo+p_if+optimal_fp)*1e-9,3)}GHz ")
         return (pump_idx_gain_mask[optimal_pump_idx][0], pump_idx_gain_mask[optimal_pump_idx][1])
 
-
+#################optimizer 260215  - max min dSNR
 def optimizer2(mingain, Gain, dsnr, dfps, daps, p_lo, p_if):
     # Among all pump points where gain > mingain for every qubit,
     # choose the one that maximizes the minimum dSNR across qubits (max-min dSNR).
@@ -233,13 +205,7 @@ def optimizer2(mingain, Gain, dsnr, dfps, daps, p_lo, p_if):
     return (x_opt, y_opt)
 
 
-#---------------------------------MULTIPLXED READOUT OPTIMIZER----------------------------
-# def multiplexed_optimizer(qubit, Gain, dsnr, qubits): #qubit = worst snr qubit 
-#     idx=np.unravel_index(np.argmax(dsnr[qubit-1]),dsnr[qubit-1].shape)
-#     print(f"@ max dSNR for qB{qubit}")
-#     for i in range(len(qubits)):        
-#         print(f"qB{i+1}:dSNR:{np.round(dsnr[i][idx[0]][idx[1]][0],2)}dB, gain:{np.round(Gain[i][idx[0]][idx[1]][0],2)}dB")
-#     return idx
+#--------------------MULTIPLXED READOUT OPTIMIZER : max dSNR for worst qubitl----------------------------
 def multiplexed_optimizer(mingain, mindsnr,qubits, Gain, dsnr,  poorqubit, dfps, daps, p_lo,p_if):
     # this optimizer finds the pump setting which satisfies the min gain and dSNR for individual qubits
     # and among them choose the pumping point which gives the highest dSNR for the worst qubit
