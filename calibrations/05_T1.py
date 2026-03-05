@@ -53,7 +53,12 @@ node = QualibrationNode[Parameters, Quam](
 @node.run_action(skip_if=node.modes.external)
 def custom_param(node: QualibrationNode[Parameters, Quam]):
     # You can get type hinting in your IDE by typing node.parameters.
-    # node.parameters.qubits = ["q1", "q2"]
+    # node.parameters.qubits = ["qD5"]
+    node.parameters.multiplexed=True
+    node.parameters.max_wait_time_in_ns =45000
+    node.parameters.log_or_linear_sweep="linear"
+    # node.parameters.wait_time_num_points=30
+
     pass
 
 
@@ -120,6 +125,7 @@ def create_qua_program(node: QualibrationNode[Parameters, Quam]):
                             # save data
                             save(I[i], I_st[i])
                             save(Q[i], Q_st[i])
+                    align() # for sticky twpa
 
         with stream_processing():
             n_st.save("n")
@@ -230,3 +236,5 @@ def update_state(node: QualibrationNode[Parameters, Quam]):
 @node.run_action()
 def save_results(node: QualibrationNode[Parameters, Quam]):
     node.save()
+
+# %%
