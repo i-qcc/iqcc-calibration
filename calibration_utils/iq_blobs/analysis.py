@@ -198,6 +198,7 @@ def fit_snr_with_gaussians(
     fit_results: Dict,
     axes: Optional[np.ndarray] = None,
     plot: bool = True,
+    use_double_gaussian_excited: Optional[bool] = None,
 ) -> Tuple[List[float], List[Dict], List[Dict]]:
     """
     Fit Gaussian distributions to ground and excited state IQ blobs and calculate SNR.
@@ -216,6 +217,9 @@ def fit_snr_with_gaussians(
         Matplotlib axes array for plotting. If None and plot=True, will create new figure.
     plot : bool
         Whether to create plots
+    use_double_gaussian_excited : Optional[bool]
+        If True, always fit excited state with double Gaussian. If False, always use single.
+        If None, use double when T1/readout_length >= 0.03 else single.
         
     Returns:
     --------
@@ -300,8 +304,11 @@ def fit_snr_with_gaussians(
         readout_length_sec = readout_length * 1e-9
         t1_ratio =  readout_length_sec / T1
         
-        # Use single gaussian if T1/readout_length < 5% (0.05), otherwise use double gaussian
-        if t1_ratio < 0.03:
+        # Use single gaussian if T1/readout_length < 2% (and not forcing double), otherwise use double gaussian
+        use_single = use_double_gaussian_excited is False or (
+            use_double_gaussian_excited is not True and t1_ratio < 0.02
+        )
+        if use_single:
             # Single gaussian fitting for excited state
             p0 = [np.mean(data), np.std(data), np.max(counts)]
             
