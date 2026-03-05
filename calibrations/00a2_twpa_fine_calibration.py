@@ -56,12 +56,12 @@ from iqcc_calibration_tools.quam_config.lib.qua_datasets import opxoutput
 
 # %% {Node_parameters}
 class Parameters(NodeParameters):
-    twpas: Optional[List[str]] = ['twpaA']
-    num_averages: int =100
-    frequency_span_in_mhz: float = 0.001
-    frequency_step_in_mhz: float = 0.0005
+    twpas: Optional[List[str]] = ['twpaB']
+    num_averages: int =50
+    frequency_span_in_mhz: float = 1
+    frequency_step_in_mhz: float = 0.2
     amp_min: float =  0.1
-    amp_max: float =  0.3
+    amp_max: float =  0.4
     points : int = 40    
     p_frequency_span_in_mhz: float = 60
     p_frequency_step_in_mhz: float =0.5
@@ -326,9 +326,9 @@ plt.show()
 #--------------- multiplexed readout optimal point--------------------------------------------
 # %% {Multiplexed Readout optimum}
 plt.plot(figzise=(4,3))
-mingain=0
-mindsnr=0
-poorqubit=6
+mingain=12
+mindsnr=6
+poorqubit=4
 mtplx_optimized_pump_idx=multiplexed_optimizer(mingain,mindsnr, qubits, Gain, dsnr,poorqubit, dfps, daps, p_lo,p_if)
 optimal_fp=dfps[mtplx_optimized_pump_idx[0]]
 optimal_pp=daps[mtplx_optimized_pump_idx[1]]
@@ -383,8 +383,8 @@ node.results["figures"]={"gain_indiv":gain_indiv,
                          "multiplexed_window": multiplexed_optimization}
 if not node.parameters.load_data_id:
     with node.record_state_updates():        
-        machine.twpas[twpa_id].mltpx_pump_frequency=dfps[mtplx_optimized_pump_idx[0]]
-        machine.twpas[twpa_id].mltpx_pump_amplitude=daps[mtplx_optimized_pump_idx[1]]
+        machine.twpas[twpa_id].pump_frequency=dfps[mtplx_optimized_pump_idx[0]]
+        machine.twpas[twpa_id].pump_amplitude=daps[mtplx_optimized_pump_idx[1]]
 
     # %% {Save_results}
     node.outcomes = {q.name: "successful" for q in qubits}

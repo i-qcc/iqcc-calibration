@@ -58,12 +58,12 @@ from iqcc_calibration_tools.quam_config.lib.qua_datasets import opxoutput
 class Parameters(NodeParameters):
     twpas: Optional[List[str]] = ['twpaA']
     num_averages: int =30
-    frequency_span_in_mhz: float = 3
-    frequency_step_in_mhz: float = 0.1
+    frequency_span_in_mhz: float = 4
+    frequency_step_in_mhz: float = 0.5
     amp_min: float =  0.17
     amp_max: float =  0.6
     points : int = 40    
-    p_frequency_span_in_mhz: float = 130
+    p_frequency_span_in_mhz: float = 100
     p_frequency_step_in_mhz: float =0.5
     simulate: bool = False
     simulation_duration_ns: int = 4000

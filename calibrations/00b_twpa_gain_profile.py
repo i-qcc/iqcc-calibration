@@ -46,7 +46,7 @@ from iqcc_calibration_tools.quam_config.lib.qua_datasets import opxoutput
 
 # %% {Node_parameters}
 class Parameters(NodeParameters):
-    twpas: Optional[List[str]] = ['twpaB']
+    twpas: Optional[List[str]] = ['twpaC']
     num_averages: int = 1000
     frequency_span_in_mhz: float = 800
     frequency_step_in_mhz: float = 1
@@ -81,7 +81,7 @@ spectroscopy[0].operations["readout"].amplitude = 1.0
 # Generate the OPX and Octave configurations
 config = machine.generate_config()
 # amp_scale set so that signal power at resonator (ps) is -125 dBm: ps = opxoutput(fsp, amp_scale) + signalline_attenuation
-target_ps_dbm = -125
+target_ps_dbm = -150
 fsp_spec = spectroscopy[0].opx_output.full_scale_power_dbm
 amp_scale = 10**((target_ps_dbm - fsp_spec - signalline_attenuation) / 20)
 amp_scale = np.clip(amp_scale, 1e-6, 1.0)  # QUA amplitude_scale in (0, 1]
