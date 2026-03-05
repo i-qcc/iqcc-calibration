@@ -28,7 +28,7 @@ node_params = {
         "reset_type": reset_type,
         "num_shots": 1000,
         "wait_time_num_points": 50,
-        "max_wait_time_in_ns": 20000,
+        "max_wait_time_in_ns": 100000,
         "log_or_linear_sweep": "log",
         "use_state_discrimination": True
     },
@@ -37,7 +37,7 @@ node_params = {
         "reset_type": reset_type,
         "num_shots": 100,
         "frequency_detuning_in_mhz": 1.0,
-        "max_wait_time_in_ns": 20000,
+        "max_wait_time_in_ns": 60000,
     },
 }
 
