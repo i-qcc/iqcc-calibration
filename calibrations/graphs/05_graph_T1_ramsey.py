@@ -38,7 +38,8 @@ node_params = {
         "reset_type": reset_type,
         "num_shots": 100,
         "frequency_detuning_in_mhz": 1.0,
-        "max_wait_time_in_ns": 60000,
+        "wait_time_num_points": 200,
+        "max_wait_time_in_ns": 40000,
     },
     "T2echo": {
         "multiplexed": False,
