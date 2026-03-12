@@ -25,10 +25,10 @@ from qualibration_libs.data import XarrayDataFetcher
 
 # %% {Description}
 description = """
-        DYNAMICAL DECOUPLING (T2 ECHO)
-The sequence consists in playing an echo sequence (-y90 - idle_time - x180 - idle_time - -y90 - measurement) for 
+        DYNAMICAL DECOUPLING (T2 DD)
+The sequence consists in playing a DD sequence (-y90 - idle_time - x180 - idle_time - -y90 - measurement) for 
 different idle times.
-The qubit T2 echo is extracted by fitting the exponential decay of the measured quadratures/state.
+The qubit T2DD is extracted by fitting the exponential decay of the measured quadratures/state.
 
 Prerequisites:
     - Having calibrated the mixer or the Octave (nodes 01a or 01b).
@@ -56,7 +56,7 @@ node = QualibrationNode[Parameters, Quam](
 def custom_param(node: QualibrationNode[Parameters, Quam]):
     """Allow the user to locally set the node parameters for debugging purposes, or execution in the Python IDE."""
     # You can get type hinting in your IDE by typing node.parameters.
-    node.parameters.qubits = ["Q6"]
+    node.parameters.qubits = ["qA2","qA4","qB2","qD3"]
     pass
 
 

@@ -6,9 +6,9 @@ from qualibration_libs.parameters import QubitsExperimentNodeParameters, CommonN
 class NodeSpecificParameters(RunnableParameters):
     num_shots: int = 200
     """Number of averages to perform. Default is 100."""
-    frequency_span_in_mhz: float = 5
+    frequency_span_in_mhz: float = 4
     """Span of frequencies to sweep in MHz. Default is 10 MHz."""
-    frequency_step_in_mhz: float = 0.05
+    frequency_step_in_mhz: float = 0.025
     """Step size for frequency sweep in MHz. Default is 0.1 MHz."""
 
 
