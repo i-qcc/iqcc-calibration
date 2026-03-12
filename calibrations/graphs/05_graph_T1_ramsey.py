@@ -20,24 +20,35 @@ reset_type = "thermal"
 nodes = {
     "T1": library.nodes["05_T1"],
     "ramsey": library.nodes["06a_ramsey"],
+    "T2echo": library.nodes["06b_echo"],
 }
 
 node_params = {
     "T1": {
         "multiplexed": False,
         "reset_type": reset_type,
-        "num_shots": 1000,
-        "wait_time_num_points": 50,
-        "max_wait_time_in_ns": 20000,
+        "num_shots": 100,
+        "wait_time_num_points": 25,
+        "max_wait_time_in_ns": 100000,
         "log_or_linear_sweep": "log",
         "use_state_discrimination": True
     },
     "ramsey": {
         "multiplexed": False,
         "reset_type": reset_type,
-        "num_shots": 100,
+        "num_shots": 25,
         "frequency_detuning_in_mhz": 1.0,
+        "wait_time_num_points": 50,
         "max_wait_time_in_ns": 20000,
+    },
+    "T2echo": {
+        "multiplexed": False,
+        "reset_type": reset_type,
+        "num_shots": 100,
+        "wait_time_num_points": 50,
+        "max_wait_time_in_ns": 40000,
+        "log_or_linear_sweep": "log",
+        "use_state_discrimination": True,
     },
 }
 
@@ -48,6 +59,7 @@ g = QualibrationGraph(
     nodes=nodes,
     connectivity=[
         ("T1", "ramsey"),
+        ("ramsey", "T2echo"),
     ],
     orchestrator=BasicOrchestrator(skip_failed=True),
 )
